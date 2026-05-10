@@ -1,0 +1,44 @@
+{
+  "namespace": "io.pravah.playground.kafka.avro",
+  "type": "record",
+  "name": "JobCreated",
+  "doc": "Emitted when a new job is created for a pipeline step. This is the first event in the job lifecycle.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique ID for this event — used for idempotency (detecting duplicates on the consumer side)"
+    },
+    {
+      "name": "job_id",
+      "type": "string",
+      "doc": "ID of the job being created"
+    },
+    {
+      "name": "tenant_id",
+      "type": "string",
+      "doc": "Tenant that owns this job — also used as the Kafka message key for partition affinity"
+    },
+    {
+      "name": "pipeline_id",
+      "type": "string",
+      "doc": "Which pipeline this job belongs to"
+    },
+    {
+      "name": "step_id",
+      "type": "string",
+      "doc": "Which step within the pipeline this job executes"
+    },
+    {
+      "name": "priority",
+      "type": "int",
+      "default": 5,
+      "doc": "Job priority 1 (highest) to 10 (lowest). Default 5. Added in schema v2 — has a default so v1 consumers still work (backward compatible)"
+    },
+    {
+      "name": "created_at",
+      "type": "long",
+      "doc": "Epoch milliseconds when this job was created"
+    }
+  ]
+}

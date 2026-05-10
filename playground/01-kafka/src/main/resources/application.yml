@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: pravah-kafka-playground
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    # --- Producer config ---
+    producer:
+      # key is a plain String (tenant_id)
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # value is an Avro record — the Confluent serializer talks to Schema Registry
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      # acks=all means the leader waits for ALL in-sync replicas to acknowledge
+      # before confirming the write. This is what makes Kafka durable.
+      # acks=1 (default) only waits for the leader — replicas could be behind.
+      acks: all
+      # Retry up to 3 times on transient failures (network blips, leader election)
+      retries: 3
+      # Enables the idempotent producer — Kafka assigns a producer ID and
+      # sequence numbers so that retries do not produce duplicates.
+      # Required for exactly-once. Must have acks=all.
+      properties:
+        enable.idempotence: true
+        # The transactional ID makes this producer capable of Kafka transactions.
+        # Every instance must have a UNIQUE transactional ID.
+        # In production: include the pod name so restarts get a new ID.
+        transactional.id: pravah-playground-producer-1
+        schema.registry.url: http://localhost:8081
+
+    # --- Consumer config ---
+    consumer:
+      # StringDeserializer for the key (tenant_id)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Confluent Avro deserializer fetches the schema from Schema Registry
+      # using the schema ID embedded in each message
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      # earliest: start from the very beginning of the topic on first run
+      # latest: only read messages produced after the consumer starts
+      # Use earliest in the playground so you see all messages.
+      auto-offset-reset: earliest
+      # IMPORTANT: disable auto-commit.
+      # With auto-commit, Kafka commits offsets on a timer — if your consumer
+      # crashes after the timer fires but before processing finishes, the message
+      # is lost (committed but not processed). Manual commit = you control when
+      # a message is "done".
+      enable-auto-commit: false
+      properties:
+        schema.registry.url: http://localhost:8081
+        # Tell the deserializer to return the generated Java class (JobCreated)
+        # instead of a generic Avro record
+        specific.avro.reader: true
+
+    # --- Listener container config ---
+    listener:
+      # MANUAL_IMMEDIATE: commit the offset immediately when you call
+      # Acknowledgment.acknowledge(). This is the safest mode.
+      ack-mode: MANUAL_IMMEDIATE
+      # How many threads per listener container. Each thread handles one
+      # partition at a time. Set to number-of-partitions for max parallelism.
+      concurrency: 3
+
+# Our app's custom config — consumer group IDs
+pravah:
+  kafka:
+    topics:
+      job-created: pravah.job.created
+      job-completed: pravah.job.completed
+      job-audit: pravah.job.audit.log
+      job-created-dlt: pravah.job.created.DLT
+    consumer-groups:
+      execution-service: execution-service
+      audit-service: audit-service
