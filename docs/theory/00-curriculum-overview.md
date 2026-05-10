@@ -1,8 +1,8 @@
-Claude responded: Pravah — Theory Curriculum
+# Pravah — Theory Curriculum
 Pravah — Theory Curriculum
 Phase 1: Distributed Systems Fundamentals
 1.1 CAP Theorem & How Pravah Makes Consistency Choices
-🧩 What Problem Are We Solving?
+## 🧩 What Problem Are We Solving?
 Before CAP, ask yourself — why is building Pravah hard?
 
 When Pravah runs on a single machine:
@@ -232,7 +232,7 @@ Good answer:
    marks the job FAILED. This is an intentional
    trade-off: availability of the UI over
    perfect real-time accuracy."
-📌 Key Takeaways
+## 📌 Key Takeaways
 1. Network partitions WILL happen — P is mandatory
 
 2. Real choice is always CP or AP per component
@@ -246,16 +246,9 @@ Good answer:
 5. CAP is the starting point —
    next we go deeper into what
    "consistency" actually means
-⏭️ What's Next
+## ⏭️ What's Next
 CAP says "be consistent or be available." But what does consistent actually mean?
 
 Turns out there are many levels — from ultra-strict to very loose — and Pravah uses different levels in different places.
 
 Next: 1.2 — Consistency Models Strong, Sequential, Causal, Eventual — what each means and exactly where Pravah uses each one.
-
-Ready?
-
-You said: Yes go
-Yes go
-
-7 May

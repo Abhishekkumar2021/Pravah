@@ -49,8 +49,8 @@ a production distributed system at this scale. Each chapter is a standalone mark
 
 | # | Topic | File |
 |---|-------|------|
-| 1.1 | CAP Theorem & Consistency | [1.1-cap-theorem-and-consistency.md](docs/theory/phase-1-distributed-systems/1.1-cap-theorem-and-consistency.md) |
-| 1.2 | Consistency Models (Strong, Sequential, Causal, Eventual) | [1.2-consistency-models.md](docs/theory/phase-1-distributed-systems/1.2-consistency-models.md) |
+| 1.1 | CAP Theorem & How Pravah Makes Consistency Choices | [1.1-cap-theorem-and-consistency.md](docs/theory/phase-1-distributed-systems/1.1-cap-theorem-and-consistency.md) |
+| 1.2 | Consistency Models — Strong, Sequential, Causal, Eventual | [1.2-consistency-models.md](docs/theory/phase-1-distributed-systems/1.2-consistency-models.md) |
 | 1.3 | Distributed Clocks, Ordering & Causality | [1.3-distributed-clocks-ordering-causality.md](docs/theory/phase-1-distributed-systems/1.3-distributed-clocks-ordering-causality.md) |
 | 1.4 | Leader Election & Why Pravah's Scheduler Needs It | [1.4-leader-election.md](docs/theory/phase-1-distributed-systems/1.4-leader-election.md) |
 | 1.5 | Consensus Algorithms — Raft & Paxos | [1.5-consensus-algorithms-raft-paxos.md](docs/theory/phase-1-distributed-systems/1.5-consensus-algorithms-raft-paxos.md) |
@@ -60,7 +60,7 @@ a production distributed system at this scale. Each chapter is a standalone mark
 | 1.9 | Event Sourcing & CQRS | [1.9-event-sourcing-cqrs.md](docs/theory/phase-1-distributed-systems/1.9-event-sourcing-cqrs.md) |
 | 1.10 | The Outbox Pattern | [1.10-outbox-pattern.md](docs/theory/phase-1-distributed-systems/1.10-outbox-pattern.md) |
 | 1.11 | Circuit Breaker, Bulkhead & Backpressure | [1.11-circuit-breaker-bulkhead-backpressure.md](docs/theory/phase-1-distributed-systems/1.11-circuit-breaker-bulkhead-backpressure.md) |
-| 1.12 | Two-Phase Commit & Why We Avoid It | *(covered inside 1.11 chapter — see "Two-Phase Commit" section)* |
+| 1.12 | Two-Phase Commit & Why We Avoid It | [1.12-two-phase-commit.md](docs/theory/phase-1-distributed-systems/1.12-two-phase-commit.md) |
 
 ### Phase 2 — Messaging & Kafka Internals ✅
 
