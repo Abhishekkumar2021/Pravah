@@ -11,12 +11,15 @@ Each chapter is a standalone reference document. You can read sequentially or ju
 ```
 Phase 1: Distributed Systems Fundamentals     ✅ 12/12 chapters
 Phase 2: Messaging & Kafka Internals          ✅ 12/12 chapters
-Phase 3: Database Design & Scaling            ✅  8/8  chapters
+Phase 3: Database Design & Scaling            ✅ 13/13 chapters
 Phase 4: Observability & Reliability          ✅  7/7  chapters
 Phase 5: Security, Auth & Multi-Tenancy       ✅  7/7  chapters
 Phase 6: Kubernetes & Production Infra        ✅  6/6  chapters
+Phase 7: AI/Agent Architecture                ✅  7/7  chapters
+Phase 8: ETL & Data Engineering               ✅  7/7  chapters
+Phase 9: System Design Synthesis              ✅  4/4  chapters
 ─────────────────────────────────────────────────────────────────
-Total: 52 chapters complete
+Total: 75 chapters complete
 ```
 
 ---
@@ -27,10 +30,13 @@ Total: 52 chapters complete
 |-------|-------|----------|-----------|
 | **1** | Distributed Systems — CAP, consensus, clocks, failure modes, saga, outbox | 12 ✅ | [phase-1-distributed-systems/](phase-1-distributed-systems/README.md) |
 | **2** | Kafka internals, producers, consumers, exactly-once, CDC, gRPC | 12 ✅ | [phase-2-kafka-messaging/](phase-2-kafka-messaging/README.md) |
-| **3** | PostgreSQL internals, indexing, partitioning, PgBouncer, Redis, sharding | 8 ✅ | [phase-3-database-design/](phase-3-database-design/README.md) |
+| **3** | PostgreSQL internals, indexing, partitioning, PgBouncer, Redis, sharding, Elasticsearch | 13 ✅ | [phase-3-database-design/](phase-3-database-design/README.md) |
 | **4** | SLOs, Prometheus, distributed tracing, structured logging, alerting, chaos | 7 ✅ | [phase-4-observability/](phase-4-observability/README.md) |
 | **5** | JWT, mTLS, Vault, RBAC, multi-tenancy, OWASP, rate limiting | 7 ✅ | [phase-5-security/](phase-5-security/README.md) |
 | **6** | Kubernetes workloads, Helm, autoscaling, networking, resource management | 6 ✅ | [phase-6-kubernetes/](phase-6-kubernetes/README.md) |
+| **7** | LLM fundamentals, agentic patterns, Spring AI, RAG, prompt engineering, memory | 7 ✅ | [phase-7-ai-agent-architecture/](phase-7-ai-agent-architecture/README.md) |
+| **8** | DAG engine design, CDC internals, data contracts, backfill, lineage, DuckDB, data quality | 7 ✅ | [phase-8-etl-data-engineering/](phase-8-etl-data-engineering/README.md) |
+| **9** | Full architecture walkthrough, capacity planning, bottleneck analysis, interview prep | 4 ✅ | [phase-9-system-design-synthesis/](phase-9-system-design-synthesis/README.md) |
 
 ---
 
@@ -95,6 +101,11 @@ Total: 52 chapters complete
 | 3.6 | [Read Replicas & Replication Lag](phase-3-database-design/3.6-read-replicas-replication-lag.md) |
 | 3.7 | [Sharding Strategies](phase-3-database-design/3.7-sharding-strategies.md) |
 | 3.8 | [Redis — Caching, Locking & Pub/Sub](phase-3-database-design/3.8-redis-caching-locking-pubsub.md) |
+| 3.9 | [Optimistic vs Pessimistic Locking](phase-3-database-design/3.9-optimistic-vs-pessimistic-locking.md) |
+| 3.10 | [Cache Invalidation Strategies](phase-3-database-design/3.10-cache-invalidation-strategies.md) |
+| 3.11 | [Cold Storage Archival](phase-3-database-design/3.11-cold-storage-archival.md) |
+| 3.12 | [Elasticsearch for Search & Lineage](phase-3-database-design/3.12-elasticsearch-for-search-and-lineage.md) |
+| 3.13 | [NewSQL vs NoSQL Trade-offs](phase-3-database-design/3.13-newsql-vs-nosql-tradeoffs.md) |
 
 ### Phase 4 — Observability & Reliability
 
@@ -131,14 +142,43 @@ Total: 52 chapters complete
 | 6.5 | [Resource Management — Requests, Limits & QoS](phase-6-kubernetes/6.5-resource-management-requests-limits-qos.md) |
 | 6.6 | [Production Operations — Deployments, Canary & PDBs](phase-6-kubernetes/6.6-production-operations-deployments-canary-pdbs.md) |
 
+### Phase 7 — AI/Agent Architecture
+
+| # | Chapter |
+|---|---------|
+| 7.1 | [LLM Fundamentals for Engineers](phase-7-ai-agent-architecture/7.1-llm-fundamentals-for-engineers.md) |
+| 7.2 | [Agentic Patterns — ReAct, Plan-and-Execute, Tool Use](phase-7-ai-agent-architecture/7.2-agentic-patterns.md) |
+| 7.3 | [Spring AI Integration](phase-7-ai-agent-architecture/7.3-spring-ai-integration.md) |
+| 7.4 | [Retrieval-Augmented Generation (RAG)](phase-7-ai-agent-architecture/7.4-retrieval-augmented-generation.md) |
+| 7.5 | [Prompt Engineering & Guardrails](phase-7-ai-agent-architecture/7.5-prompt-engineering-guardrails.md) |
+| 7.6 | [Agent Memory Architecture](phase-7-ai-agent-architecture/7.6-agent-memory-architecture.md) |
+| 7.7 | [Evaluating & Testing AI Agents](phase-7-ai-agent-architecture/7.7-evaluating-testing-ai-agents.md) |
+
+### Phase 8 — ETL & Data Engineering
+
+| # | Chapter |
+|---|---------|
+| 8.1 | [DAG Engine Design](phase-8-etl-data-engineering/8.1-dag-engine-design.md) |
+| 8.2 | [CDC Internals & Debezium](phase-8-etl-data-engineering/8.2-cdc-internals-debezium.md) |
+| 8.3 | [Data Contracts & Schema Evolution](phase-8-etl-data-engineering/8.3-data-contracts-schema-evolution.md) |
+| 8.4 | [Backfill Safety & Idempotency](phase-8-etl-data-engineering/8.4-backfill-safety-idempotency.md) |
+| 8.5 | [Data Lineage & OpenLineage](phase-8-etl-data-engineering/8.5-data-lineage-openlineage.md) |
+| 8.6 | [DuckDB & Columnar Processing](phase-8-etl-data-engineering/8.6-duckdb-columnar-processing.md) |
+| 8.7 | [Data Quality Frameworks](phase-8-etl-data-engineering/8.7-data-quality-frameworks.md) |
+
+### Phase 9 — System Design Synthesis
+
+| # | Chapter |
+|---|---------|
+| 9.1 | [Full Architecture Walkthrough](phase-9-system-design-synthesis/9.1-full-architecture-walkthrough.md) |
+| 9.2 | [Capacity Planning & Back-of-Envelope](phase-9-system-design-synthesis/9.2-capacity-planning.md) |
+| 9.3 | [Bottleneck Analysis & Performance Engineering](phase-9-system-design-synthesis/9.3-bottleneck-analysis.md) |
+| 9.4 | [System Design Interview Preparation](phase-9-system-design-synthesis/9.4-system-design-interview-prep.md) |
+
 ---
 
 ## What Comes Next
 
-The theory curriculum is complete. The next steps before implementation:
+The theory curriculum is complete. Architecture Decision Records (ADRs 001–033) and the High-Level Architecture document are in [`docs/adr/`](../adr/README.md) and [`docs/architecture/`](../architecture/high-level-architecture.md).
 
-1. **Architecture Decision Records (ADRs)** — formal documents recording each major architectural decision, the alternatives considered, and the reasoning. The bridge between theory and code.
-
-2. **High-Level Architecture Document** — a single reference showing the complete service map, data flows, and component interactions.
-
-3. **Implementation** — starting with the core domain model and working outward.
+Next: **Implementation** — starting with the Gradle multi-module project skeleton.

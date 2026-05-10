@@ -1,6 +1,6 @@
 # Phase 3 — Database Design & Scaling
 
-> **Status:** ✅ Complete — 8 of 8 chapters
+> **Status:** ✅ Complete — 13 of 13 chapters
 
 Pravah's database layer is PostgreSQL-first, with Redis for state and caching, Elasticsearch for search and lineage, and MinIO for object storage. This phase covers every decision from schema isolation to partitioning billions of rows.
 
@@ -24,6 +24,11 @@ By the end of Phase 3 you will understand:
 | [3.6](3.6-read-replicas-replication-lag.md) | **Read Replicas & Replication Lag** | Streaming replication internals; read routing with `AbstractRoutingDataSource`; lag handling; failover behavior |
 | [3.7](3.7-sharding-strategies.md) | **Sharding Strategies** | The scaling ladder before sharding; `tenant_id` as shard key; Citus distributed PostgreSQL; consistent hashing; rebalancing |
 | [3.8](3.8-redis-caching-locking-pubsub.md) | **Redis — Caching, Locking & Pub/Sub** | Data structures; cache-aside vs write-through vs write-behind; distributed locks with fencing tokens; pub/sub for WebSocket fanout |
+| [3.9](3.9-optimistic-vs-pessimistic-locking.md) | **Optimistic vs Pessimistic Locking** | `version` column for optimistic locking; `SELECT FOR UPDATE` for pessimistic; deadlock avoidance; when to use each |
+| [3.10](3.10-cache-invalidation-strategies.md) | **Cache Invalidation Strategies** | Event-driven invalidation; TTL-based; write-through; cache stampede prevention; cache penetration |
+| [3.11](3.11-cold-storage-archival.md) | **Cold Storage Archival** | Parquet export to MinIO; partition detach + drop; querying archived data; retention lifecycle |
+| [3.12](3.12-elasticsearch-for-search-and-lineage.md) | **Elasticsearch for Search & Lineage** | Inverted index; mapping; query DSL; lineage graph queries; relevance scoring |
+| [3.13](3.13-newsql-vs-nosql-tradeoffs.md) | **NewSQL vs NoSQL Trade-offs** | When PostgreSQL is not enough; CockroachDB, Cassandra, DynamoDB — mapped to Pravah use cases |
 
 ---
 

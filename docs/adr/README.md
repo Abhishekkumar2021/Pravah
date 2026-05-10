@@ -53,3 +53,21 @@ What did we reject, and why?
 | [ADR-013](ADR-013-postgresql-rls-tenant-isolation.md) | PostgreSQL Row-Level Security for Tenant Data Isolation | Accepted |
 | [ADR-014](ADR-014-tail-based-sampling.md) | Tail-Based Sampling for Distributed Tracing | Accepted |
 | [ADR-015](ADR-015-keda-event-driven-autoscaling.md) | KEDA for Event-Driven Autoscaling | Accepted |
+| [ADR-016](ADR-016-istio-service-mesh.md) | Istio Service Mesh | Accepted |
+| [ADR-017](ADR-017-event-sourcing-pipeline-service.md) | Event Sourcing + CQRS for Pipeline Service | Accepted |
+| [ADR-018](ADR-018-dag-engine-step-execution.md) | DAG Engine & Step Execution Model | Accepted |
+| [ADR-019](ADR-019-openlineage-metadata-service.md) | OpenLineage Standard & Metadata Service | Accepted |
+| [ADR-020](ADR-020-agent-service-architecture.md) | Agent Service Architecture (Spring AI + ReAct) | Accepted |
+| [ADR-021](ADR-021-minio-artifact-storage.md) | MinIO for Artifact Storage | Accepted |
+| [ADR-022](ADR-022-patroni-postgresql-ha.md) | Patroni for PostgreSQL High Availability | Accepted |
+| [ADR-023](ADR-023-duckdb-runner-transforms.md) | DuckDB for In-Process Transforms on the Runner | Accepted |
+| [ADR-024](ADR-024-durable-execution-checkpointing.md) | Durable Execution & Checkpointing | Accepted |
+| [ADR-025](ADR-025-backfill-concurrency-policy.md) | Backfill Strategy & Pipeline Concurrency Policy | Accepted |
+| [ADR-026](ADR-026-data-quality-contracts.md) | Data Quality Contracts | Accepted |
+| [ADR-027](ADR-027-notification-service.md) | Notification Service Design | Accepted |
+| [ADR-028](ADR-028-billing-compute-metering.md) | Billing & Compute Metering | Accepted |
+| [ADR-029](ADR-029-connect-service-cdc-management.md) | Connect Service & CDC Pipeline Management | Accepted |
+| [ADR-030](ADR-030-sso-saml-enterprise-auth.md) | SSO / SAML 2.0 for Enterprise Authentication | Accepted |
+| [ADR-031](ADR-031-openfeature-feature-flags.md) | OpenFeature for Feature Flags | Accepted |
+| [ADR-032](ADR-032-pii-masking-gdpr.md) | PII Masking & GDPR Data Flow Controls | Accepted |
+| [ADR-033](ADR-033-graphql-api.md) | GraphQL API alongside REST | Accepted |
