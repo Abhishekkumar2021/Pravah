@@ -85,20 +85,23 @@ See [`docs/design/system-architecture.md`](docs/design/system-architecture.md) f
 │ Layer           │ Technology                                                   │
 ├─────────────────┼──────────────────────────────────────────────────────────────┤
 │ Services        │ Java 21 · Spring Boot 3 · Spring Cloud                       │
-│ Inter-service   │ gRPC (sync internal calls) + Kafka (async events)            │
+│ Inter-service   │ gRPC (sync/streaming) + Kafka (async events)                 │
 │ Runner protocol │ gRPC bidirectional stream · mTLS per-runner certs            │
-│ API / UI        │ REST + WebSocket via Spring Cloud Gateway                    │
-│ Database        │ PostgreSQL 16 + Flyway migrations                            │
-│ Cache / State   │ Redis (Redisson) — locks, pub/sub, job state                 │
+│ External API    │ REST (mutations, SDK) + GraphQL (UI read queries)            │
+│ Database        │ PostgreSQL 16 + Flyway · Patroni HA (auto-failover)          │
+│ Cache / State   │ Redis Sentinel — locks, pub/sub, rate limiting, session state │
 │ Object Store    │ MinIO (S3-compatible) — artifacts, logs, snapshots            │
 │ Search / Lineage│ Elasticsearch — log search, data catalog, lineage graph      │
-│ Secrets         │ HashiCorp Vault — dynamic credentials, secret rotation       │
-│ Processing      │ DuckDB (embedded, per runner) — in-process transforms        │
-│ Observability   │ Prometheus + Grafana + Jaeger + ELK                          │
-│ Auth            │ Spring Security + JWT (API) + mTLS (runners)                 │
-│ Infra           │ Docker Compose (local) → Kubernetes + Helm (production)      │
-│ UI              │ Next.js 14 · React Flow (DAG editor) · TailwindCSS           │
-│ Agent           │ Spring AI + Claude API                                       │
+│ Secrets         │ HashiCorp Vault — dynamic credentials, mTLS PKI, Transit enc │
+│ Processing      │ DuckDB (embedded, per runner) — in-process SQL transforms    │
+│ Observability   │ Prometheus + Grafana + OpenTelemetry + Jaeger + ELK          │
+│ Auth            │ JWT RS256 + OAuth 2.0 + SSO (OIDC/SAML 2.0) + mTLS         │
+│ Feature flags   │ OpenFeature SDK — Redis provider, kill switches, rollouts    │
+│ Data lineage    │ OpenLineage spec — column-level, stored in Elasticsearch      │
+│ Service mesh    │ Istio — L7 AuthorizationPolicy, traffic management           │
+│ Infra / GitOps  │ Kubernetes + Helm + Argo CD + KEDA                          │
+│ UI              │ Next.js 14 · React Flow (DAG canvas) · TailwindCSS           │
+│ Agent           │ Spring AI · Claude / GPT-4 · ReAct · pgvector               │
 └─────────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
@@ -112,16 +115,20 @@ Pravah/
 │
 ├── docs/
 │   ├── architecture/
-│   │   └── high-level-architecture.md    # Service map, data flows, infra overview
-│   ├── adr/                              # Architecture Decision Records (ADR-001–015)
-│   └── theory/                           # Chapter-by-chapter theory curriculum
-│       ├── README.md                     # Full chapter index (52 chapters)
+│   │   └── high-level-architecture.md    # Full service map, data flows, infra
+│   ├── adr/                              # Architecture Decision Records (ADR-001–033)
+│   ├── design/                           # Extended design documents
+│   └── theory/                           # 9-phase engineering curriculum (75 chapters)
+│       ├── README.md                     # Full chapter index
 │       ├── phase-1-distributed-systems/  # 12 chapters ✅
 │       ├── phase-2-kafka-messaging/      # 12 chapters ✅
-│       ├── phase-3-database-design/      # 8 chapters  ✅
-│       ├── phase-4-observability/        # 7 chapters  ✅
-│       ├── phase-5-security/             # 7 chapters  ✅
-│       └── phase-6-kubernetes/           # 6 chapters  ✅
+│       ├── phase-3-database-design/      # 13 chapters ✅
+│       ├── phase-4-observability/        #  7 chapters ✅
+│       ├── phase-5-security/             #  7 chapters ✅
+│       ├── phase-6-kubernetes/           #  6 chapters ✅
+│       ├── phase-7-ai-agent-architecture/#  7 chapters ✅
+│       ├── phase-8-etl-data-engineering/ #  7 chapters ✅
+│       └── phase-9-system-design-synthesis/ # 4 chapters ✅
 │
 ├── implementation/                       # Source code — starts next
 │   ├── services/                         # Spring Boot microservices
@@ -184,19 +191,22 @@ The [`docs/theory/`](docs/theory/) directory is a **self-contained engineering c
 
 ### Phase 3 — Database Design & Scaling ✅
 
-> PostgreSQL deep-dive: MVCC, WAL, indexing, partitioning, PgBouncer, replication, sharding, Redis.
+> PostgreSQL deep-dive: MVCC, WAL, indexing, partitioning, PgBouncer, replication, sharding, Redis, Elasticsearch, cold storage archival.
 
-See [docs/theory/phase-3-database-design/](docs/theory/phase-3-database-design/README.md) — 8 chapters complete.
+See [docs/theory/phase-3-database-design/](docs/theory/phase-3-database-design/README.md) — 13 chapters complete.
 
 ---
 
-### Phases 4–6 ✅
+### Phases 4–9 ✅
 
 | Phase | Topic Area | Chapters |
 |-------|-----------|----------|
 | **Phase 4** | Observability & Reliability — SLOs, Prometheus, tracing, logging, alerting, chaos | 7 ✅ |
 | **Phase 5** | Security, Auth & Multi-Tenancy — JWT, mTLS, Vault, RBAC, RLS, OWASP | 7 ✅ |
 | **Phase 6** | Kubernetes, Helm & Production Infra — workloads, autoscaling, GitOps, PDBs | 6 ✅ |
+| **Phase 7** | AI/Agent Architecture — LLM fundamentals, ReAct, Spring AI, RAG, memory, evals | 7 ✅ |
+| **Phase 8** | ETL & Data Engineering — DAG design, CDC, data contracts, backfill, lineage, DuckDB | 7 ✅ |
+| **Phase 9** | System Design Synthesis — full walkthrough, capacity planning, bottleneck analysis, interview prep | 4 ✅ |
 
 → Full chapter index: [docs/theory/README.md](docs/theory/README.md)
 
@@ -206,30 +216,34 @@ See [docs/theory/phase-3-database-design/](docs/theory/phase-3-database-design/R
 
 | Document | Description |
 |----------|-------------|
-| [High-Level Architecture](docs/architecture/high-level-architecture.md) | Complete service map, data flows, infrastructure, security architecture |
-| [ADR Index](docs/adr/README.md) | 15 Architecture Decision Records covering every major design choice |
+| [High-Level Architecture](docs/architecture/high-level-architecture.md) | Complete service map, data flows, infrastructure, security, multi-tenancy, observability |
+| [Service API & Event Contracts](docs/design/system-architecture.md) | REST endpoints, GraphQL schema, gRPC protobuf definitions, Kafka event schemas, DB schema summaries |
+| [ADR Index](docs/adr/README.md) | 33 Architecture Decision Records — every major design decision |
 
 ---
 
 ## Project Status
 
 ```
-Theory
+Theory (75 chapters — complete)
   ✅  Phase 1 — Distributed Systems Fundamentals    (12/12 chapters)
   ✅  Phase 2 — Messaging & Kafka Internals         (12/12 chapters)
-  ✅  Phase 3 — Database Design & Scaling            (8/8  chapters)
+  ✅  Phase 3 — Database Design & Scaling           (13/13 chapters)
   ✅  Phase 4 — Observability & Reliability          (7/7  chapters)
   ✅  Phase 5 — Security, Auth & Multi-Tenancy       (7/7  chapters)
   ✅  Phase 6 — Kubernetes & Production Infra        (6/6  chapters)
+  ✅  Phase 7 — AI/Agent Architecture                (7/7  chapters)
+  ✅  Phase 8 — ETL & Data Engineering               (7/7  chapters)
+  ✅  Phase 9 — System Design Synthesis              (4/4  chapters)
 
-Architecture
-  ✅  15 Architecture Decision Records (ADR-001 through ADR-015)
-  ✅  High-Level Architecture document
+Architecture (complete)
+  ✅  33 Architecture Decision Records (ADR-001 through ADR-033)
+  ✅  High-Level Architecture — full service map, all 11 services, all data flows
 
 Implementation  ← starts next
-  📋  Service skeletons (Gradle multi-module)
-  📋  Proto contracts for all gRPC services
-  📋  Database schemas + Flyway migrations
+  📋  Gradle multi-module project skeleton
+  📋  Protobuf contracts for all gRPC services
+  📋  Database schemas + Flyway migrations (per service)
   📋  Docker Compose local dev environment
   📋  Kubernetes + Helm charts
 ```
@@ -243,14 +257,17 @@ Implementation  ← starts next
 git clone https://github.com/yourusername/Pravah.git
 cd Pravah
 
-# Start reading the theory curriculum
-open docs/theory/phase-1-distributed-systems/README.md
+# Start from the theory curriculum
+open docs/theory/README.md
 
-# Or start from the system architecture
-open docs/design/system-architecture.md
+# Or start from the architecture
+open docs/architecture/high-level-architecture.md
+
+# Explore the full ADR set
+open docs/adr/README.md
 ```
 
-> Implementation bootstrap instructions will be added here once the service skeletons are committed.
+> Implementation bootstrap instructions will be added once the service skeletons are committed.
 
 ---
 
