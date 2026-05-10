@@ -111,22 +111,25 @@ Pravah/
 ├── README.md
 │
 ├── docs/
-│   ├── design/
-│   │   └── system-architecture.md    # Full architecture, data flow, service contracts
-│   ├── adr/                          # Architecture Decision Records
-│   └── theory/                       # Chapter-by-chapter theory curriculum
-│       ├── 00-curriculum-overview.md
-│       ├── phase-1-distributed-systems/   README.md + 12 chapters
-│       ├── phase-2-kafka-messaging/       README.md + 12 chapters
-│       └── phase-3-database-design/       README.md + chapters (growing)
+│   ├── architecture/
+│   │   └── high-level-architecture.md    # Service map, data flows, infra overview
+│   ├── adr/                              # Architecture Decision Records (ADR-001–015)
+│   └── theory/                           # Chapter-by-chapter theory curriculum
+│       ├── README.md                     # Full chapter index (52 chapters)
+│       ├── phase-1-distributed-systems/  # 12 chapters ✅
+│       ├── phase-2-kafka-messaging/      # 12 chapters ✅
+│       ├── phase-3-database-design/      # 8 chapters  ✅
+│       ├── phase-4-observability/        # 7 chapters  ✅
+│       ├── phase-5-security/             # 7 chapters  ✅
+│       └── phase-6-kubernetes/           # 6 chapters  ✅
 │
-├── implementation/                   # Source code — added as theory completes
-│   ├── services/                     # Spring Boot microservices
-│   ├── runner/                       # Standalone runner JAR
-│   ├── proto/                        # Protobuf contracts
-│   └── infra/                        # Docker Compose, Helm charts
+├── implementation/                       # Source code — starts next
+│   ├── services/                         # Spring Boot microservices
+│   ├── runner/                           # Standalone runner binary
+│   ├── proto/                            # Protobuf contracts
+│   └── infra/                            # Docker Compose, Helm charts
 │
-└── scripts/                          # Migration scripts, partition management, tooling
+└── scripts/                              # Migration scripts, tooling
 ```
 
 ---
@@ -179,30 +182,32 @@ The [`docs/theory/`](docs/theory/) directory is a **self-contained engineering c
 
 ---
 
-### Phase 3 — Database Design & Scaling 🔄
+### Phase 3 — Database Design & Scaling ✅
 
-> PostgreSQL deep-dive: schema design, MVCC internals, indexing, partitioning, connection pooling, replication.
+> PostgreSQL deep-dive: MVCC, WAL, indexing, partitioning, PgBouncer, replication, sharding, Redis.
 
-| # | Chapter | Core Concept | Status |
-|---|---------|-------------|--------|
-| [3.1](docs/theory/phase-3-database-design/3.1-database-per-service.md) | Database Per Service | Isolation strategies, cross-service data access patterns | ✅ |
-| [3.2](docs/theory/phase-3-database-design/3.2-postgresql-internals-mvcc-wal-vacuum.md) | PostgreSQL Internals: MVCC, WAL & Vacuum | How PG handles concurrency without locking | ✅ |
-| [3.3](docs/theory/phase-3-database-design/3.3-indexing-strategies.md) | Indexing Strategies | B-tree, GIN, BRIN, partial, covering — per Pravah table | ✅ |
-| [3.4](docs/theory/phase-3-database-design/3.4-table-partitioning.md) | Table Partitioning | Monthly range partitioning of `job_runs`, `pg_partman` | ✅ |
-| 3.5 | Connection Pooling & PgBouncer | Transaction-mode pooling, gotchas with prepared statements | 🔜 |
-| 3.6 | Read Replicas & Replication Lag | Streaming replication, lag handling, read routing | 📋 |
-| 3.7 | Sharding Strategies | When PG isn't enough; Citus, application-level sharding | 📋 |
-| 3.8 | Redis — Caching, Locking & Pub/Sub | Cache patterns, distributed locks, Lua scripts | 📋 |
+See [docs/theory/phase-3-database-design/](docs/theory/phase-3-database-design/README.md) — 8 chapters complete.
 
 ---
 
-### Phases 4–6 — Planned
+### Phases 4–6 ✅
 
-| Phase | Topic Area |
-|-------|-----------|
-| **Phase 4** | Observability & Reliability — SLOs, error budgets, distributed tracing, alerting |
-| **Phase 5** | Security, Auth & Multi-Tenancy — JWT, mTLS, Vault, RBAC, tenant isolation |
-| **Phase 6** | Kubernetes, Helm & Production Infra — deployments, autoscaling, GitOps |
+| Phase | Topic Area | Chapters |
+|-------|-----------|----------|
+| **Phase 4** | Observability & Reliability — SLOs, Prometheus, tracing, logging, alerting, chaos | 7 ✅ |
+| **Phase 5** | Security, Auth & Multi-Tenancy — JWT, mTLS, Vault, RBAC, RLS, OWASP | 7 ✅ |
+| **Phase 6** | Kubernetes, Helm & Production Infra — workloads, autoscaling, GitOps, PDBs | 6 ✅ |
+
+→ Full chapter index: [docs/theory/README.md](docs/theory/README.md)
+
+---
+
+## Architecture & Design Documents
+
+| Document | Description |
+|----------|-------------|
+| [High-Level Architecture](docs/architecture/high-level-architecture.md) | Complete service map, data flows, infrastructure, security architecture |
+| [ADR Index](docs/adr/README.md) | 15 Architecture Decision Records covering every major design choice |
 
 ---
 
@@ -212,13 +217,17 @@ The [`docs/theory/`](docs/theory/) directory is a **self-contained engineering c
 Theory
   ✅  Phase 1 — Distributed Systems Fundamentals    (12/12 chapters)
   ✅  Phase 2 — Messaging & Kafka Internals         (12/12 chapters)
-  🔄  Phase 3 — Database Design & Scaling           (4/12 chapters, in progress)
-  📋  Phase 4 — Observability & Reliability         (planned)
-  📋  Phase 5 — Security, Auth & Multi-Tenancy      (planned)
-  📋  Phase 6 — Kubernetes & Production Infra       (planned)
+  ✅  Phase 3 — Database Design & Scaling            (8/8  chapters)
+  ✅  Phase 4 — Observability & Reliability          (7/7  chapters)
+  ✅  Phase 5 — Security, Auth & Multi-Tenancy       (7/7  chapters)
+  ✅  Phase 6 — Kubernetes & Production Infra        (6/6  chapters)
 
-Implementation
-  📋  Service skeletons (Gradle multi-module monorepo)
+Architecture
+  ✅  15 Architecture Decision Records (ADR-001 through ADR-015)
+  ✅  High-Level Architecture document
+
+Implementation  ← starts next
+  📋  Service skeletons (Gradle multi-module)
   📋  Proto contracts for all gRPC services
   📋  Database schemas + Flyway migrations
   📋  Docker Compose local dev environment
