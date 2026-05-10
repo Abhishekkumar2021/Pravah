@@ -1,7 +1,7 @@
 # ADR-009: JWT RS256 + OAuth 2.0 for User Authentication
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

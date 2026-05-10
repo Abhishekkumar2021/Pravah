@@ -1,7 +1,7 @@
 # ADR-010: Kubernetes + Helm + Argo CD for Deployment
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

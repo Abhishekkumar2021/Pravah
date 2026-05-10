@@ -1,7 +1,7 @@
 # ADR-012: Redis for Caching, Distributed Locking & Rate Limiting
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

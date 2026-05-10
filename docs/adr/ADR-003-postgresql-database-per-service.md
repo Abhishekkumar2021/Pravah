@@ -1,7 +1,7 @@
 # ADR-003: PostgreSQL with Database-per-Service
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

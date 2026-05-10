@@ -1,7 +1,7 @@
 # ADR-014: Tail-Based Sampling for Distributed Tracing
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

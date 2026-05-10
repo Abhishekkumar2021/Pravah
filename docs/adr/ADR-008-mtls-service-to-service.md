@@ -1,7 +1,7 @@
 # ADR-008: mTLS for Service-to-Service Communication
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 

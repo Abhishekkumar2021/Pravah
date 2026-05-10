@@ -1,7 +1,7 @@
 # ADR-002: Kafka as the Primary Messaging Backbone
 
 **Status**: Accepted  
-**Date**: 2024-01-01
+**Date**: 2026-05-10
 
 ---
 
