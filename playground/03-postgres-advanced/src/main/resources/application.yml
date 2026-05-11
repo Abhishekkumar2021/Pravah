@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: pravah-postgres-playground
+
+  # Runtime traffic goes through PgBouncer (docker compose port 6432) — transaction pooling + RLS session vars.
+  datasource:
+    url: jdbc:postgresql://localhost:6432/playground
+    username: app_tenant
+    password: playground
+
+  # Flyway always connects to PostgreSQL directly (port 5432): DDL, advisory locks, not via pooler.
+  flyway:
+    url: jdbc:postgresql://localhost:5432/playground
+    user: playground
+    password: playground
+    locations: classpath:db/migration

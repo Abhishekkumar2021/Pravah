@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package pravah.playground.grpc.v1;
+
+option java_multiple_files = true;
+option java_package = "io.pravah.playground.grpc.v1";
+option java_outer_classname = "RunnerPlaygroundProto";
+
+// Simplified subset of ADR-005’s RunnerService — same idea: one long-lived bidi RPC.
+service RunnerPlayground {
+  // Runner initiates; both sides stream concurrently (Pravah runner ↔ control plane).
+  rpc Connect(stream RunnerToServer) returns (stream ServerToRunner);
+}
+
+message RunnerToServer {
+  string runner_id = 1;
+  string tenant_id = 2;
+  RunnerMessageKind kind = 3;
+  string body = 4;
+}
+
+enum RunnerMessageKind {
+  RUNNER_MESSAGE_KIND_UNSPECIFIED = 0;
+  REGISTRATION = 1;
+  HEARTBEAT = 2;
+  LOG_LINE = 3;
+}
+
+message ServerToRunner {
+  string correlation_id = 1;
+  ServerCommandKind kind = 2;
+  string body = 3;
+}
+
+enum ServerCommandKind {
+  SERVER_COMMAND_KIND_UNSPECIFIED = 0;
+  ACK = 1;
+  JOB_ASSIGNMENT = 2;
+  PING = 3;
+}

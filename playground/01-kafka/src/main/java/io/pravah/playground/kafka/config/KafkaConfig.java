@@ -1,7 +1,11 @@
 package io.pravah.playground.kafka.config;
 
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import io.pravah.playground.kafka.avro.JobCreated;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +41,7 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.producer.properties.schema.registry.url}")
+    @Value("${pravah.kafka.schema-registry-url}")
     private String schemaRegistryUrl;
 
     @Value("${pravah.kafka.consumer-groups.execution-service}")
@@ -50,59 +54,62 @@ public class KafkaConfig {
     private String dltTopic;
 
     // ─────────────────────────────────────────────────────────────
-    // Producer
-    // ─────────────────────────────────────────────────────────────
-
-    /**
-     * The KafkaTemplate is the primary way to publish messages.
-     * Spring Boot auto-creates one from application.yml — we reuse it here.
-     * The transactional producer (Task 3) uses the same template but wraps
-     * sends in kafkaTemplate.executeInTransaction(...).
-     *
-     * Spring Boot auto-configures this bean. Nothing to add here unless
-     * you need a custom ProducerFactory.
-     */
-
-    // ─────────────────────────────────────────────────────────────
     // Consumer — execution-service group
     // ─────────────────────────────────────────────────────────────
 
     /**
      * Listener container factory for the execution-service consumer group.
      *
-     * TODO (Task 1-4):
-     *   1. Create a ConsumerFactory<String, JobCreated> with these properties:
-     *        - bootstrap.servers
-     *        - group.id = executionServiceGroupId
-     *        - key.deserializer = StringDeserializer
-     *        - value.deserializer = KafkaAvroDeserializer (Confluent)
-     *        - schema.registry.url
-     *        - specific.avro.reader = true  ← returns JobCreated, not GenericRecord
-     *        - auto.offset.reset = earliest
-     *        - enable.auto.commit = false
+     * A "factory" here is not a factory in the design-pattern sense — it is the
+     * configuration object that Spring Kafka uses to spin up listener threads.
+     * When you annotate a method with @KafkaListener(containerFactory = "executionServiceFactory"),
+     * Spring looks up this bean by name and uses it to start the consumer.
      *
-     *   2. Create a ConcurrentKafkaListenerContainerFactory using that ConsumerFactory.
-     *        - setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE)
-     *        - setConcurrency(3)   ← one thread per partition
-     *
-     *   3. Attach the DefaultErrorHandler for DLT routing (Task 4):
-     *        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-     *            kafkaTemplate,
-     *            (record, ex) -> new TopicPartition(dltTopic, record.partition())
-     *        );
-     *        ExponentialBackOff backOff = new ExponentialBackOff(1000L, 2.0);
-     *        backOff.setMaxAttempts(3);
-     *        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-     *        factory.setCommonErrorHandler(errorHandler);
-     *
-     * Bean name "executionServiceFactory" is referenced in @KafkaListener(containerFactory = "executionServiceFactory")
+     * Why does this method accept KafkaTemplate?
+     * The DLT recoverer needs a template to PUBLISH the failed message to the DLT topic.
+     * Spring injects the auto-configured KafkaTemplate here.
      */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, JobCreated> executionServiceFactory(
             KafkaTemplate<String, Object> kafkaTemplate) {
 
-        // TODO: implement as described above
-        throw new UnsupportedOperationException("TODO: implement executionServiceFactory");
+        // Step 1: build a ConsumerFactory with the execution-service group ID
+        Map<String, Object> props = baseConsumerProps();
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, executionServiceGroupId);
+        ConsumerFactory<String, JobCreated> consumerFactory = new DefaultKafkaConsumerFactory<>(props);
+
+        // Step 2: create the listener container factory
+        ConcurrentKafkaListenerContainerFactory<String, JobCreated> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
+
+        // MANUAL_IMMEDIATE: we call acknowledgment.acknowledge() ourselves — Kafka does not
+        // auto-commit offsets. This is the safest mode: the message is only marked "done"
+        // after your processing code succeeds.
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+
+        // 3 concurrent threads = one per partition (we created 3 partitions in docker-compose).
+        // In production this is tuned to match the partition count.
+        factory.setConcurrency(3);
+
+        // Step 3: DLT error handler
+        // When a message fails, Spring retries with exponential backoff.
+        // After maxAttempts is exhausted, DeadLetterPublishingRecoverer publishes the message
+        // to the DLT topic, preserving all original headers plus adding DLT-specific headers.
+        //
+        // (record, ex) -> new TopicPartition(dltTopic, record.partition())
+        //   → routes the failed message to the SAME partition number in the DLT as its
+        //     source partition. This preserves ordering for operators replaying the DLT.
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, ex) -> new TopicPartition(dltTopic, record.partition())
+        );
+        ExponentialBackOff backOff = new ExponentialBackOff(1000L, 2.0); // 1s, 2s, 4s
+        backOff.setMaxAttempts(3);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
+        factory.setCommonErrorHandler(errorHandler);
+
+        return factory;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -112,19 +119,27 @@ public class KafkaConfig {
     /**
      * Listener container factory for the audit-service consumer group.
      *
-     * TODO (Task 2):
-     *   Same structure as executionServiceFactory but with:
-     *     - group.id = auditServiceGroupId
-     *     - No DLT error handler needed for audit (it's append-only, failures are non-critical)
-     *     - setConcurrency(3)
+     * Same structure as executionServiceFactory but:
+     *   - Different group.id  → independent offset tracking
+     *   - No DLT handler      → audit is append-only; if it fails, we log and move on.
+     *                           We don't want a DLT-on-DLT chain.
      *
-     * Bean name "auditServiceFactory" referenced in @KafkaListener(containerFactory = "auditServiceFactory")
+     * This factory is also reused by DeadLetterHandler (which reads the DLT topic)
+     * because the DLT consumer also doesn't need retry/DLT routing.
      */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, JobCreated> auditServiceFactory() {
+        Map<String, Object> props = baseConsumerProps();
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, auditServiceGroupId);
+        ConsumerFactory<String, JobCreated> consumerFactory = new DefaultKafkaConsumerFactory<>(props);
 
-        // TODO: implement as described above
-        throw new UnsupportedOperationException("TODO: implement auditServiceFactory");
+        ConcurrentKafkaListenerContainerFactory<String, JobCreated> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setConcurrency(3);
+
+        return factory;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -132,20 +147,36 @@ public class KafkaConfig {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Builds the base consumer properties shared by both factories.
-     * Extract this to avoid duplicating the property map in both factory methods.
+     * Properties shared by ALL consumer groups.
+     * Extracted so neither factory duplicates this map.
      *
-     * TODO: implement this helper — returns a Map<String, Object> with:
-     *   ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG → bootstrapServers
-     *   ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG → StringDeserializer.class
-     *   ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG → KafkaAvroDeserializer.class
-     *   "schema.registry.url" → schemaRegistryUrl
-     *   "specific.avro.reader" → true
-     *   ConsumerConfig.AUTO_OFFSET_RESET_CONFIG → "earliest"
-     *   ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG → false
+     * Each caller adds its own GROUP_ID_CONFIG on top of this base.
      */
     private Map<String, Object> baseConsumerProps() {
-        // TODO: implement
-        return new HashMap<>();
+        Map<String, Object> props = new HashMap<>();
+
+        // Which Kafka broker(s) to connect to
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+
+        // Keys are plain strings (tenant_id), values are Avro records
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class);
+
+        // The deserializer fetches the Avro schema from this URL using the schema ID
+        // embedded in each message (first 5 bytes: 0x00 + 4-byte schema ID)
+        props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+
+        // Without this, the deserializer returns a GenericRecord (a map-like object).
+        // With this = true, it returns a strongly-typed JobCreated Java class.
+        props.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, true);
+
+        // Start reading from offset 0 on the first run (no committed offsets yet).
+        // Change to "latest" if you only want new messages.
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        // We manage commits manually via Acknowledgment.acknowledge() — never auto-commit.
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+        return props;
     }
 }

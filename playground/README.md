@@ -18,9 +18,9 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 
 | # | Exercise | Tools | Pravah ADRs | Status |
 |---|----------|-------|-------------|--------|
-| [01](01-kafka/) | Kafka — Producer, Consumer, Exactly-Once, DLQ | Kafka, Schema Registry, Avro | ADR-002, ADR-006 | Ready |
-| [02](02-grpc/) | gRPC — Bidirectional Streaming + mTLS | gRPC, Protobuf, cert-manager | ADR-005, ADR-008 | Scaffold |
-| [03](03-postgres-advanced/) | PostgreSQL — Partitioning, RLS, PgBouncer | PostgreSQL, PgBouncer | ADR-003, ADR-013, ADR-022 | Scaffold |
+| [01](01-kafka/) | Kafka — Producer, Consumer, Exactly-Once, DLQ | Kafka, Schema Registry, Avro | ADR-002, ADR-006 | Complete |
+| [02](02-grpc/) | gRPC — Bidirectional Streaming + mTLS | gRPC, Protobuf, cert-manager | ADR-005, ADR-008 | Ready |
+| [03](03-postgres-advanced/) | PostgreSQL — Partitioning, RLS, PgBouncer | PostgreSQL, PgBouncer | ADR-003, ADR-013, ADR-022 | Complete |
 | [04](04-redis/) | Redis — Distributed Lock + Token Bucket Rate Limiter | Redis, Lua | ADR-012 | Scaffold |
 | [05](05-vault/) | Vault — Dynamic DB Credentials + PKI | HashiCorp Vault, Kubernetes Auth | ADR-007, ADR-008 | Scaffold |
 | [06](06-outbox-pattern/) | Outbox Pattern — Atomic publish with crash recovery | PostgreSQL, Kafka | ADR-004 | Scaffold |

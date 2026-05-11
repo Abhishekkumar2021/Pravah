@@ -60,9 +60,12 @@ spring:
       # partition at a time. Set to number-of-partitions for max parallelism.
       concurrency: 3
 
-# Our app's custom config — consumer group IDs
+# Our app's custom config
 pravah:
   kafka:
+    # Dedicated property for schema registry URL — avoids @Value resolution issues
+    # with dotted YAML keys like "schema.registry.url" under spring.kafka.producer.properties
+    schema-registry-url: http://localhost:8081
     topics:
       job-created: pravah.job.created
       job-completed: pravah.job.completed

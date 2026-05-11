@@ -40,6 +40,9 @@ dependencies {
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.testcontainers:kafka:1.19.7")
     testImplementation("org.testcontainers:junit-jupiter:1.19.7")
+    // Awaitility: polls a condition until it's true (or timeout). Standard for async Kafka tests.
+    // Without it you'd need Thread.sleep(guessedTime) which is both flaky and slow.
+    testImplementation("org.awaitility:awaitility:4.2.1")
 }
 
 // Avro source generation — avsc files in src/main/avro → generated into build/generated-main-avro-java

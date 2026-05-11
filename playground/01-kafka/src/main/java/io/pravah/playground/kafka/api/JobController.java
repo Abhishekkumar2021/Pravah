@@ -46,21 +46,23 @@ public class JobController {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Extract tenantId, pipelineId, stepId from the request body map
-     *   2. Call producer.publish(tenantId, pipelineId, stepId)
-     *   3. Return 202 Accepted with the jobId:
-     *        return ResponseEntity.accepted().body(Map.of("jobId", jobId));
-     *
-     *   WHY 202 and not 201?
-     *   The job has been queued in Kafka but not yet processed. 201 Created implies
-     *   the resource exists. 202 Accepted means "we received the request, processing
-     *   will happen asynchronously." This is the correct HTTP semantics for async systems.
+     * WHY 202 Accepted and not 201 Created?
+     *   201 Created implies the resource now exists in the system.
+     *   At this point we have only written to Kafka — the job has not
+     *   been picked up by the execution service yet.
+     *   202 Accepted = "we received and queued your request; processing is async."
+     *   This is the correct HTTP semantics for any event-driven, async API.
+     *   Pravah's real Pipeline Service returns 202 for /v1/pipelines/{id}/trigger.
      */
     @PostMapping
     public ResponseEntity<Map<String, String>> createJob(@RequestBody Map<String, String> body) {
-        // TODO: implement
-        return ResponseEntity.accepted().body(Map.of("status", "not implemented"));
+        String tenantId    = body.get("tenantId");
+        String pipelineId  = body.get("pipelineId");
+        String stepId      = body.get("stepId");
+
+        String jobId = producer.publish(tenantId, pipelineId, stepId);
+
+        return ResponseEntity.accepted().body(Map.of("jobId", jobId));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -68,17 +70,30 @@ public class JobController {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Extract tenantId, pipelineId, stepId from body
-     *   2. Extract simulateCrash (boolean) from body — default false
-     *   3. Call producer.publishWithTransaction(tenantId, pipelineId, stepId, simulateCrash)
-     *   4. Return 202 Accepted with jobId
-     *   5. If the transaction throws (simulateCrash=true), catch the exception and
-     *      return 500 with the error message — verify in Kafdrop that no message was written
+     * Demonstrates Kafka transactions (exactly-once).
+     *
+     * Try with simulateCrash=true:
+     *   - The response will be 500
+     *   - Open Kafdrop: pravah.job.created AND pravah.job.audit.log are BOTH empty
+     *   - This proves the transaction was fully rolled back
+     *
+     * Try with simulateCrash=false:
+     *   - Both topics receive the message atomically
      */
     @PostMapping("/transactional")
     public ResponseEntity<Map<String, String>> createJobTransactional(@RequestBody Map<String, Object> body) {
-        // TODO: implement
-        return ResponseEntity.accepted().body(Map.of("status", "not implemented"));
+        String tenantId    = (String) body.get("tenantId");
+        String pipelineId  = (String) body.get("pipelineId");
+        String stepId      = (String) body.get("stepId");
+        boolean simulateCrash = Boolean.TRUE.equals(body.get("simulateCrash"));
+
+        try {
+            String jobId = producer.publishWithTransaction(tenantId, pipelineId, stepId, simulateCrash);
+            return ResponseEntity.accepted().body(Map.of("jobId", jobId));
+        } catch (RuntimeException ex) {
+            // The transaction was aborted — no message was written to any topic.
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 }

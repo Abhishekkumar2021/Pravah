@@ -5,7 +5,12 @@ target/
 build/
 *.class
 *.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 *.war
+
+# Gradle (local caches / IDE output — not the wrapper scripts)
+**/.gradle/
+**/bin/
 
 # IDE
 .idea/

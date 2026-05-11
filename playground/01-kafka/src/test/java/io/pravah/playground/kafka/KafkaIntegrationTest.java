@@ -1,13 +1,17 @@
 package io.pravah.playground.kafka;
 
 import io.pravah.playground.kafka.consumer.AuditConsumer;
+import io.pravah.playground.kafka.consumer.DeadLetterHandler;
 import io.pravah.playground.kafka.producer.JobEventProducer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,36 +19,57 @@ import static org.awaitility.Awaitility.await;
 
 /**
  * Integration tests using Spring's embedded Kafka.
- * No Docker required for tests — @EmbeddedKafka spins up an in-process broker.
+ * No Docker required — @EmbeddedKafka spins up a real (in-process) Kafka broker.
  *
- * These tests verify the observable outcomes of each task:
- *   - Did the message arrive in the topic?
- *   - Did both consumer groups receive it?
- *   - Did the DLT receive the poison pill?
+ * HOW @EmbeddedKafka WORKS:
+ *   Spring starts a real KRaft Kafka broker inside the JVM on a random port and
+ *   exposes it as {@code spring.embedded.kafka.brokers}. {@code src/test/resources/
+ *   application.properties} sets {@code spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}}
+ *   so tests use the embedded broker. Without that override, {@code application.yml}
+ *   would keep {@code localhost:9092} (for Docker) and nothing would reach embedded Kafka.
  *
- * Add the Awaitility dependency to build.gradle.kts:
- *   testImplementation("org.awaitility:awaitility:4.2.1")
+ * HOW @DirtiesContext WORKS:
+ *   After each test, Spring tears down the ApplicationContext and rebuilds it.
+ *   This resets all in-memory state (auditLog, dltCount) and consumer offsets.
+ *   Without it, messages from test1 could leak into test2.
  *
- * Awaitility is a polling library: await().atMost(10, SECONDS).until(() -> condition)
- * It's the standard way to test async Kafka consumers — you can't use Thread.sleep
- * because you don't know exactly when the consumer will process the message.
+ * SCHEMA REGISTRY IN TESTS:
+ *   Dynamic properties point schema.registry.url at mock://test-scope so the Confluent
+ *   serializers use an in-memory MockSchemaRegistryClient (no Docker Schema Registry).
+ *
+ * TRANSACTIONAL.ID IN TESTS:
+ *   application.yml sets a fixed transactional.id for Docker (Task 3). Here we reload the
+ *   Spring context between tests (@DirtiesContext). Reusing the SAME transactional.id on the
+ *   embedded broker causes Kafka's producer fencing — the new producer is rejected or sends
+ *   fail silently. A fresh UUID per ApplicationContext avoids that.
  */
 @SpringBootTest
 @DirtiesContext
 @EmbeddedKafka(
-    partitions = 3,
-    topics = {
-        "pravah.job.created",
-        "pravah.job.created.DLT",
-        "pravah.job.completed",
-        "pravah.job.audit.log"
-    },
-    brokerProperties = {
-        "transaction.state.log.replication.factor=1",
-        "transaction.state.log.min.isr=1"
-    }
+        partitions = 3,
+        topics = {
+                "pravah.job.created",
+                "pravah.job.created.DLT",
+                "pravah.job.completed",
+                "pravah.job.audit.log"
+        },
+        brokerProperties = {
+                // Required for Kafka transactions to work with a single broker (no replicas)
+                "transaction.state.log.replication.factor=1",
+                "transaction.state.log.min.isr=1"
+        }
 )
 class KafkaIntegrationTest {
+
+    @DynamicPropertySource
+    static void kafkaTestOverrides(DynamicPropertyRegistry registry) {
+        registry.add("pravah.kafka.schema-registry-url", () -> "mock://test-scope");
+        registry.add("spring.kafka.producer.properties.schema.registry.url", () -> "mock://test-scope");
+        registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> "mock://test-scope");
+        registry.add(
+                "spring.kafka.producer.properties.transactional.id",
+                () -> "pravah-playground-test-" + UUID.randomUUID());
+    }
 
     @Autowired
     private JobEventProducer producer;
@@ -52,26 +77,33 @@ class KafkaIntegrationTest {
     @Autowired
     private AuditConsumer auditConsumer;
 
+    @Autowired
+    private DeadLetterHandler deadLetterHandler;
+
     // ─────────────────────────────────────────────────────────────
     // Task 1 — Basic publish
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Call producer.publish("acme", "orders-etl", "extract")
-     *   2. Assert the returned jobId is not null
-     *   3. Use Awaitility to wait until auditConsumer.getAuditLog() has 1 entry
-     *        await().atMost(10, TimeUnit.SECONDS)
-     *               .until(() -> auditConsumer.getAuditLog().size() == 1);
-     *   4. Assert the audit log entry contains "acme"
+     * Proves: a published message is received by the audit-service consumer group.
      *
-     * WHY Awaitility: the consumer runs on a background thread. If you assert
-     * immediately after publish, the consumer hasn't processed the message yet.
-     * Awaitility polls until the condition is true or the timeout expires.
+     * WHY Awaitility instead of Thread.sleep?
+     *   The consumer runs on a background thread. After publish() returns,
+     *   the message is in Kafka but the consumer hasn't necessarily processed it yet.
+     *   Thread.sleep(5000) is slow and flaky (what if the machine is under load?).
+     *   Awaitility polls every 100ms until the condition is true, up to 10 seconds.
+     *   It fails fast when the condition is met, and fails with a clear message on timeout.
      */
     @Test
     void task1_publishCreatesMessageInTopic() {
-        // TODO: implement
+        String jobId = producer.publish("acme", "orders-etl", "extract");
+
+        assertThat(jobId).isNotNull();
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .until(() -> auditConsumer.getAuditLog().size() == 1);
+
+        assertThat(auditConsumer.getAuditLog().get(0)).contains("acme");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -79,18 +111,26 @@ class KafkaIntegrationTest {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Publish 3 events for different tenants: acme, beta, gamma
-     *   2. Wait until auditConsumer.getAuditLog().size() >= 3
-     *   3. Assert the audit log contains entries for all 3 tenants
+     * Proves: all 3 messages are received by the audit-service consumer group,
+     * regardless of which partition they land on (tenantId as key distributes them).
      *
-     * This proves both consumer groups received all 3 messages.
-     * (The execution-service consumer processing is harder to assert in tests —
-     * check the logs manually when running against the real Docker Compose setup)
+     * The execution-service consumer processing is verified via logs when running
+     * against the real Docker Compose setup — it's harder to assert in tests because
+     * it doesn't maintain an in-memory list.
      */
     @Test
     void task2_bothConsumerGroupsReceiveAllMessages() {
-        // TODO: implement
+        producer.publish("acme",  "orders-etl", "extract");
+        producer.publish("beta",  "orders-etl", "extract");
+        producer.publish("gamma", "orders-etl", "extract");
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .until(() -> auditConsumer.getAuditLog().size() >= 3);
+
+        assertThat(auditConsumer.getAuditLog())
+                .anyMatch(e -> e.contains("acme"))
+                .anyMatch(e -> e.contains("beta"))
+                .anyMatch(e -> e.contains("gamma"));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -98,23 +138,24 @@ class KafkaIntegrationTest {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Publish a job with stepId = "poison"
-     *   2. The consumer should retry 3 times then route to DLT
-     *   3. To verify the DLT received it, you need to add a counter to DeadLetterHandler.
-     *      Add: private final AtomicInteger dltCount = new AtomicInteger(0);
-     *           Increment it in handleDlt().
-     *      Expose it via getDltCount().
-     *   4. Wait until DeadLetterHandler.getDltCount() == 1
-     *   5. Assert the audit log did NOT receive the poison pill
-     *      (the main consumer failed — audit consumer may or may not have received it
-     *       depending on whether they share partition assignment. Discuss this.)
+     * Proves: a poison pill message is retried 3 times and then routed to the DLT,
+     * without blocking other messages in the same topic.
      *
-     * NOTE: The retries with exponential backoff will make this test slow (1s + 2s + 4s = 7s).
-     * Set atMost(20, TimeUnit.SECONDS).
+     * The exponential backoff is 1s + 2s + 4s = 7s of retries before DLT routing.
+     * Hence atMost(20, SECONDS) — we give plenty of margin.
+     *
+     * In the real Docker Compose run, watch the execution-service logs:
+     *   [execution-service] Received job.created: stepId=poison ...  (x3 retries)
+     *   [DLT] Poison pill received: jobId=... exception=PoisonPillException
      */
     @Test
     void task4_poisonPillRoutedToDlt() {
-        // TODO: implement
+        producer.publish("acme", "orders-etl", "poison");
+
+        // Wait for the DLT handler to receive the message
+        await().atMost(20, TimeUnit.SECONDS)
+                .until(() -> deadLetterHandler.getDltCount() == 1);
+
+        assertThat(deadLetterHandler.getDltCount()).isEqualTo(1);
     }
 }

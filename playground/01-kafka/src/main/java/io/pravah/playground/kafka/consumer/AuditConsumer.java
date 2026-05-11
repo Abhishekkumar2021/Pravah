@@ -25,13 +25,21 @@ import java.util.List;
  *   - audit-service:     writes immutable audit trail
  *   - billing-service:   meters compute usage
  * All three are independent consumer groups on the same topic.
+ *
+ * HOW KAFKA FAN-OUT WORKS:
+ *   Kafka does NOT push messages to consumers. Consumers PULL from the broker.
+ *   Each consumer group has its own committed offset per partition.
+ *   When the broker gets a message, it just appends it to the partition log.
+ *   Every consumer group independently tracks where it has read up to.
+ *   The message stays in the log until the retention period expires —
+ *   not until all consumers have read it.
  */
 @Slf4j
 @Component
 public class AuditConsumer {
 
     // In-memory audit log. In real Pravah this would be a PostgreSQL append-only table.
-    // CopyOnWriteArrayList because multiple listener threads write concurrently.
+    // synchronizedList because multiple listener threads (concurrency=3) write concurrently.
     private final List<String> auditLog = Collections.synchronizedList(new ArrayList<>());
 
     // ─────────────────────────────────────────────────────────────
@@ -39,34 +47,33 @@ public class AuditConsumer {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * TODO:
-     *   1. Add the @KafkaListener annotation:
-     *        @KafkaListener(
-     *            topics = "${pravah.kafka.topics.job-created}",
-     *            groupId = "${pravah.kafka.consumer-groups.audit-service}",
-     *            containerFactory = "auditServiceFactory"
-     *        )
+     * Note: containerFactory = "auditServiceFactory"
+     *   → uses the factory with group.id = "audit-service"
+     *   → offsets are tracked SEPARATELY from execution-service
+     *   → if execution-service is slow or down, audit-service is unaffected
      *
-     *   2. Inside the method:
-     *        a. Build an audit entry string:
-     *             String entry = String.format("[AUDIT] jobId=%s tenantId=%s pipelineId=%s stepId=%s at=%d",
-     *                 record.value().getJobId(), record.value().getTenantId(),
-     *                 record.value().getPipelineId(), record.value().getStepId(),
-     *                 record.value().getCreatedAt());
-     *
-     *        b. Add it to auditLog
-     *        c. Log it: log.info(entry)
-     *        d. Acknowledge: acknowledgment.acknowledge()
-     *
-     *   3. Method signature:
-     *        public void audit(ConsumerRecord<String, JobCreated> record, Acknowledgment acknowledgment)
-     *
-     * After implementing, open Kafdrop (http://localhost:9000) and check the consumer groups tab.
-     * You will see TWO groups — execution-service and audit-service — each with their own offsets
-     * on the pravah.job.created topic. This is the proof that fan-out works.
+     * After running, open Kafdrop (http://localhost:9000) → Consumer Groups.
+     * You will see TWO groups, each with their own lag and offset on pravah.job.created.
+     * That is proof of independent fan-out.
      */
+    @KafkaListener(
+            topics = "${pravah.kafka.topics.job-created}",
+            groupId = "${pravah.kafka.consumer-groups.audit-service}",
+            containerFactory = "auditServiceFactory"
+    )
     public void audit(ConsumerRecord<String, JobCreated> record, Acknowledgment acknowledgment) {
-        // TODO: implement
+        JobCreated event = record.value();
+
+        String entry = String.format("[AUDIT] jobId=%s tenantId=%s pipelineId=%s stepId=%s at=%d",
+                event.getJobId(), event.getTenantId(),
+                event.getPipelineId(), event.getStepId(),
+                event.getCreatedAt());
+
+        auditLog.add(entry);
+        log.info(entry);
+
+        // Acknowledge: we've written to our audit log, mark this offset done.
+        acknowledgment.acknowledge();
     }
 
     /** Exposes the audit log for the test in Task 2. */

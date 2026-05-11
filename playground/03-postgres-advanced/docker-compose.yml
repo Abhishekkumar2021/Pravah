@@ -1,0 +1,38 @@
+# Local stack for ADR-003 / ADR-013 / ADR-022 playground
+#
+# Both services always start together (no Compose profiles):
+#   - PostgreSQL 16 on host port 5432 (Flyway + direct psql / admin)
+#   - PgBouncer (transaction pool) on host port 6432 (Spring app datasource — see application.yml)
+#
+#   docker compose up -d
+#   ./gradlew bootRun
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: playground
+      POSTGRES_PASSWORD: playground
+      POSTGRES_DB: playground
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U playground -d playground"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pgbouncer:
+    # Tag must include patch suffix (e.g. -p0); bare v1.23.1 is not on Docker Hub.
+    image: edoburu/pgbouncer:v1.25.1-p0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://playground:playground@postgres:5432/playground
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "6432:5432"

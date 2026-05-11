@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: pravah-grpc-playground
+
+# gRPC server (net.devh grpc-spring-boot-starter)
+grpc:
+  server:
+    port: 9090
+    # Enables grpcurl discovery without compiling descriptors:
+    #   grpcurl -plaintext localhost:9090 list
+    reflection-service-enabled: true
+  client:
+    # Used by DemoRunnerClient when playground.runner.demo-on-startup=true
+    runner-playground:
+      address: static://127.0.0.1:9090
+      negotiation-type: plaintext
+
+# Optional: set true to start an in-process demo runner on boot (see DemoRunnerClient).
+playground:
+  runner:
+    demo-on-startup: false
