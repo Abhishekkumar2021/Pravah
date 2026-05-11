@@ -1,0 +1,13 @@
+# Redis only — matches ADR-012 single-primary mental model for local dev.
+# Sentinel is production; here you learn primitives: SET NX, Lua, token bucket.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10

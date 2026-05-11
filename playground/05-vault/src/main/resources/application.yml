@@ -1,0 +1,8 @@
+playground:
+  vault:
+    uri: http://127.0.0.1:8200
+    token: root
+
+logging:
+  level:
+    io.pravah.playground.vault: INFO
