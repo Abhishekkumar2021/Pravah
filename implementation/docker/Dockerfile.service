@@ -2,28 +2,11 @@
 
 # ============================================================================
 # Pravah Service Dockerfile
-# Multi-stage build for Spring Boot services
+# Simple single-stage build for Spring Boot services
 # ============================================================================
 
 ARG SERVICE_NAME
 
-# ----------------------------------------------------------------------------
-# Stage 1: Build context extractor
-# ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS builder
-
-ARG SERVICE_NAME
-WORKDIR /app
-
-# Copy the built JAR
-COPY services/${SERVICE_NAME}/build/libs/*.jar app.jar
-
-# Extract layers for better caching
-RUN java -Djarmode=layertools -jar app.jar extract
-
-# ----------------------------------------------------------------------------
-# Stage 2: Runtime
-# ----------------------------------------------------------------------------
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
 # Security: Run as non-root user
@@ -32,11 +15,9 @@ RUN addgroup -g 1000 pravah && \
 
 WORKDIR /app
 
-# Copy layers in order of change frequency (least to most)
-COPY --from=builder /app/dependencies/ ./
-COPY --from=builder /app/spring-boot-loader/ ./
-COPY --from=builder /app/snapshot-dependencies/ ./
-COPY --from=builder /app/application/ ./
+# Copy the Spring Boot JAR
+ARG SERVICE_NAME
+COPY services/${SERVICE_NAME}/build/libs/*.jar app.jar
 
 # Set ownership
 RUN chown -R pravah:pravah /app
@@ -55,4 +36,4 @@ ENV JAVA_OPTS="-XX:+UseG1GC \
 
 EXPOSE 8080
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
