@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: scheduler-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_scheduler
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+
+grpc:
+  client:
+    execution-service:
+      address: static://localhost:9090
+      negotiation-type: plaintext
+
+server:
+  port: 8085
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: tenant-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_tenant
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: public
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: public
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

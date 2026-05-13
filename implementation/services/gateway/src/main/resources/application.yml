@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: gateway
+  
+  cloud:
+    gateway:
+      routes:
+        - id: graphql-service
+          uri: lb://graphql-service
+          predicates:
+            - Path=/graphql/**
+        
+        - id: pipeline-service
+          uri: lb://pipeline-service
+          predicates:
+            - Path=/api/v1/pipelines/**
+        
+        - id: execution-service
+          uri: lb://execution-service
+          predicates:
+            - Path=/api/v1/runs/**,/api/v1/jobs/**
+        
+        - id: tenant-service
+          uri: lb://tenant-service
+          predicates:
+            - Path=/api/v1/tenants/**,/api/v1/users/**
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO
+    org.springframework.cloud.gateway: DEBUG

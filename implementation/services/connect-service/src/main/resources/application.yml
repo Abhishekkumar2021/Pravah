@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: connect-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_connect
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
+            scope: repo,read:user
+          gitlab:
+            client-id: ${GITLAB_CLIENT_ID:}
+            client-secret: ${GITLAB_CLIENT_SECRET:}
+            scope: api,read_user
+
+server:
+  port: 8090
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

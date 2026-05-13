@@ -1,0 +1,177 @@
+syntax = "proto3";
+
+package io.pravah;
+
+option java_package = "io.pravah.proto.execution";
+option java_outer_classname = "ExecutionServiceProto";
+option java_multiple_files = true;
+
+import "io/pravah/common.proto";
+import "io/pravah/runner_service.proto"; // For JobStatus enum
+
+/**
+ * Execution Service gRPC API (internal)
+ * 
+ * Internal service for run and job execution management.
+ * Used by Scheduler Service and Runner Service.
+ * See: docs/architecture/api-contracts.md#grpc-protobuf-contracts
+ */
+service ExecutionService {
+  // Trigger a new pipeline run (called by Scheduler)
+  rpc TriggerRun(TriggerRunRequest) returns (TriggerRunResponse);
+  
+  // Get run details
+  rpc GetRun(GetRunRequest) returns (RunInfo);
+  
+  // Cancel a running pipeline
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+  
+  // Get job details
+  rpc GetJob(GetJobRequest) returns (JobInfo);
+  
+  // Update job status (called by Runner Service)
+  rpc UpdateJobStatus(UpdateJobStatusRequest) returns (UpdateJobStatusResponse);
+  
+  // Claim next available job (called by Runner Service)
+  rpc ClaimJob(ClaimJobRequest) returns (ClaimJobResponse);
+  
+  // Stream job logs
+  rpc StreamJobLogs(StreamJobLogsRequest) returns (stream JobLogEntry);
+}
+
+// ============================================================================
+// Run Management
+// ============================================================================
+
+message TriggerRunRequest {
+  string pipeline_id = 1;
+  int32 pipeline_version = 2;       // 0 = latest published
+  string triggered_by = 3;
+  TriggerType trigger_type = 4;
+  map<string, string> parameters = 5;
+}
+
+enum TriggerType {
+  TRIGGER_TYPE_UNSPECIFIED = 0;
+  TRIGGER_TYPE_MANUAL = 1;
+  TRIGGER_TYPE_SCHEDULE = 2;
+  TRIGGER_TYPE_WEBHOOK = 3;
+  TRIGGER_TYPE_API = 4;
+}
+
+message TriggerRunResponse {
+  string run_id = 1;
+  RunStatus status = 2;
+}
+
+message GetRunRequest {
+  string run_id = 1;
+}
+
+message RunInfo {
+  string run_id = 1;
+  string pipeline_id = 2;
+  int32 pipeline_version = 3;
+  RunStatus status = 4;
+  string triggered_by = 5;
+  TriggerType trigger_type = 6;
+  int64 created_at = 7;
+  int64 started_at = 8;
+  int64 completed_at = 9;
+  repeated JobSummary jobs = 10;
+}
+
+message JobSummary {
+  string job_id = 1;
+  string name = 2;
+  JobStatus status = 3;
+  int64 started_at = 4;
+  int64 completed_at = 5;
+}
+
+message CancelRunRequest {
+  string run_id = 1;
+  string cancelled_by = 2;
+  string reason = 3;
+}
+
+message CancelRunResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============================================================================
+// Job Management
+// ============================================================================
+
+message GetJobRequest {
+  string job_id = 1;
+}
+
+message JobInfo {
+  string job_id = 1;
+  string run_id = 2;
+  string name = 3;
+  JobStatus status = 4;
+  string runner_id = 5;
+  int64 queued_at = 6;
+  int64 started_at = 7;
+  int64 completed_at = 8;
+  int32 exit_code = 9;
+  string error_message = 10;
+  int32 attempt = 11;
+}
+
+message UpdateJobStatusRequest {
+  string job_id = 1;
+  string runner_id = 2;
+  JobStatus status = 3;
+  int32 exit_code = 4;
+  string error_message = 5;
+}
+
+message UpdateJobStatusResponse {
+  bool success = 1;
+}
+
+message ClaimJobRequest {
+  string runner_id = 1;
+  repeated string supported_executors = 2;
+  repeated Label runner_labels = 3;
+}
+
+message ClaimJobResponse {
+  bool job_available = 1;
+  JobAssignment job = 2;  // Only set if job_available is true
+}
+
+// ============================================================================
+// Logs
+// ============================================================================
+
+message StreamJobLogsRequest {
+  string job_id = 1;
+  bool follow = 2;           // If true, keep streaming as logs arrive
+  int64 since_sequence = 3;  // Start from this sequence number
+}
+
+message JobLogEntry {
+  int64 sequence = 1;
+  int64 timestamp = 2;
+  LogStream stream = 3;
+  string line = 4;
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_PENDING = 1;
+  RUN_STATUS_RUNNING = 2;
+  RUN_STATUS_SUCCEEDED = 3;
+  RUN_STATUS_FAILED = 4;
+  RUN_STATUS_CANCELLED = 5;
+  RUN_STATUS_RETRYING = 6;
+}

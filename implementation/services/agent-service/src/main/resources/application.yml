@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: agent-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_agent
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4-turbo-preview}
+          temperature: 0.7
+
+server:
+  port: 8089
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO
