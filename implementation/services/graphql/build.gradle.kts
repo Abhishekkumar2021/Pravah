@@ -25,7 +25,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
 
     // GraphQL extensions
-    implementation("com.graphql-java:graphql-java-extended-scalars:21.0")
+    implementation("com.graphql-java:graphql-java-extended-scalars:24.0")
 
     // Test support
     testImplementation(project(":libs:test-support"))
