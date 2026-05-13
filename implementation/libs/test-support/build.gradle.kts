@@ -31,5 +31,5 @@ dependencies {
     api("org.awaitility:awaitility:4.2.1")
 
     // Faker for test data generation
-    api("net.datafaker:datafaker:2.1.0")
+    api("net.datafaker:datafaker:2.5.4")
 }
