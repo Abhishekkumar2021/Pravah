@@ -1,35 +1,37 @@
 version: 2
 
+# Dependabot targets develop so PRs follow the same review flow as feature work.
+# Low open-PR limits + grouping reduce noise; schedule is monthly to batch churn.
+
 updates:
   # ============================================================================
   # Gradle Dependencies
   # ============================================================================
   - package-ecosystem: "gradle"
     directory: "/implementation"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Kolkata"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "java"
     commit-message:
       prefix: "deps(gradle)"
     ignore:
-      # Stay on Spring Boot 3.x - don't upgrade to 4.x yet
       - dependency-name: "org.springframework.boot"
         update-types: ["version-update:semver-major"]
       - dependency-name: "org.springframework.cloud:spring-cloud-starter-gateway"
         update-types: ["version-update:semver-major"]
-      # Stay on HikariCP 5.x
       - dependency-name: "com.zaxxer:HikariCP"
         update-types: ["version-update:semver-major"]
-      # Stay on OkHttp 4.x
       - dependency-name: "com.squareup.okhttp3:okhttp"
         update-types: ["version-update:semver-major"]
+      # Gradle wrapper: bump deliberately (major jumps are high churn)
+      - dependency-name: "gradle-wrapper"
+        update-types: ["version-update:semver-major"]
     groups:
+      # Order matters: first match wins. Put specific groups before catch-all.
       spring:
         patterns:
           - "org.springframework*"
@@ -46,41 +48,51 @@ updates:
         patterns:
           - "io.grpc*"
           - "com.google.protobuf*"
+      # Everything else in one PR to avoid dozens of one-line bumps.
+      # Exclude Spring prefix so major Spring bumps are not merged into this group.
+      non-spring-ecosystem:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "org.springframework*"
 
   # ============================================================================
   # GitHub Actions
   # ============================================================================
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Kolkata"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "ci"
     commit-message:
       prefix: "deps(actions)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # ============================================================================
   # Docker Base Images
   # ============================================================================
   - package-ecosystem: "docker"
     directory: "/implementation/docker"
+    target-branch: "develop"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Kolkata"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "docker"
     commit-message:
       prefix: "deps(docker)"
     ignore:
-      # Stay on Java 21 - don't upgrade to newer JDK versions
       - dependency-name: "eclipse-temurin"
         update-types: ["version-update:semver-major"]
+    groups:
+      docker-images:
+        patterns:
+          - "*"
