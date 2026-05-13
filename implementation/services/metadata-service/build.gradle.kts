@@ -24,8 +24,8 @@ dependencies {
     implementation("org.duckdb:duckdb_jdbc:0.10.1")
 
     // Object storage (MinIO/S3 compatible)
-    implementation("software.amazon.awssdk:s3:2.25.21")
-    implementation("software.amazon.awssdk:sts:2.25.21")
+    implementation("software.amazon.awssdk:s3:2.44.4")
+    implementation("software.amazon.awssdk:sts:2.44.4")
 
     // Test support
     testImplementation(project(":libs:test-support"))
