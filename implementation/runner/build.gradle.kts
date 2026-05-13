@@ -32,7 +32,7 @@ dependencies {
     implementation("org.yaml:snakeyaml:2.2")
 
     // HTTP client for health checks
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
 
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")
