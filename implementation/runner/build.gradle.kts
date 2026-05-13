@@ -39,8 +39,8 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
     // Docker client for container execution
-    implementation("com.github.docker-java:docker-java-core:3.3.6")
-    implementation("com.github.docker-java:docker-java-transport-httpclient5:3.3.6")
+    implementation("com.github.docker-java:docker-java-core:3.7.1")
+    implementation("com.github.docker-java:docker-java-transport-httpclient5:3.7.1")
 
     // Test support
     testImplementation(project(":libs:test-support"))
