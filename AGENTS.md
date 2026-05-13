@@ -179,7 +179,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 ## Git workflow
 
-Do **not** push to `main` or `develop` directly. Use a topic branch and a pull request. Repository rules (branch rulesets or branch protection) must be configured on GitHub so pushes to those branches are rejected; see **“Enforcing PR-only workflow”** in [CONTRIBUTING.md](CONTRIBUTING.md).
+Prefer **topic branches and pull requests** into `main` or `develop` instead of pushing straight to those branches. On GitHub, use **branch rulesets** (or branch protection) so default merges require PRs and checks; as a **solo maintainer** you can grant **repository admin bypass** when you need to override—see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

@@ -43,9 +43,9 @@ main (protected)
 - Requires passing CI (Build & Test)
 - Force pushes disabled
 
-**Important:** The bullets above are **policy**. GitHub will only block direct pushes after a **repository administrator** configures rules below. Docs alone do not enforce anything.
+**Important:** The bullets above are **policy**. GitHub will only block direct pushes after rules are configured on the server. Docs alone do not enforce anything.
 
-**As applied in this repo:** branch rulesets are versioned under [`.github/scripts/`](.github/scripts/README.md) (JSON + `gh api` instructions). Classic branch protection was removed in favor of rulesets so **admin bypass** does not allow direct pushes.
+For a **solo maintainer**, GitHub **branch rulesets** can still require PRs and CI for day-to-day quality, while **Allow repository admins to bypass** (or an equivalent bypass entry for the repository admin role) lets you merge or push when you are blocked by checks—use sparingly.
 
 ### Enforcing PR-only workflow (repository administrators)
 
@@ -61,10 +61,8 @@ Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **ru
    - **Require a pull request before merging** (set minimum number of approvals and “dismiss stale reviews” as you prefer).
    - **Require status checks to pass** → add the checks from `.github/workflows/` (e.g. build/test jobs from `ci.yml` / `pr-checks.yml`).
    - **Block force pushes**.
-6. **Bypass list:** Leave empty, or only add automation accounts that truly must merge without PRs. **Do not** add humans here if you want no direct pushes for anyone.
-7. In the ruleset, avoid granting **bypass** to “Repository admin” unless you explicitly want admins to push around the rules (that is how direct pushes slipped through before).
-
-Save the ruleset. After this, `git push origin develop` from a laptop should be **rejected** unless the push is a merge from a merged PR (depending on how you merge) or you use a bypass-capable actor.
+6. **Bypass list (solo developer):** enable **Repository admin** (or **Repository role: Admin**) so the owner can bypass when needed. Omit this if you want the strictest possible setup with no bypasses.
+7. Save the ruleset. With PR required and optional admin bypass, normal work goes through PRs; direct pushes stay blocked unless you use bypass (e.g. merge with admin override or adjust rules in Settings).
 
 #### Option B — Classic branch protection
 
@@ -74,7 +72,7 @@ Save the ruleset. After this, `git push origin develop` from a laptop should be 
    - **Require a pull request before merging**
    - **Require approvals** (e.g. 1) where you want review
    - **Require status checks to pass before merging** (select the same CI checks as in Option A)
-   - **Do not allow bypassing the above settings** (so administrators cannot push directly either—use this if you want strict PR-only).
+   - For a solo repo, **do not** enable “Do not allow bypassing the above settings” if you want the owner to be able to override when needed.
 4. Enable **Block force pushes**.
 
 #### Day-to-day for contributors
