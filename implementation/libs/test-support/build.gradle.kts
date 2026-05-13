@@ -17,7 +17,7 @@ dependencies {
     api(project(":libs:common"))
 
     // Spring Boot Test
-    api("org.springframework.boot:spring-boot-starter-test:3.2.5") {
+    api("org.springframework.boot:spring-boot-starter-test:4.0.6") {
         exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
     }
 
