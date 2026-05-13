@@ -1,0 +1,131 @@
+---
+description: Mandatory pre-commit workflow - ALWAYS execute before committing
+alwaysApply: true
+---
+
+# Pre-Commit Workflow (MANDATORY)
+
+**CRITICAL**: Before creating ANY commit, you MUST execute ALL steps in order.
+Do NOT skip steps. Do NOT commit if any step fails.
+
+## Step 1: Format Code
+
+```bash
+cd implementation && ./gradlew spotlessApply --no-daemon
+```
+
+**Verify**: Command exits with `BUILD SUCCESSFUL`
+
+## Step 2: Compile and Check for Warnings
+
+```bash
+cd implementation && ./gradlew compileJava compileTestJava --no-daemon
+```
+
+**Verify**: No compilation errors, review any warnings
+
+## Step 3: Run Unit Tests
+
+```bash
+cd implementation && ./gradlew test --no-daemon
+```
+
+**Verify**: All tests pass. If tests fail, FIX THEM before proceeding.
+
+## Step 4: Check for Lint Issues
+
+```bash
+# Use ReadLints tool on modified files
+```
+
+**Verify**: No new linter errors introduced
+
+## Step 5: Review Changes
+
+Before staging, review what you're committing:
+
+```bash
+git diff --stat
+git diff  # Review actual changes
+```
+
+**Verify**:
+- [ ] No debug code (System.out.println, console.log, etc.)
+- [ ] No commented-out code blocks
+- [ ] No hardcoded secrets or credentials
+- [ ] No unintended file changes
+- [ ] All new files are intentional
+
+## Step 6: Self Code Review
+
+Ask yourself:
+- [ ] Does this code match the design in `docs/lld/`?
+- [ ] Would I understand this code in 6 months?
+- [ ] Are error cases handled properly?
+- [ ] Is there test coverage for new code?
+- [ ] Are there any TODOs without issue links?
+
+## Step 7: Stage and Commit
+
+Only after ALL above steps pass:
+
+```bash
+git add -A
+git commit -m "$(cat <<'EOF'
+type(scope): Clear description of what changed
+
+- Bullet point explaining the change
+- Another bullet if needed
+
+Refs: #issue or US-XX.YY (if applicable)
+EOF
+)"
+```
+
+## Step 8: Post-Commit Verification
+
+```bash
+git log -1  # Verify commit message looks correct
+git status  # Verify working directory is clean
+```
+
+---
+
+## Quick Reference Commands
+
+```bash
+# Full pre-commit check (copy-paste this)
+cd implementation && \
+  ./gradlew spotlessApply --no-daemon && \
+  ./gradlew compileJava compileTestJava --no-daemon && \
+  ./gradlew test --no-daemon && \
+  echo "✅ All checks passed - safe to commit"
+```
+
+## When to Skip (NEVER for production code)
+
+The ONLY acceptable reasons to skip steps:
+- Documentation-only changes (skip Steps 1-3, still do 5-8)
+- Config file changes (still run Step 1 for formatting)
+
+## Common Issues and Fixes
+
+### Spotless Fails
+```bash
+./gradlew spotlessApply --no-daemon  # Auto-fix
+```
+
+### Tests Fail
+- Read the failure message
+- Fix the code or test
+- Re-run tests
+- Do NOT bypass with `@Disabled`
+
+### Compilation Errors
+- Fix all errors before proceeding
+- Do NOT commit code that doesn't compile
+
+---
+
+**REMEMBER**: A broken commit wastes everyone's time. Take 2 minutes to verify
+rather than 2 hours to debug a broken build.

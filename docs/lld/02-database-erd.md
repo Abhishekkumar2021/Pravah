@@ -47,25 +47,28 @@ graph TB
 
 ```mermaid
 erDiagram
-    organizations ||--o{ teams : has
-    organizations ||--o{ users : has
-    organizations ||--o{ roles : has
-    organizations ||--o{ audit_logs : generates
+    tenants ||--o{ teams : has
+    tenants ||--o{ users : has
+    tenants ||--o{ roles : has
+    tenants ||--o{ audit_logs : generates
+    tenants ||--o{ tenant_members : has
     
     teams ||--o{ projects : contains
     teams ||--o{ team_members : has
     
     users ||--o{ team_members : belongs_to
+    users ||--o{ tenant_members : belongs_to
     users ||--o{ api_tokens : owns
     users ||--o{ sessions : has
     users ||--o{ project_members : belongs_to
     
     roles ||--o{ team_members : assigned_via
+    roles ||--o{ tenant_members : assigned_via
     roles ||--o{ project_members : assigned_via
     
     projects ||--o{ project_members : has
 
-    organizations {
+    tenants {
         uuid id PK
         varchar name
         varchar slug UK
@@ -77,7 +80,7 @@ erDiagram
     
     teams {
         uuid id PK
-        uuid org_id FK
+        uuid tenant_id FK
         varchar name
         jsonb settings
         timestamptz created_at
@@ -85,7 +88,7 @@ erDiagram
     
     projects {
         uuid id PK
-        uuid org_id FK
+        uuid tenant_id FK
         uuid team_id FK
         varchar name
         text description
@@ -95,23 +98,32 @@ erDiagram
     
     users {
         uuid id PK
-        uuid org_id FK
+        uuid tenant_id FK
         varchar email
         varchar name
         varchar password_hash
         varchar mfa_secret
         varchar status
+        int failed_login_attempts
+        timestamptz locked_until
         timestamptz last_login_at
         timestamptz created_at
     }
     
     roles {
         uuid id PK
-        uuid org_id FK
+        uuid tenant_id FK
         varchar name
         jsonb permissions
         boolean is_system
         timestamptz created_at
+    }
+    
+    tenant_members {
+        uuid tenant_id PK,FK
+        uuid user_id PK,FK
+        uuid role_id FK
+        timestamptz joined_at
     }
     
     team_members {
@@ -130,13 +142,14 @@ erDiagram
     api_tokens {
         uuid id PK
         uuid user_id FK
-        uuid org_id FK
+        uuid tenant_id FK
         varchar name
         varchar token_hash UK
         jsonb permissions
         timestamptz expires_at
         timestamptz last_used_at
         timestamptz created_at
+        timestamptz revoked_at
     }
     
     sessions {
@@ -151,7 +164,7 @@ erDiagram
     
     audit_logs {
         uuid id PK
-        uuid org_id FK
+        uuid tenant_id FK
         uuid user_id FK
         varchar action
         varchar resource_type
@@ -165,33 +178,37 @@ erDiagram
 ### Table Definitions
 
 ```sql
--- Organizations (top-level tenant)
-CREATE TABLE organizations (
+-- Tenants (top-level isolation boundary)
+CREATE TABLE tenants (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name            VARCHAR(255) NOT NULL,
     slug            VARCHAR(100) NOT NULL UNIQUE,
     tier            VARCHAR(50) NOT NULL DEFAULT 'free', -- free, team, enterprise
     settings        JSONB NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    CONSTRAINT chk_tier CHECK (tier IN ('free', 'team', 'enterprise')),
+    CONSTRAINT chk_slug_format CHECK (slug ~ '^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$')
 );
 
--- Teams within an organization
+-- Teams within a tenant
 CREATE TABLE teams (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID NOT NULL REFERENCES organizations(id),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name            VARCHAR(255) NOT NULL,
+    description     TEXT,
     settings        JSONB NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
-    UNIQUE(org_id, name)
+    UNIQUE(tenant_id, name)
 );
 
 -- Projects within a team
 CREATE TABLE projects (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID NOT NULL REFERENCES organizations(id),
-    team_id         UUID NOT NULL REFERENCES teams(id),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    team_id         UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     name            VARCHAR(255) NOT NULL,
     description     TEXT,
     settings        JSONB NOT NULL DEFAULT '{}',
@@ -203,73 +220,89 @@ CREATE TABLE projects (
 -- Users
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID NOT NULL REFERENCES organizations(id),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     email           VARCHAR(255) NOT NULL,
     name            VARCHAR(255) NOT NULL,
     password_hash   VARCHAR(255), -- NULL for OAuth-only users
     mfa_secret      VARCHAR(255), -- TOTP secret, encrypted
-    status          VARCHAR(50) NOT NULL DEFAULT 'active', -- active, inactive, pending
+    status          VARCHAR(50) NOT NULL DEFAULT 'pending', -- active, inactive, pending, locked
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    locked_until    TIMESTAMPTZ,
     last_login_at   TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
-    UNIQUE(org_id, email)
+    UNIQUE(tenant_id, email),
+    CONSTRAINT chk_status CHECK (status IN ('active', 'inactive', 'pending', 'locked'))
 );
 
 -- Roles (system + custom)
 CREATE TABLE roles (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID REFERENCES organizations(id), -- NULL for system roles
+    tenant_id       UUID REFERENCES tenants(id) ON DELETE CASCADE, -- NULL for system roles
     name            VARCHAR(100) NOT NULL,
-    permissions     JSONB NOT NULL, -- array of permission strings
+    description     TEXT,
+    permissions     JSONB NOT NULL DEFAULT '[]', -- array of permission strings
     is_system       BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
-    UNIQUE(org_id, name)
+    UNIQUE(tenant_id, name)
 );
 
--- Insert system roles
-INSERT INTO roles (id, name, permissions, is_system) VALUES
-    ('00000000-0000-0000-0000-000000000001', 'owner', '["*"]', true),
-    ('00000000-0000-0000-0000-000000000002', 'admin', '["pipelines:*", "executions:*", "settings:read"]', true),
-    ('00000000-0000-0000-0000-000000000003', 'editor', '["pipelines:read", "pipelines:write", "executions:*"]', true),
-    ('00000000-0000-0000-0000-000000000004', 'viewer', '["pipelines:read", "executions:read"]', true);
+-- Insert system roles (tenant_id = NULL)
+INSERT INTO roles (id, tenant_id, name, description, permissions, is_system) VALUES
+    ('00000000-0000-0000-0000-000000000001', NULL, 'owner', 'Full access to tenant', '["*"]', true),
+    ('00000000-0000-0000-0000-000000000002', NULL, 'admin', 'Administrative access', '["pipelines:*", "executions:*", "users:*", "settings:read"]', true),
+    ('00000000-0000-0000-0000-000000000003', NULL, 'editor', 'Can create and modify pipelines', '["pipelines:read", "pipelines:write", "executions:*"]', true),
+    ('00000000-0000-0000-0000-000000000004', NULL, 'viewer', 'Read-only access', '["pipelines:read", "executions:read"]', true);
 
--- Team membership
-CREATE TABLE team_members (
-    user_id         UUID NOT NULL REFERENCES users(id),
-    team_id         UUID NOT NULL REFERENCES teams(id),
+-- Tenant membership (user-role assignment at tenant level)
+CREATE TABLE tenant_members (
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id         UUID NOT NULL REFERENCES roles(id),
     joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     
-    PRIMARY KEY (user_id, team_id)
+    PRIMARY KEY (tenant_id, user_id)
+);
+
+-- Team membership
+CREATE TABLE team_members (
+    team_id         UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id         UUID NOT NULL REFERENCES roles(id),
+    joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    
+    PRIMARY KEY (team_id, user_id)
 );
 
 -- Project membership (optional, for project-level access)
 CREATE TABLE project_members (
-    user_id         UUID NOT NULL REFERENCES users(id),
-    project_id      UUID NOT NULL REFERENCES projects(id),
+    project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id         UUID NOT NULL REFERENCES roles(id),
     
-    PRIMARY KEY (user_id, project_id)
+    PRIMARY KEY (project_id, user_id)
 );
 
 -- API tokens
 CREATE TABLE api_tokens (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES users(id),
-    org_id          UUID NOT NULL REFERENCES organizations(id),
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name            VARCHAR(255) NOT NULL,
     token_hash      VARCHAR(255) NOT NULL UNIQUE, -- SHA-256 of token
-    permissions     JSONB NOT NULL, -- scoped permissions
+    permissions     JSONB NOT NULL DEFAULT '[]', -- scoped permissions
     expires_at      TIMESTAMPTZ,
     last_used_at    TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    revoked_at      TIMESTAMPTZ
 );
 
 -- User sessions
 CREATE TABLE sessions (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID NOT NULL REFERENCES users(id),
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash      VARCHAR(255) NOT NULL UNIQUE,
     ip_address      INET,
     user_agent      TEXT,
@@ -280,37 +313,81 @@ CREATE TABLE sessions (
 -- Audit logs (append-only)
 CREATE TABLE audit_logs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    org_id          UUID NOT NULL REFERENCES organizations(id),
-    user_id         UUID REFERENCES users(id), -- NULL for system actions
+    tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         UUID REFERENCES users(id) ON DELETE SET NULL, -- NULL for system actions
     action          VARCHAR(100) NOT NULL, -- e.g., 'pipeline.created'
     resource_type   VARCHAR(100) NOT NULL, -- e.g., 'pipeline'
     resource_id     UUID,
     details         JSONB NOT NULL DEFAULT '{}',
     ip_address      INET,
+    user_agent      TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Transactional outbox for event publishing
+CREATE TABLE outbox (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aggregate_type  VARCHAR(100) NOT NULL,
+    aggregate_id    UUID NOT NULL,
+    event_type      VARCHAR(100) NOT NULL,
+    payload         JSONB NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    published_at    TIMESTAMPTZ
+);
+
 -- Indexes
-CREATE INDEX idx_users_org_id ON users(org_id);
-CREATE INDEX idx_teams_org_id ON teams(org_id);
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_teams_tenant_id ON teams(tenant_id);
 CREATE INDEX idx_projects_team_id ON projects(team_id);
-CREATE INDEX idx_audit_logs_org_created ON audit_logs(org_id, created_at DESC);
+CREATE INDEX idx_tenant_members_user ON tenant_members(user_id);
+CREATE INDEX idx_team_members_user ON team_members(user_id);
+CREATE INDEX idx_api_tokens_tenant ON api_tokens(tenant_id);
+CREATE INDEX idx_api_tokens_user ON api_tokens(user_id);
+CREATE INDEX idx_api_tokens_hash ON api_tokens(token_hash) WHERE revoked_at IS NULL;
+CREATE INDEX idx_audit_logs_tenant_created ON audit_logs(tenant_id, created_at DESC);
 CREATE INDEX idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id, created_at DESC);
+CREATE INDEX idx_outbox_unpublished ON outbox(created_at) WHERE published_at IS NULL;
 
--- Row-Level Security
+-- Row-Level Security (per ADR-013)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teams FORCE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE projects FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenant_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_members FORCE ROW LEVEL SECURITY;
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_members FORCE ROW LEVEL SECURITY;
+ALTER TABLE api_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_tokens FORCE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_users ON users
-    USING (org_id = current_setting('app.current_org_id')::UUID);
-CREATE POLICY tenant_isolation_teams ON teams
-    USING (org_id = current_setting('app.current_org_id')::UUID);
-CREATE POLICY tenant_isolation_projects ON projects
-    USING (org_id = current_setting('app.current_org_id')::UUID);
-CREATE POLICY tenant_isolation_audit ON audit_logs
-    USING (org_id = current_setting('app.current_org_id')::UUID);
+CREATE POLICY tenant_isolation_users ON users FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_teams ON teams FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_projects ON projects FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_tenant_members ON tenant_members FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_team_members ON team_members FOR ALL
+    USING (team_id IN (
+        SELECT id FROM teams WHERE tenant_id = current_setting('pravah.current_tenant_id', true)::UUID
+    ));
+CREATE POLICY tenant_isolation_api_tokens ON api_tokens FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_audit ON audit_logs FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 ```
 
 ---
@@ -508,17 +585,23 @@ CREATE INDEX idx_pipelines_project ON pipelines(project_id);
 CREATE INDEX idx_pipelines_tenant_status ON pipelines(tenant_id, status);
 CREATE INDEX idx_outbox_unpublished ON outbox(created_at) WHERE published_at IS NULL;
 
--- RLS
+-- RLS (per ADR-013)
 ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pipelines FORCE ROW LEVEL SECURITY;
 ALTER TABLE pipeline_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pipeline_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE connections FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_pipelines ON pipelines
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
-CREATE POLICY tenant_isolation_events ON pipeline_events
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
-CREATE POLICY tenant_isolation_connections ON connections
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+CREATE POLICY tenant_isolation_pipelines ON pipelines FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_events ON pipeline_events FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_connections ON connections FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 ```
 
 ### Pipeline Definition JSON Schema
@@ -747,13 +830,16 @@ CREATE INDEX idx_jobs_runner ON jobs(runner_id, status) WHERE status IN ('queued
 CREATE INDEX idx_job_logs_job ON job_logs(job_id, log_time);
 CREATE INDEX idx_outbox_unpublished ON outbox(created_at) WHERE published_at IS NULL;
 
--- RLS
+-- RLS (per ADR-013)
 ALTER TABLE executions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE executions FORCE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_executions ON executions
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
--- Jobs inherit tenant from execution (join required)
+CREATE POLICY tenant_isolation_executions ON executions FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+-- Jobs inherit tenant from execution via FK constraint
 ```
 
 ---
@@ -885,13 +971,23 @@ CREATE INDEX idx_schedules_tenant ON schedules(tenant_id);
 CREATE INDEX idx_event_triggers_tenant ON event_triggers(tenant_id);
 CREATE INDEX idx_webhooks_token ON webhooks(token_hash);
 
--- RLS
+-- RLS (per ADR-013)
 ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE schedules FORCE ROW LEVEL SECURITY;
 ALTER TABLE event_triggers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_triggers FORCE ROW LEVEL SECURITY;
 ALTER TABLE webhooks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE webhooks FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation_schedules ON schedules
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+CREATE POLICY tenant_isolation_schedules ON schedules FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_triggers ON event_triggers FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_webhooks ON webhooks FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 ```
 
 ---
@@ -1215,52 +1311,74 @@ CREATE TABLE schema_drift_events (
 
 ### Row-Level Security (RLS) Implementation
 
-All tables with tenant data implement RLS:
+All tables with tenant data implement RLS per [ADR-013](../../adr/013-tenant-isolation.md):
 
 ```sql
--- 1. Enable RLS on table
+-- 1. Enable and force RLS on table (force ensures even table owners obey RLS)
 ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pipelines FORCE ROW LEVEL SECURITY;
 
--- 2. Create policy
+-- 2. Create policy with both read (USING) and write (WITH CHECK) controls
 CREATE POLICY tenant_isolation ON pipelines
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+    FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 
--- 3. Application sets tenant context at connection start
-SET LOCAL app.current_tenant_id = 'tenant-uuid-here';
+-- 3. Application sets tenant context within transaction scope
+SET LOCAL pravah.current_tenant_id = 'tenant-uuid-here';
 
 -- 4. All subsequent queries automatically filtered
 SELECT * FROM pipelines; -- Only returns current tenant's pipelines
+-- INSERT/UPDATE also validated by WITH CHECK clause
 ```
 
-### Connection Setup (Java/Spring)
+### RLS Context Setup (Java/Spring)
+
+Per ADR-013, we use a simple `@Aspect` to set the RLS context at the start of each transaction:
+
+```java
+@Aspect
+@Component
+@RequiredArgsConstructor
+public class RlsAspect {
+
+    private final EntityManager entityManager;
+
+    @Before("@annotation(org.springframework.transaction.annotation.Transactional)")
+    public void setRlsContext() {
+        UUID tenantId = TenantContext.getCurrentTenantId();
+        
+        if (tenantId == null) {
+            // Per ADR-013: if no tenant context, RLS returns zero rows
+            log.warn("No tenant context set - RLS will return empty results");
+            return;
+        }
+        
+        // Use parameterized query to prevent SQL injection
+        entityManager.createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId")
+            .setParameter("tenantId", tenantId.toString())
+            .executeUpdate();
+    }
+}
+```
+
+The `TenantContext` is populated by a servlet filter that extracts tenant ID from the JWT:
 
 ```java
 @Component
-public class TenantConnectionInterceptor implements HandlerInterceptor {
+public class TenantFilter extends OncePerRequestFilter {
     
     @Override
-    public boolean preHandle(HttpServletRequest request, ...) {
-        String tenantId = extractTenantId(request);
-        
-        // Set tenant context for this request
-        TenantContext.setCurrentTenant(tenantId);
-        
-        return true;
-    }
-}
-
-@Aspect
-@Component
-public class RlsAspect {
-    
-    @Around("execution(* *Repository.*(..))")
-    public Object setTenantContext(ProceedingJoinPoint pjp) {
-        String tenantId = TenantContext.getCurrentTenant();
-        
-        // Execute: SET LOCAL app.current_tenant_id = ?
-        jdbcTemplate.execute("SET LOCAL app.current_tenant_id = '" + tenantId + "'");
-        
-        return pjp.proceed();
+    protected void doFilterInternal(HttpServletRequest request, ...) {
+        String tenantId = extractTenantIdFromJwt(request);
+        if (tenantId != null) {
+            TenantContext.setCurrentTenantId(UUID.fromString(tenantId));
+        }
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 }
 ```
@@ -1298,7 +1416,7 @@ CREATE INDEX idx_outbox_pending ON outbox(created_at)
 ## Interview Questions
 
 **Q: "How do you handle multi-tenancy?"**
-> PostgreSQL Row-Level Security. Each table has a `tenant_id` column. RLS policies filter automatically based on `current_setting('app.current_tenant_id')`. Application sets this at connection start.
+> PostgreSQL Row-Level Security per [ADR-013](../../adr/013-tenant-isolation.md). Each table has a `tenant_id` column with `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`. RLS policies use `current_setting('pravah.current_tenant_id', true)::UUID` with both `USING` (read) and `WITH CHECK` (write) clauses. The application's `RlsAspect` sets this within each `@Transactional` method via `SET LOCAL`, ensuring transaction-scoped isolation.
 
 **Q: "Why event sourcing for pipelines?"**
 > Three reasons: (1) Complete audit trail for compliance, (2) Time-travel debugging — "what was this pipeline last week?", (3) Agent Service needs full history to reason about failure patterns.

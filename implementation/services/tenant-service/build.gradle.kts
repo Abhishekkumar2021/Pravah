@@ -21,11 +21,17 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // AOP (for RlsAspect per ADR-013)
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
+
+    // Structured logging (JSON format for production)
+    implementation(libs.logstash.logback.encoder)
 
     // Test support
     testImplementation(project(":libs:test-support"))

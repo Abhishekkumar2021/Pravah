@@ -17,6 +17,7 @@ spring:
     properties:
       hibernate:
         default_schema: public
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   
   flyway:
     enabled: true
@@ -24,13 +25,21 @@ spring:
     schemas: public
   
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 server:
   port: 8082
+
+# JWT Configuration (for local development only - use environment variables in production)
+pravah:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:pravah-local-dev-secret-key-minimum-256-bits-for-hs256}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 management:
   endpoints:
@@ -41,6 +50,7 @@ management:
     health:
       show-details: when_authorized
 
-logging:
-  level:
-    io.pravah: INFO
+# Logging configuration is in logback-spring.xml
+# - Local profile: human-readable console logs
+# - Production profile: JSON structured logs (via logstash-logback-encoder)
+# MDC keys automatically added: tenant_id, user_id, request_id, trace_id, span_id
