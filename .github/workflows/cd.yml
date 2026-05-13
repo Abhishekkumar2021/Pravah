@@ -127,7 +127,7 @@ jobs:
         run: ./gradlew :runner:fatJar --no-daemon
 
       - name: Upload runner artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pravah-runner
           path: implementation/runner/build/libs/*-all.jar
