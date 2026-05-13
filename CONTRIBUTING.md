@@ -45,6 +45,8 @@ main (protected)
 
 **Important:** The bullets above are **policy**. GitHub will only block direct pushes after a **repository administrator** configures rules below. Docs alone do not enforce anything.
 
+**As applied in this repo:** branch rulesets are versioned under [`.github/scripts/`](.github/scripts/README.md) (JSON + `gh api` instructions). Classic branch protection was removed in favor of rulesets so **admin bypass** does not allow direct pushes.
+
 ### Enforcing PR-only workflow (repository administrators)
 
 Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **rulesets** (Settings → Rules → Rulesets); they supersede classic branch protection where both exist.
