@@ -8,9 +8,9 @@ services:
     image: postgres:16-alpine
     container_name: pravah-postgres
     environment:
-      POSTGRES_USER: pravah
-      POSTGRES_PASSWORD: pravah
-      POSTGRES_DB: pravah
+      POSTGRES_USER: ${POSTGRES_USER:-pravah}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pravah}
+      POSTGRES_DB: ${POSTGRES_DB:-pravah}
     ports:
       - "5432:5432"
     volumes:
@@ -43,7 +43,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      CLUSTER_ID: "pravah-kafka-cluster-001"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-pravah-kafka-cluster-001}
     ports:
       - "29092:29092"
     volumes:
@@ -115,8 +115,8 @@ services:
     container_name: pravah-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: pravah
-      MINIO_ROOT_PASSWORD: pravah123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pravah}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-pravah123}
     ports:
       - "9000:9000"   # API
       - "9001:9001"   # Console

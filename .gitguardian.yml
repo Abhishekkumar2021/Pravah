@@ -1,0 +1,17 @@
+# GitGuardian Configuration
+# https://docs.gitguardian.com/ggshield-docs/reference/gitguardian-yaml
+
+# Paths to ignore (local development configs with intentional default credentials)
+paths-ignore:
+  - "**/.env.example"
+  - "**/docker-compose*.yml"
+  - "**/docker-compose*.yaml"
+
+# Secret types to ignore for specific paths
+secret:
+  ignored-matches:
+    # Local development default passwords - not real secrets
+    - name: "Local dev postgres password"
+      match: "pravah"
+    - name: "Local dev minio password"  
+      match: "pravah123"
