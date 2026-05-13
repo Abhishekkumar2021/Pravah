@@ -1,0 +1,117 @@
+---
+description: Kafka and event-driven standards for Pravah
+globs: "**/kafka/**/*.java,**/event/**/*.java,**/consumer/**/*.java,**/producer/**/*.java"
+alwaysApply: false
+---
+
+# Kafka & Event Standards
+
+## Reference Documentation
+
+Before implementing any Kafka code:
+- `docs/adr/ADR-002-kafka-messaging-backbone.md`
+- `docs/adr/ADR-004-outbox-pattern-event-publishing.md`
+- `docs/lld/01-design-patterns.md` - Outbox, Saga, Idempotent Consumer
+- `playground/01-kafka/` and `playground/06-outbox-pattern/`
+
+## Event Schema
+
+```java
+// ✅ Events are immutable records with all required metadata
+public record PipelineCreatedEvent(
+    @NotNull UUID eventId,           // Unique event ID for idempotency
+    @NotNull UUID pipelineId,
+    @NotNull UUID tenantId,
+    @NotNull String name,
+    @NotNull Instant occurredAt,
+    @NotNull String eventType        // "pravah.pipeline.created"
+) implements DomainEvent {}
+
+// Event type naming: {domain}.{entity}.{action}
+// Examples: pravah.pipeline.created, pravah.execution.completed, pravah.job.failed
+```
+
+## Outbox Pattern (MANDATORY)
+
+```java
+// ✅ Never publish directly to Kafka from business logic
+@Transactional
+public Pipeline createPipeline(CreatePipelineCommand cmd) {
+    Pipeline pipeline = Pipeline.create(cmd);
+    pipelineRepository.save(pipeline);
+    
+    // Write to outbox in SAME transaction
+    outboxRepository.save(new OutboxEntry(
+        UUID.randomUUID(),
+        "pravah.pipeline.events",
+        pipeline.getId().toString(),  // Key for partitioning
+        serialize(new PipelineCreatedEvent(...)),
+        Instant.now()
+    ));
+    
+    return pipeline;  // Kafka publish happens async via OutboxPublisher
+}
+
+// ❌ NEVER do this - dual write problem
+pipeline = pipelineRepository.save(pipeline);
+kafkaTemplate.send("topic", event);  // If this fails, DB is committed but event lost
+```
+
+## Idempotent Consumer (MANDATORY)
+
+```java
+@KafkaListener(topics = "pravah.pipeline.events", groupId = "execution-service")
+public void handlePipelineEvent(PipelineEvent event) {
+    // ✅ Check if already processed
+    if (processedEventRepository.existsById(event.eventId())) {
+        log.info("Duplicate event, skipping", kv("eventId", event.eventId()));
+        return;
+    }
+    
+    // Process the event
+    processEvent(event);
+    
+    // Mark as processed in SAME transaction
+    processedEventRepository.save(new ProcessedEvent(event.eventId(), Instant.now()));
+}
+```
+
+## Consumer Configuration
+
+```java
+@Configuration
+public class KafkaConsumerConfig {
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
+        factory.setConsumerFactory(consumerFactory());
+        
+        // ✅ Manual ack for exactly-once
+        factory.getContainerProperties().setAckMode(AckMode.MANUAL);
+        
+        // ✅ Error handling with DLT
+        factory.setCommonErrorHandler(new DefaultErrorHandler(
+            new DeadLetterPublishingRecoverer(kafkaTemplate),
+            new FixedBackOff(1000L, 3)  // 3 retries, 1s apart
+        ));
+        
+        return factory;
+    }
+}
+```
+
+## Topic Naming
+
+```
+pravah.{service}.{entity}.events   → Domain events
+pravah.{service}.{entity}.commands → Commands
+pravah.{topic}.DLT                 → Dead letter topic
+```
+
+## Partition Key Strategy
+
+| Event Type | Key | Reason |
+|------------|-----|--------|
+| Pipeline events | pipelineId | Same pipeline events in order |
+| Execution events | executionId | Execution lifecycle in order |
+| Job events | executionId | All jobs for execution together |

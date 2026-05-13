@@ -1,0 +1,119 @@
+---
+description: Database and SQL standards for Pravah
+globs: "**/*.sql,**/repository/**/*.java,**/entity/**/*.java"
+alwaysApply: false
+---
+
+# Database Standards
+
+## Schema Reference
+
+Before writing any database code, reference:
+- `docs/lld/02-database-erd.md` for schema definitions
+- `docs/adr/ADR-003-postgresql-database-per-service.md` for database-per-service pattern
+- `docs/adr/ADR-006-pool-multi-tenancy-model.md` for multi-tenancy
+
+## Flyway Migrations
+
+```sql
+-- V001__create_pipelines_table.sql
+-- Every migration MUST be idempotent and reversible where possible
+
+CREATE TABLE IF NOT EXISTS pipelines (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       UUID NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    status          VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version         INTEGER NOT NULL DEFAULT 0,
+    
+    CONSTRAINT fk_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+);
+
+-- Always create indexes for foreign keys and common queries
+CREATE INDEX idx_pipelines_tenant_id ON pipelines(tenant_id);
+CREATE INDEX idx_pipelines_status ON pipelines(status) WHERE status = 'ACTIVE';
+
+-- RLS Policy - MANDATORY for all tenant-scoped tables
+ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON pipelines
+    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+```
+
+## Row-Level Security (RLS)
+
+```java
+// ✅ Always set tenant context before queries
+@Component
+public class TenantContextSetter {
+    private final JdbcTemplate jdbc;
+    
+    @Transactional
+    public void setTenantContext(UUID tenantId) {
+        jdbc.execute("SET LOCAL app.current_tenant_id = '" + tenantId + "'");
+    }
+}
+
+// In service layer
+@Transactional
+public List<Pipeline> getPipelines(TenantId tenantId) {
+    tenantContextSetter.setTenantContext(tenantId.value());
+    return repository.findAll();  // RLS automatically filters
+}
+```
+
+## JPA Entity Pattern
+
+```java
+@Entity
+@Table(name = "pipelines")
+public class PipelineEntity {
+    @Id
+    private UUID id;
+    
+    @Column(name = "tenant_id", nullable = false, updatable = false)
+    private UUID tenantId;
+    
+    @Column(nullable = false)
+    private String name;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PipelineStatus status;
+    
+    @Version  // Optimistic locking - MANDATORY
+    private Integer version;
+    
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+    
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+}
+```
+
+## Query Guidelines
+
+```java
+// ✅ Use named parameters
+@Query("SELECT p FROM Pipeline p WHERE p.tenantId = :tenantId AND p.status = :status")
+List<Pipeline> findByTenantAndStatus(@Param("tenantId") UUID tenantId, @Param("status") String status);
+
+// ✅ Pagination for list queries
+Page<Pipeline> findByTenantId(UUID tenantId, Pageable pageable);
+
+// ❌ Never use string concatenation for queries
+"SELECT * FROM pipelines WHERE name = '" + name + "'"  // SQL INJECTION RISK
+```
+
+## Performance Rules
+
+- Always use `@Version` for optimistic locking
+- Create indexes for all foreign keys
+- Use partial indexes for status columns
+- Paginate all list queries
+- Use `EXPLAIN ANALYZE` for complex queries

@@ -1,0 +1,210 @@
+---
+description: DDD patterns for Pravah domain modeling
+globs: "**/domain/**/*.java,**/entity/**/*.java,**/aggregate/**/*.java"
+alwaysApply: false
+---
+
+# Domain-Driven Design Standards
+
+## Reference Documentation
+
+- `docs/lld/01-design-patterns.md` - Aggregate Root, Value Object, Domain Events
+- `docs/lld/05-class-diagrams.md` - Domain models per service
+
+## Value Objects
+
+```java
+// ✅ Immutable, validated on construction
+public record PipelineId(UUID value) {
+    public PipelineId {
+        Objects.requireNonNull(value, "PipelineId cannot be null");
+    }
+    
+    public static PipelineId generate() {
+        return new PipelineId(UUID.randomUUID());
+    }
+    
+    public static PipelineId of(String value) {
+        return new PipelineId(UUID.fromString(value));
+    }
+    
+    @Override
+    public String toString() {
+        return value.toString();
+    }
+}
+
+// ✅ Domain-specific validation
+public record CronExpression(String expression) {
+    public CronExpression {
+        if (!CronParser.isValid(expression)) {
+            throw new InvalidCronExpressionException(expression);
+        }
+    }
+    
+    public Instant nextExecution(Instant from) {
+        return CronParser.next(expression, from);
+    }
+}
+
+// ❌ Don't use primitive obsession
+public Pipeline createPipeline(String pipelineId, String tenantId);  // Wrong
+public Pipeline createPipeline(PipelineId pipelineId, TenantId tenantId);  // Correct
+```
+
+## Aggregate Root
+
+```java
+// ✅ All access through the root
+public class Pipeline {
+    private final PipelineId id;
+    private final TenantId tenantId;
+    private String name;
+    private PipelineStatus status;
+    private PipelineDefinition definition;  // Nested entity
+    private final List<PipelineEvent> uncommittedEvents = new ArrayList<>();
+    
+    // Factory method - not public constructor
+    public static Pipeline create(TenantId tenantId, String name, UserId createdBy) {
+        var pipeline = new Pipeline(PipelineId.generate(), tenantId);
+        pipeline.apply(new PipelineCreatedEvent(
+            pipeline.id, tenantId, name, createdBy, Instant.now()
+        ));
+        return pipeline;
+    }
+    
+    // Domain behavior through methods
+    public void publish() {
+        if (status != PipelineStatus.DRAFT && status != PipelineStatus.ACTIVE) {
+            throw new IllegalStateException("Cannot publish from " + status);
+        }
+        var validation = definition.validate();
+        if (!validation.isValid()) {
+            throw new ValidationException(validation.errors());
+        }
+        apply(new PipelinePublishedEvent(id, version + 1, Instant.now()));
+    }
+    
+    public void addStage(Stage stage) {
+        definition = definition.withStage(stage);
+        apply(new StageAddedEvent(id, stage.id(), Instant.now()));
+    }
+    
+    // Event application
+    private void apply(PipelineEvent event) {
+        // Mutate state based on event
+        switch (event) {
+            case PipelineCreatedEvent e -> {
+                this.name = e.name();
+                this.status = PipelineStatus.DRAFT;
+            }
+            case PipelinePublishedEvent e -> {
+                this.status = PipelineStatus.ACTIVE;
+                this.version = e.version();
+            }
+            // ... other events
+        }
+        uncommittedEvents.add(event);
+    }
+    
+    // ❌ No public setters
+    // public void setName(String name) - NEVER
+}
+```
+
+## Domain Events
+
+```java
+// ✅ Sealed interface for exhaustive handling
+public sealed interface PipelineEvent permits 
+    PipelineCreatedEvent, 
+    PipelineUpdatedEvent, 
+    PipelinePublishedEvent,
+    PipelineArchivedEvent {
+    
+    PipelineId pipelineId();
+    Instant occurredAt();
+}
+
+public record PipelineCreatedEvent(
+    PipelineId pipelineId,
+    TenantId tenantId,
+    String name,
+    UserId createdBy,
+    Instant occurredAt
+) implements PipelineEvent {}
+
+// ✅ Events are facts - past tense naming
+PipelineCreatedEvent    // Not: CreatePipelineEvent
+ExecutionStartedEvent   // Not: StartExecutionEvent
+JobFailedEvent          // Not: FailJobEvent
+```
+
+## Repository Pattern
+
+```java
+// ✅ Repository works with aggregates, not entities
+public interface PipelineRepository {
+    Optional<Pipeline> findById(PipelineId id);
+    Pipeline save(Pipeline pipeline);
+    void delete(PipelineId id);
+    
+    // Query methods return domain objects
+    List<Pipeline> findByTenantId(TenantId tenantId, Pageable pageable);
+}
+
+// ✅ Implementation handles mapping
+@Repository
+public class JpaPipelineRepository implements PipelineRepository {
+    private final PipelineJpaRepository jpaRepo;
+    private final PipelineMapper mapper;
+    
+    @Override
+    public Optional<Pipeline> findById(PipelineId id) {
+        return jpaRepo.findById(id.value())
+            .map(mapper::toDomain);
+    }
+    
+    @Override
+    public Pipeline save(Pipeline pipeline) {
+        var entity = mapper.toEntity(pipeline);
+        var saved = jpaRepo.save(entity);
+        return mapper.toDomain(saved);
+    }
+}
+
+// ❌ Don't expose JPA entities outside repository
+// ❌ Don't put business logic in repository
+```
+
+## Service Layer
+
+```java
+// ✅ Application services orchestrate
+@Service
+@Transactional
+public class PipelineApplicationService {
+    private final PipelineRepository repository;
+    private final EventPublisher publisher;
+    
+    public Pipeline createPipeline(CreatePipelineCommand cmd) {
+        // Validation
+        var validation = cmd.validate();
+        if (!validation.isValid()) {
+            throw new ValidationException(validation.errors());
+        }
+        
+        // Domain logic through aggregate
+        var pipeline = Pipeline.create(cmd.tenantId(), cmd.name(), cmd.createdBy());
+        
+        // Persist
+        pipeline = repository.save(pipeline);
+        
+        // Publish events
+        pipeline.getUncommittedEvents().forEach(publisher::publish);
+        pipeline.markEventsAsCommitted();
+        
+        return pipeline;
+    }
+}
+```

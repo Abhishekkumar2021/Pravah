@@ -1,0 +1,75 @@
+---
+description: Code review checklist - verify before committing
+alwaysApply: true
+---
+
+# Pre-Commit Checklist
+
+## Before Every Commit, Verify:
+
+### 1. Documentation Alignment
+- [ ] Change aligns with documented design in `docs/lld/`
+- [ ] If design changed, documentation is updated
+- [ ] New features have user story in `docs/product/epics/`
+
+### 2. Test Coverage
+- [ ] Unit tests for business logic
+- [ ] Integration tests for external dependencies
+- [ ] Tests actually test the behavior, not just call methods
+- [ ] All new code paths have test coverage
+
+### 3. Error Handling
+- [ ] No empty catch blocks
+- [ ] Domain exceptions used (not generic Exception)
+- [ ] Error messages are helpful for debugging
+- [ ] Sensitive info not leaked in error responses
+
+### 4. Security
+- [ ] No hardcoded secrets
+- [ ] Tenant isolation enforced
+- [ ] Input validation present
+- [ ] Authorization checks in place
+
+### 5. Observability
+- [ ] Structured logging with context
+- [ ] Metrics for important operations
+- [ ] Span created for traceable operations
+
+### 6. Code Quality
+- [ ] No compiler warnings
+- [ ] No TODOs without issue links
+- [ ] Follows patterns from LLD documentation
+- [ ] No copy-pasted code
+
+## Commit Message Format
+
+```
+type(scope): subject
+
+body (optional)
+
+Refs: #issue-number or US-XX.YY
+```
+
+**Types:** feat, fix, refactor, test, docs, chore
+**Scope:** service name or component
+
+```
+feat(pipeline-service): implement pipeline creation
+
+- Add Pipeline aggregate with event sourcing
+- Add PipelineRepository with RLS support
+- Add integration tests with Testcontainers
+
+Refs: US-01.01
+```
+
+## Red Flags - Do NOT Commit If:
+
+- ❌ Tests are failing
+- ❌ You don't understand why the code works
+- ❌ You're copying code without understanding it
+- ❌ There's a TODO without an issue link
+- ❌ You're adding a dependency not in ADRs
+- ❌ Error handling is missing or empty
+- ❌ No tests for new code

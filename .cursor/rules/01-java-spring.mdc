@@ -1,0 +1,103 @@
+---
+description: Java 21 and Spring Boot 3 standards for Pravah services
+globs: "**/*.java"
+alwaysApply: false
+---
+
+# Java 21 & Spring Boot 3 Standards
+
+## Language Features
+
+Use modern Java 21 features:
+
+```java
+// ✅ Records for DTOs and Value Objects
+public record PipelineId(UUID value) {
+    public static PipelineId generate() { return new PipelineId(UUID.randomUUID()); }
+}
+
+// ✅ Sealed interfaces for domain events
+public sealed interface PipelineEvent permits Created, Updated, Published {}
+
+// ✅ Pattern matching in switch
+return switch (event) {
+    case Created c -> handleCreated(c);
+    case Updated u -> handleUpdated(u);
+    case Published p -> handlePublished(p);
+};
+
+// ✅ Text blocks for SQL/JSON
+String sql = """
+    SELECT * FROM pipelines
+    WHERE tenant_id = :tenantId
+    AND status = 'ACTIVE'
+    """;
+```
+
+## Spring Boot Conventions
+
+```java
+// ✅ Constructor injection (no @Autowired on fields)
+@Service
+public class PipelineService {
+    private final PipelineRepository repository;
+    private final EventPublisher publisher;
+    
+    public PipelineService(PipelineRepository repository, EventPublisher publisher) {
+        this.repository = repository;
+        this.publisher = publisher;
+    }
+}
+
+// ✅ Use @Transactional at service layer, not repository
+@Transactional
+public Pipeline createPipeline(CreatePipelineCommand cmd) { ... }
+
+// ✅ Validate inputs with Bean Validation
+public record CreatePipelineRequest(
+    @NotBlank String name,
+    @NotNull @Valid PipelineDefinition definition
+) {}
+```
+
+## Error Handling
+
+```java
+// ✅ Domain-specific exceptions
+public class PipelineNotFoundException extends RuntimeException {
+    private final PipelineId pipelineId;
+    
+    public PipelineNotFoundException(PipelineId id) {
+        super("Pipeline not found: " + id);
+        this.pipelineId = id;
+    }
+}
+
+// ✅ Global exception handler
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(PipelineNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNotFound(PipelineNotFoundException ex) {
+        return ResponseEntity.status(404)
+            .body(ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage()));
+    }
+}
+
+// ❌ NEVER do this
+catch (Exception e) { }  // Silent swallow
+catch (Exception e) { e.printStackTrace(); }  // No structured logging
+```
+
+## Logging
+
+```java
+// ✅ Use SLF4J with structured logging
+private static final Logger log = LoggerFactory.getLogger(PipelineService.class);
+
+log.info("Pipeline created", kv("pipelineId", id), kv("tenantId", tenantId));
+log.error("Failed to create pipeline", kv("request", request), kv("error", e.getMessage()), e);
+
+// ❌ Never use System.out or string concatenation in logs
+System.out.println("Created: " + id);  // Wrong
+log.info("Created: " + id);  // Wrong - use structured logging
+```

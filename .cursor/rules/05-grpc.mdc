@@ -1,0 +1,172 @@
+---
+description: gRPC and Protobuf standards for Pravah
+globs: "**/*.proto,**/grpc/**/*.java"
+alwaysApply: false
+---
+
+# gRPC Standards
+
+## Reference Documentation
+
+- `docs/adr/ADR-005-grpc-runner-communication.md`
+- `docs/design/system-architecture.md` for proto definitions
+- `playground/02-grpc/`
+
+## Proto File Structure
+
+```protobuf
+// pravah/pipeline/v1/pipeline.proto
+syntax = "proto3";
+
+package pravah.pipeline.v1;
+
+option java_package = "io.pravah.proto.pipeline.v1";
+option java_multiple_files = true;
+
+import "google/protobuf/timestamp.proto";
+import "pravah/common/v1/types.proto";
+
+// Service definition
+service PipelineService {
+    // Unary RPC for simple request/response
+    rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse);
+    
+    // Server streaming for list operations
+    rpc ListPipelines(ListPipelinesRequest) returns (stream Pipeline);
+    
+    // Bidirectional streaming for runner communication
+    rpc RunnerStream(stream RunnerMessage) returns (stream ControlMessage);
+}
+
+// Request messages
+message GetPipelineRequest {
+    string pipeline_id = 1;
+    // Include tenant_id in context/metadata, not in message
+}
+
+// Response messages
+message GetPipelineResponse {
+    Pipeline pipeline = 1;
+}
+
+// Domain messages
+message Pipeline {
+    string id = 1;
+    string name = 2;
+    PipelineStatus status = 3;
+    google.protobuf.Timestamp created_at = 4;
+    int32 version = 5;
+}
+
+enum PipelineStatus {
+    PIPELINE_STATUS_UNSPECIFIED = 0;
+    PIPELINE_STATUS_DRAFT = 1;
+    PIPELINE_STATUS_ACTIVE = 2;
+    PIPELINE_STATUS_ARCHIVED = 3;
+}
+```
+
+## Proto Conventions
+
+```protobuf
+// ✅ Version in package
+package pravah.pipeline.v1;
+
+// ✅ UNSPECIFIED as first enum value
+enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_ACTIVE = 1;
+}
+
+// ✅ Use wrapper types for nullable fields
+import "google/protobuf/wrappers.proto";
+message Foo {
+    google.protobuf.StringValue optional_name = 1;
+}
+
+// ❌ Don't use required (proto3 doesn't support it)
+// ❌ Don't reuse field numbers after deletion
+```
+
+## Service Implementation
+
+```java
+@GrpcService
+public class PipelineGrpcService extends PipelineServiceGrpc.PipelineServiceImplBase {
+    
+    private final PipelineService pipelineService;
+    
+    @Override
+    public void getPipeline(GetPipelineRequest request, 
+                           StreamObserver<GetPipelineResponse> observer) {
+        try {
+            // Extract tenant from gRPC context (set by interceptor)
+            TenantId tenantId = TenantContext.current();
+            
+            Pipeline pipeline = pipelineService.getPipeline(
+                PipelineId.of(request.getPipelineId()),
+                tenantId
+            );
+            
+            observer.onNext(toProto(pipeline));
+            observer.onCompleted();
+            
+        } catch (PipelineNotFoundException e) {
+            observer.onError(Status.NOT_FOUND
+                .withDescription(e.getMessage())
+                .asRuntimeException());
+        } catch (Exception e) {
+            log.error("Failed to get pipeline", e);
+            observer.onError(Status.INTERNAL
+                .withDescription("Internal error")
+                .asRuntimeException());
+        }
+    }
+}
+```
+
+## Error Handling
+
+```java
+// Map domain exceptions to gRPC status codes
+Status.NOT_FOUND       → Resource not found
+Status.INVALID_ARGUMENT → Validation error
+Status.ALREADY_EXISTS  → Duplicate resource
+Status.PERMISSION_DENIED → Auth/authz failure
+Status.INTERNAL        → Unexpected errors (don't leak details)
+
+// ✅ Include error details for debugging
+observer.onError(Status.INVALID_ARGUMENT
+    .withDescription("Name cannot be empty")
+    .augmentDescription("field: name")
+    .asRuntimeException());
+```
+
+## Bidirectional Streaming (Runner Protocol)
+
+```java
+@Override
+public StreamObserver<RunnerMessage> runnerStream(StreamObserver<ControlMessage> responseObserver) {
+    return new StreamObserver<>() {
+        @Override
+        public void onNext(RunnerMessage message) {
+            switch (message.getMessageCase()) {
+                case HEARTBEAT -> handleHeartbeat(message.getHeartbeat());
+                case JOB_STATUS -> handleJobStatus(message.getJobStatus());
+                case LOG_LINE -> handleLogLine(message.getLogLine());
+            }
+        }
+        
+        @Override
+        public void onError(Throwable t) {
+            log.error("Runner stream error", t);
+            // Mark runner as SUSPECT
+        }
+        
+        @Override
+        public void onCompleted() {
+            responseObserver.onCompleted();
+        }
+    };
+}
+```

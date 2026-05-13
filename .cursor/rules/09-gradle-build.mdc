@@ -1,0 +1,165 @@
+---
+description: Gradle build standards for multi-module project
+globs: "**/build.gradle.kts,**/settings.gradle.kts"
+alwaysApply: false
+---
+
+# Gradle Build Standards
+
+## Project Structure
+
+```
+pravah/
+├── settings.gradle.kts
+├── build.gradle.kts                 # Root: shared config
+├── buildSrc/                        # Convention plugins
+│   └── src/main/kotlin/
+│       ├── pravah.java-conventions.gradle.kts
+│       ├── pravah.spring-conventions.gradle.kts
+│       └── pravah.protobuf-conventions.gradle.kts
+├── libs/
+│   ├── common/                      # Shared DTOs, utilities
+│   ├── proto/                       # Generated protobuf
+│   └── test-support/                # Test utilities
+└── services/
+    ├── gateway/
+    ├── pipeline-service/
+    ├── execution-service/
+    └── ...
+```
+
+## Version Catalog (gradle/libs.versions.toml)
+
+```toml
+[versions]
+java = "21"
+spring-boot = "3.2.5"
+spring-cloud = "2023.0.1"
+grpc = "1.62.2"
+protobuf = "3.25.3"
+testcontainers = "1.19.7"
+kafka = "3.7.0"
+
+[libraries]
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "spring-boot" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "spring-boot" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa", version.ref = "spring-boot" }
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
+grpc-netty = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+
+[bundles]
+grpc = ["grpc-netty", "grpc-protobuf", "grpc-stub"]
+testcontainers = ["testcontainers-postgresql", "testcontainers-kafka"]
+```
+
+## Convention Plugin (buildSrc)
+
+```kotlin
+// buildSrc/src/main/kotlin/pravah.java-conventions.gradle.kts
+plugins {
+    java
+    id("io.spring.dependency-management")
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(listOf(
+        "-Xlint:all",
+        "-Werror",  // Treat warnings as errors
+        "-parameters"
+    ))
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+    }
+}
+
+// Shared dependencies for ALL modules
+dependencies {
+    implementation("org.slf4j:slf4j-api")
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+    
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.assertj:assertj-core")
+    testImplementation("org.mockito:mockito-junit-jupiter")
+}
+```
+
+## Service Module Build
+
+```kotlin
+// services/pipeline-service/build.gradle.kts
+plugins {
+    id("pravah.java-conventions")
+    id("pravah.spring-conventions")
+    id("org.springframework.boot")
+}
+
+dependencies {
+    implementation(project(":libs:common"))
+    implementation(project(":libs:proto"))
+    
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.kafka)
+    implementation(libs.bundles.grpc)
+    
+    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("org.flywaydb:flyway-core")
+    
+    testImplementation(project(":libs:test-support"))
+    testImplementation(libs.bundles.testcontainers)
+}
+```
+
+## Dependency Rules
+
+```kotlin
+// ✅ Use version catalog, never hardcode versions
+implementation(libs.spring.boot.starter.web)
+
+// ❌ Never hardcode versions
+implementation("org.springframework.boot:spring-boot-starter-web:3.2.5")
+
+// ✅ Check ADRs before adding new dependencies
+// New dependency? → Check docs/adr/ first
+
+// ✅ Use bundles for related dependencies
+implementation(libs.bundles.grpc)
+
+// ❌ Don't add dependencies without tests
+// Every new dependency should have integration tests proving it works
+```
+
+## Build Commands
+
+```bash
+# Full build with tests
+./gradlew build
+
+# Single module
+./gradlew :services:pipeline-service:build
+
+# Run specific service
+./gradlew :services:pipeline-service:bootRun
+
+# Generate proto
+./gradlew :libs:proto:generateProto
+
+# Check for dependency updates
+./gradlew dependencyUpdates
+```

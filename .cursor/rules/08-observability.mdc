@@ -1,0 +1,176 @@
+---
+description: Observability standards - logging, metrics, tracing
+globs: "**/*.java"
+alwaysApply: false
+---
+
+# Observability Standards
+
+## Reference Documentation
+
+- `docs/theory/phase-4-observability/`
+- `docs/adr/ADR-014-tail-based-sampling.md`
+- `playground/11-opentelemetry/`
+
+## Structured Logging
+
+```java
+// ✅ Use key-value pairs for structured logging
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
+private static final Logger log = LoggerFactory.getLogger(ExecutionService.class);
+
+public void startExecution(ExecutionId executionId) {
+    log.info("Starting execution", 
+        kv("executionId", executionId),
+        kv("tenantId", TenantContext.current()));
+    
+    try {
+        // ...
+        log.info("Execution started successfully",
+            kv("executionId", executionId),
+            kv("durationMs", timer.elapsed()));
+    } catch (Exception e) {
+        log.error("Failed to start execution",
+            kv("executionId", executionId),
+            kv("error", e.getMessage()),
+            e);  // Include exception for stack trace
+        throw e;
+    }
+}
+
+// ❌ Never use string concatenation
+log.info("Starting execution " + executionId);  // Wrong
+
+// ❌ Never log sensitive data
+log.info("User logged in", kv("password", password));  // NEVER
+```
+
+## Log Levels
+
+| Level | When to Use | Example |
+|-------|-------------|---------|
+| ERROR | Requires immediate attention | Database connection failed |
+| WARN | Unexpected but handled | Retry attempt, deprecation |
+| INFO | Business events | Execution started, completed |
+| DEBUG | Debugging info | Method entry/exit, values |
+| TRACE | Very detailed | Loop iterations, all data |
+
+## Metrics with Micrometer
+
+```java
+@Component
+public class ExecutionMetrics {
+    private final Counter executionsStarted;
+    private final Counter executionsFailed;
+    private final Timer executionDuration;
+    private final Gauge activeExecutions;
+    
+    public ExecutionMetrics(MeterRegistry registry) {
+        this.executionsStarted = Counter.builder("pravah.executions.started")
+            .description("Number of executions started")
+            .tag("service", "execution-service")
+            .register(registry);
+        
+        this.executionsFailed = Counter.builder("pravah.executions.failed")
+            .description("Number of executions failed")
+            .tag("service", "execution-service")
+            .register(registry);
+        
+        this.executionDuration = Timer.builder("pravah.executions.duration")
+            .description("Execution duration")
+            .publishPercentiles(0.5, 0.95, 0.99)
+            .register(registry);
+    }
+    
+    public void recordExecutionStarted() {
+        executionsStarted.increment();
+    }
+    
+    public void recordExecutionCompleted(Duration duration, boolean success) {
+        executionDuration.record(duration);
+        if (!success) executionsFailed.increment();
+    }
+}
+```
+
+## Distributed Tracing
+
+```java
+// ✅ Traces propagate automatically with Spring Boot + OTel
+// Add custom spans for important operations
+
+@Service
+public class ExecutionService {
+    private final Tracer tracer;
+    
+    public Execution startExecution(StartExecutionCommand cmd) {
+        Span span = tracer.spanBuilder("startExecution")
+            .setAttribute("execution.id", cmd.executionId().toString())
+            .setAttribute("pipeline.id", cmd.pipelineId().toString())
+            .startSpan();
+        
+        try (Scope scope = span.makeCurrent()) {
+            // Business logic here
+            span.addEvent("validation_complete");
+            
+            var execution = createExecution(cmd);
+            
+            span.addEvent("execution_created");
+            span.setStatus(StatusCode.OK);
+            
+            return execution;
+        } catch (Exception e) {
+            span.setStatus(StatusCode.ERROR, e.getMessage());
+            span.recordException(e);
+            throw e;
+        } finally {
+            span.end();
+        }
+    }
+}
+```
+
+## Health Checks
+
+```java
+@Component
+public class DatabaseHealthIndicator implements HealthIndicator {
+    private final DataSource dataSource;
+    
+    @Override
+    public Health health() {
+        try (Connection conn = dataSource.getConnection()) {
+            conn.createStatement().execute("SELECT 1");
+            return Health.up()
+                .withDetail("database", "PostgreSQL")
+                .build();
+        } catch (SQLException e) {
+            return Health.down()
+                .withDetail("error", e.getMessage())
+                .build();
+        }
+    }
+}
+
+// Kubernetes probes
+// /actuator/health/liveness  → App is running
+// /actuator/health/readiness → App can accept traffic
+```
+
+## Alerting Context
+
+When errors occur, include enough context for debugging:
+
+```java
+log.error("Job execution failed",
+    kv("jobId", jobId),
+    kv("executionId", executionId),
+    kv("pipelineId", pipelineId),
+    kv("tenantId", tenantId),
+    kv("runnerId", runnerId),
+    kv("attempt", attempt),
+    kv("errorType", e.getClass().getSimpleName()),
+    kv("errorMessage", e.getMessage()),
+    e);
+```

@@ -1,0 +1,140 @@
+---
+description: State machine implementation standards
+globs: "**/state/**/*.java,**/domain/**/*.java"
+alwaysApply: false
+---
+
+# State Machine Standards
+
+## Reference Documentation
+
+- `docs/lld/03-state-machines.md` - ALL state diagrams
+- State machines MUST match the documented diagrams exactly
+
+## State Transitions Are Code, Not Data
+
+```java
+// ✅ Enum-based state machine with explicit transitions
+public enum ExecutionState {
+    PENDING {
+        @Override
+        public ExecutionState onStart() { return RUNNING; }
+        @Override
+        public ExecutionState onCancel() { return CANCELLED; }
+        @Override
+        public ExecutionState onValidationFailed() { return FAILED; }
+    },
+    RUNNING {
+        @Override
+        public ExecutionState onAllJobsSucceeded() { return SUCCEEDED; }
+        @Override
+        public ExecutionState onAnyJobFailed() { return FAILED; }
+        @Override
+        public ExecutionState onCancel() { return CANCELLED; }
+    },
+    SUCCEEDED,  // Terminal
+    FAILED {
+        @Override
+        public ExecutionState onRetry() { return RETRYING; }
+    },
+    CANCELLED,  // Terminal
+    RETRYING {
+        @Override
+        public ExecutionState onStart() { return RUNNING; }
+    };
+    
+    // Default: illegal transition
+    public ExecutionState onStart() { throw illegalTransition("start"); }
+    public ExecutionState onCancel() { throw illegalTransition("cancel"); }
+    public ExecutionState onAllJobsSucceeded() { throw illegalTransition("allJobsSucceeded"); }
+    public ExecutionState onAnyJobFailed() { throw illegalTransition("anyJobFailed"); }
+    public ExecutionState onRetry() { throw illegalTransition("retry"); }
+    public ExecutionState onValidationFailed() { throw illegalTransition("validationFailed"); }
+    
+    public boolean isTerminal() {
+        return this == SUCCEEDED || this == FAILED || this == CANCELLED;
+    }
+    
+    private IllegalStateException illegalTransition(String event) {
+        return new IllegalStateException(
+            "Cannot " + event + " from state " + this.name()
+        );
+    }
+}
+```
+
+## Aggregate State Transitions
+
+```java
+// ✅ State changes happen through domain methods, not setters
+public class Execution {
+    private ExecutionState state = ExecutionState.PENDING;
+    
+    public void start() {
+        state = state.onStart();  // Throws if invalid
+        startedAt = Instant.now();
+        publishEvent(new ExecutionStartedEvent(id, startedAt));
+    }
+    
+    public void cancel(UserId cancelledBy) {
+        state = state.onCancel();
+        cancelledAt = Instant.now();
+        this.cancelledBy = cancelledBy;
+        publishEvent(new ExecutionCancelledEvent(id, cancelledBy, cancelledAt));
+    }
+    
+    // ❌ NEVER expose setState
+    // public void setState(ExecutionState state) - NO!
+}
+```
+
+## Testing State Machines
+
+```java
+@Test
+void execution_pendingToRunning_validTransition() {
+    var execution = Execution.create(...);
+    assertThat(execution.getState()).isEqualTo(PENDING);
+    
+    execution.start();
+    
+    assertThat(execution.getState()).isEqualTo(RUNNING);
+    assertThat(execution.getStartedAt()).isNotNull();
+}
+
+@Test
+void execution_succeededToRunning_throwsIllegalState() {
+    var execution = Execution.create(...);
+    execution.start();
+    execution.complete(true);  // Now SUCCEEDED
+    
+    assertThatThrownBy(() -> execution.start())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Cannot start from state SUCCEEDED");
+}
+
+// ✅ Test ALL transitions documented in state diagram
+@ParameterizedTest
+@MethodSource("validTransitions")
+void validTransitionsWork(ExecutionState from, String event, ExecutionState to) {
+    // ...
+}
+
+@ParameterizedTest
+@MethodSource("invalidTransitions")
+void invalidTransitionsThrow(ExecutionState from, String event) {
+    // ...
+}
+```
+
+## State Machine Checklist
+
+Before implementing any state machine:
+
+- [ ] State diagram exists in `docs/lld/03-state-machines.md`
+- [ ] All states are enum values
+- [ ] All transitions are explicit methods
+- [ ] Invalid transitions throw IllegalStateException
+- [ ] Terminal states identified
+- [ ] 100% transition coverage in tests
+- [ ] Events published on state changes

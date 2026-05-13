@@ -1,0 +1,118 @@
+---
+description: Testing standards - tests are NOT optional
+globs: "**/*Test.java,**/*IT.java"
+alwaysApply: false
+---
+
+# Testing Standards
+
+## Test Hierarchy
+
+```
+Unit Tests (*Test.java)      → Fast, no I/O, mock dependencies
+Integration Tests (*IT.java) → Real dependencies via Testcontainers
+```
+
+## Unit Test Pattern
+
+```java
+@ExtendWith(MockitoExtension.class)
+class PipelineServiceTest {
+    @Mock PipelineRepository repository;
+    @Mock EventPublisher publisher;
+    @InjectMocks PipelineService service;
+    
+    @Test
+    void createPipeline_validInput_returnsPipeline() {
+        // Given
+        var command = new CreatePipelineCommand("ETL Job", definition);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        
+        // When
+        var result = service.createPipeline(command);
+        
+        // Then
+        assertThat(result.getName()).isEqualTo("ETL Job");
+        verify(publisher).publish(any(PipelineCreatedEvent.class));
+    }
+    
+    @Test
+    void createPipeline_invalidDefinition_throwsValidationException() {
+        // Given
+        var command = new CreatePipelineCommand("", null);
+        
+        // When/Then
+        assertThatThrownBy(() -> service.createPipeline(command))
+            .isInstanceOf(ValidationException.class)
+            .hasMessageContaining("definition");
+    }
+}
+```
+
+## Integration Test Pattern
+
+```java
+@SpringBootTest
+@Testcontainers
+@AutoConfigureTestDatabase(replace = Replace.NONE)
+class PipelineServiceIT {
+    
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
+    
+    @Autowired PipelineService service;
+    @Autowired PipelineRepository repository;
+    
+    @BeforeEach
+    void setUp() {
+        repository.deleteAll();
+    }
+    
+    @Test
+    void createAndRetrievePipeline() {
+        // Given
+        var command = new CreatePipelineCommand("ETL Job", validDefinition());
+        
+        // When
+        var created = service.createPipeline(command);
+        var retrieved = service.getPipeline(created.getId());
+        
+        // Then
+        assertThat(retrieved).isPresent();
+        assertThat(retrieved.get().getName()).isEqualTo("ETL Job");
+    }
+}
+```
+
+## Test Naming Convention
+
+```java
+// Pattern: methodName_condition_expectedResult
+void createPipeline_validInput_returnsPipeline()
+void createPipeline_nullName_throwsValidationException()
+void triggerExecution_pipelineNotFound_throws404()
+```
+
+## What to Test
+
+| Layer | What to Test | How |
+|-------|--------------|-----|
+| Domain | Business logic, state transitions | Unit tests |
+| Service | Orchestration, transactions | Unit + Integration |
+| Repository | Queries, RLS enforcement | Integration with Testcontainers |
+| Controller | Request/response mapping, validation | @WebMvcTest |
+| Kafka | Message serialization, consumer logic | @EmbeddedKafka |
+
+## Test Coverage Rules
+
+- New code: minimum 80% line coverage
+- State machines: 100% transition coverage
+- Happy path + all error paths must be tested
+- Never skip tests with @Disabled without an issue link

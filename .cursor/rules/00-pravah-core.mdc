@@ -1,0 +1,50 @@
+---
+description: Core engineering principles for Pravah - NO VIBE CODING
+alwaysApply: true
+---
+
+# Pravah Engineering Principles
+
+## Before Writing ANY Code
+
+1. **Reference Documentation First**
+   - Check `docs/lld/` for design patterns, state machines, sequences
+   - Check `docs/adr/` for architectural decisions
+   - Check `docs/product/epics/` for user story acceptance criteria
+   - If no documentation exists for what you're building, STOP and ask
+
+2. **Verify Against Architecture**
+   - Does this align with the High-Level Architecture?
+   - Does this follow the patterns in `docs/lld/01-design-patterns.md`?
+   - Is this the right service for this functionality?
+
+3. **Test-First Mindset**
+   - Write the test BEFORE the implementation
+   - If you can't write the test, you don't understand the requirement
+
+## Code Quality Gates
+
+### Every Change Must Have
+
+- [ ] Unit tests (>80% coverage for new code)
+- [ ] Integration tests for external dependencies
+- [ ] Follows patterns from LLD documentation
+- [ ] No TODO comments without linked issue
+- [ ] Proper error handling (no empty catch blocks)
+- [ ] Logging at appropriate levels
+
+### Never Do
+
+- ❌ Copy-paste code without understanding it
+- ❌ Add dependencies without checking ADRs
+- ❌ Skip tests "to save time"
+- ❌ Use magic strings/numbers
+- ❌ Ignore compiler warnings
+- ❌ Write code that "just works" without understanding why
+
+## When Stuck
+
+1. Re-read the relevant theory chapter in `docs/theory/`
+2. Check playground exercises for working examples
+3. Reference the ADR for the technology
+4. Ask clarifying questions - don't guess

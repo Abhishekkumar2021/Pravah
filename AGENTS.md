@@ -1,0 +1,146 @@
+# Pravah Engineering Guidelines
+
+> This document provides guidance for AI agents working on the Pravah codebase. Human engineers should also follow these principles.
+
+## Core Principle: Engineering Over Vibes
+
+**Every line of code must be intentional and traceable to documentation.**
+
+This is not a hackathon project. This is a production-grade system being built with discipline.
+
+---
+
+## Before Writing Any Code
+
+### 1. Check Documentation First
+
+| Need | Location |
+|------|----------|
+| Architecture decisions | `docs/adr/` |
+| Design patterns | `docs/lld/01-design-patterns.md` |
+| Database schemas | `docs/lld/02-database-erd.md` |
+| State machines | `docs/lld/03-state-machines.md` |
+| Key flows | `docs/lld/04-sequence-diagrams.md` |
+| Domain models | `docs/lld/05-class-diagrams.md` |
+| User stories | `docs/product/epics/` |
+| Theory/concepts | `docs/theory/` |
+| Working examples | `playground/` |
+
+**If documentation doesn't exist for what you're building, STOP and ask.**
+
+### 2. Understand the Context
+
+Before implementing a feature:
+1. Which service owns this functionality?
+2. What events will be published?
+3. What state transitions are involved?
+4. How does this affect other services?
+
+### 3. Write Tests First
+
+If you can't write a test for the behavior, you don't understand the requirement well enough.
+
+---
+
+## Implementation Standards
+
+### Java 21 + Spring Boot 3
+
+- Use records for DTOs and Value Objects
+- Use sealed interfaces for domain events
+- Use pattern matching in switch expressions
+- Constructor injection only (no field @Autowired)
+- @Transactional at service layer
+
+### Database
+
+- Always use RLS for multi-tenant tables
+- Set tenant context before any query
+- Use Flyway for all schema changes
+- Use @Version for optimistic locking
+- Create indexes for foreign keys
+
+### Kafka
+
+- ALWAYS use the Outbox pattern (no dual writes)
+- ALWAYS implement idempotent consumers
+- Topic naming: `pravah.{service}.{entity}.events`
+- Include eventId in all events for deduplication
+
+### gRPC
+
+- Proto files in `libs/proto/`
+- Version in package name (`pravah.pipeline.v1`)
+- UNSPECIFIED as first enum value
+- Map errors to appropriate Status codes
+
+### State Machines
+
+- Must match diagrams in `docs/lld/03-state-machines.md`
+- Enum-based with explicit transition methods
+- Invalid transitions throw IllegalStateException
+- 100% transition coverage in tests
+
+---
+
+## Testing Requirements
+
+| Type | Naming | Tools | Coverage |
+|------|--------|-------|----------|
+| Unit | `*Test.java` | JUnit 5, Mockito | >80% |
+| Integration | `*IT.java` | Testcontainers | All external deps |
+| Kafka | `*IT.java` | @EmbeddedKafka | Consumer behavior |
+
+**Every new code path must have test coverage.**
+
+---
+
+## What NOT to Do
+
+- ❌ Add dependencies without checking ADRs
+- ❌ Skip tests "to save time"
+- ❌ Use empty catch blocks
+- ❌ Hardcode secrets or configuration
+- ❌ Trust client-provided tenant IDs
+- ❌ Write code that "just works" without understanding why
+- ❌ Copy-paste code without understanding it
+- ❌ Create TODOs without linked issues
+- ❌ Ignore compiler warnings
+
+---
+
+## When Stuck
+
+1. Re-read the relevant theory chapter in `docs/theory/`
+2. Check playground exercises for working examples
+3. Reference the ADR for the technology decision
+4. Ask clarifying questions — don't guess
+
+---
+
+## Commit Guidelines
+
+```
+type(scope): subject
+
+Refs: US-XX.YY or #issue
+```
+
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
+
+---
+
+## Quality Gates
+
+Before any PR:
+
+- [ ] All tests pass
+- [ ] No compiler warnings
+- [ ] Documentation updated if design changed
+- [ ] Follows patterns from LLD docs
+- [ ] Security checklist completed
+- [ ] Code review checklist completed
+
+---
+
+*Built with engineering discipline — every decision documented, every pattern intentional.*

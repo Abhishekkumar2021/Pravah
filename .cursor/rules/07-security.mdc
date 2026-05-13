@@ -1,0 +1,138 @@
+---
+description: Security standards - authentication, authorization, secrets
+globs: "**/security/**/*.java,**/auth/**/*.java,**/*Controller.java"
+alwaysApply: false
+---
+
+# Security Standards
+
+## Reference Documentation
+
+- `docs/adr/ADR-009-jwt-oauth2-authentication.md`
+- `docs/adr/ADR-007-vault-secret-management.md`
+- `docs/adr/ADR-006-pool-multi-tenancy-model.md`
+- `docs/theory/phase-5-security/`
+
+## Authentication Flow
+
+```java
+// ✅ JWT validation at Gateway
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, 
+                                     HttpServletResponse response,
+                                     FilterChain chain) {
+        String token = extractToken(request);
+        if (token != null) {
+            Claims claims = jwtValidator.validate(token);
+            
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(new JwtAuthentication(
+                UserId.of(claims.getSubject()),
+                TenantId.of(claims.get("tenant_id", String.class)),
+                extractPermissions(claims)
+            ));
+            SecurityContextHolder.setContext(context);
+            
+            // Propagate to downstream services via headers
+            request.setAttribute("X-User-ID", claims.getSubject());
+            request.setAttribute("X-Tenant-ID", claims.get("tenant_id"));
+        }
+        chain.doFilter(request, response);
+    }
+}
+```
+
+## Authorization
+
+```java
+// ✅ Method-level authorization
+@PreAuthorize("hasPermission(#pipelineId, 'pipeline', 'read')")
+public Pipeline getPipeline(PipelineId pipelineId) { ... }
+
+@PreAuthorize("hasPermission(#pipelineId, 'pipeline', 'write')")
+public Pipeline updatePipeline(PipelineId pipelineId, UpdateCommand cmd) { ... }
+
+@PreAuthorize("hasRole('ADMIN')")
+public void deleteTenant(TenantId tenantId) { ... }
+
+// ✅ Custom permission evaluator
+@Component
+public class PravahPermissionEvaluator implements PermissionEvaluator {
+    @Override
+    public boolean hasPermission(Authentication auth, Object target, Object permission) {
+        JwtAuthentication jwt = (JwtAuthentication) auth;
+        String perm = target + ":" + permission;  // e.g., "pipeline:write"
+        return jwt.getPermissions().contains(perm);
+    }
+}
+```
+
+## Multi-Tenancy Security
+
+```java
+// ✅ Tenant context MUST be set before any data access
+@Aspect
+@Component
+public class TenantContextAspect {
+    @Before("@annotation(Transactional)")
+    public void setTenantContext() {
+        TenantId tenantId = SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getTenantId();
+        
+        if (tenantId == null) {
+            throw new SecurityException("Tenant context required");
+        }
+        
+        // Set for RLS
+        jdbcTemplate.execute(
+            "SET LOCAL app.current_tenant_id = '" + tenantId.value() + "'"
+        );
+    }
+}
+
+// ❌ NEVER trust client-provided tenant ID
+// The tenant ALWAYS comes from the JWT, never from request body/params
+```
+
+## Secret Management
+
+```java
+// ✅ Secrets from Vault, never hardcoded
+@Configuration
+public class DatabaseConfig {
+    @Value("${spring.datasource.url}")
+    private String url;
+    
+    // Credentials from Vault dynamic secrets
+    @VaultPropertySource("database/creds/pipeline-service")
+    @Value("${username}")
+    private String username;
+    
+    @Value("${password}")
+    private String password;
+}
+
+// ❌ NEVER do this
+private static final String DB_PASSWORD = "secret123";
+private String apiKey = "sk-1234567890";
+```
+
+## Security Checklist
+
+Every endpoint MUST:
+- [ ] Validate JWT signature and expiry
+- [ ] Extract tenant from token (not request)
+- [ ] Check permissions before data access
+- [ ] Set RLS context before queries
+- [ ] Log security events (login, permission denied)
+- [ ] Rate limit by tenant/user
+
+Never:
+- ❌ Trust client-provided IDs for authorization
+- ❌ Hardcode secrets
+- ❌ Log sensitive data (tokens, passwords)
+- ❌ Return stack traces to clients
+- ❌ Use SQL string concatenation
