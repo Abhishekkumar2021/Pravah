@@ -21,7 +21,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
 
     // DuckDB for analytics
-    implementation("org.duckdb:duckdb_jdbc:0.10.1")
+    implementation("org.duckdb:duckdb_jdbc:1.5.2.1")
 
     // Object storage (MinIO/S3 compatible)
     implementation("software.amazon.awssdk:s3:2.25.21")
