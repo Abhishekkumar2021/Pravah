@@ -47,8 +47,6 @@ main (protected)
 
 For a **solo maintainer**, GitHub **branch rulesets** can still require PRs and CI for day-to-day quality, while **Allow repository admins to bypass** (or an equivalent bypass entry for the repository admin role) lets you merge or push when you are blocked by checks—use sparingly.
 
-**As applied in this repo:** branch rulesets are versioned under [`.github/scripts/`](.github/scripts/README.md) (JSON + `gh api` instructions). Classic branch protection was removed in favor of rulesets so **admin bypass** does not allow direct pushes.
-
 ### Enforcing PR-only workflow (repository administrators)
 
 Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **rulesets** (Settings → Rules → Rulesets); they supersede classic branch protection where both exist.
