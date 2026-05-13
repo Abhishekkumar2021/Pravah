@@ -25,12 +25,14 @@ Pipelines have a simple lifecycle focused on version management.
 stateDiagram-v2
     [*] --> DRAFT : create()
     
-    DRAFT --> ACTIVE : publish()\n[validation passes]
+    DRAFT --> ACTIVE : publish()
     
     ACTIVE --> ACTIVE : update() + publish()
     ACTIVE --> ARCHIVED : archive()
     
     ARCHIVED --> ACTIVE : restore()
+    
+    note right of DRAFT : Validation must pass before publish
 ```
 
 ### State Definitions
@@ -96,18 +98,16 @@ stateDiagram-v2
     RUNNING --> FAILED : any_job_failed()
     RUNNING --> CANCELLED : cancel()
     
-    FAILED --> RETRYING : retry()\n[from failed stage]
+    FAILED --> RETRYING : retry()
     
     RETRYING --> RUNNING : job_started
     
     SUCCEEDED --> [*]
     FAILED --> [*]
     CANCELLED --> [*]
-    
-    note right of SUCCEEDED : Terminal State
-    note right of FAILED : Terminal State\n(unless retried)
-    note right of CANCELLED : Terminal State
 ```
+
+**Terminal States:** SUCCEEDED, FAILED (unless retried), CANCELLED
 
 ### State Definitions
 
@@ -177,13 +177,12 @@ stateDiagram-v2
     
     PENDING --> QUEUED : deps_met()
     PENDING --> SKIPPED : skip_condition_true
-    PENDING --> PENDING : dependencies_not_met\n(wait)
     
     QUEUED --> RUNNING : runner_assigned()
     
     RUNNING --> SUCCEEDED : success()
-    RUNNING --> FAILED : failure()\n[attempt >= max]
-    RUNNING --> QUEUED : failure()\n[attempt < max]\nretry()
+    RUNNING --> FAILED : failure_max_retries
+    RUNNING --> QUEUED : retry()
     RUNNING --> CANCELLED : cancel()
     
     SUCCEEDED --> [*]
@@ -191,6 +190,8 @@ stateDiagram-v2
     CANCELLED --> [*]
     SKIPPED --> [*]
 ```
+
+**Retry Logic:** On failure, if `attempt < max`, job returns to QUEUED. Otherwise, moves to FAILED.
 
 ### State Definitions
 
@@ -263,11 +264,11 @@ Runners are the execution agents that run jobs.
 stateDiagram-v2
     [*] --> AVAILABLE : register()
     
-    AVAILABLE --> BUSY : job_assigned()\n[at capacity]
+    AVAILABLE --> BUSY : job_assigned
     AVAILABLE --> DRAINING : drain()
-    AVAILABLE --> SUSPECT : heartbeat_timeout\n(30s)
+    AVAILABLE --> SUSPECT : heartbeat_timeout_30s
     
-    BUSY --> AVAILABLE : job_complete()\n[below capacity]
+    BUSY --> AVAILABLE : job_complete
     BUSY --> DRAINING : drain()
     
     DRAINING --> DRAINED : all_jobs_complete()
@@ -275,7 +276,7 @@ stateDiagram-v2
     DRAINED --> AVAILABLE : resume()
     
     SUSPECT --> AVAILABLE : heartbeat_received()
-    SUSPECT --> DEAD : heartbeat_timeout\n(60s total)
+    SUSPECT --> DEAD : heartbeat_timeout_60s
     
     DEAD --> AVAILABLE : reconnect()
     
@@ -285,6 +286,12 @@ stateDiagram-v2
     
     DEREGISTERED --> [*]
 ```
+
+**Transitions:**
+- AVAILABLE → BUSY: when at max capacity
+- BUSY → AVAILABLE: when below capacity
+- SUSPECT: missed 1-2 heartbeats (30s)
+- DEAD: missed 3+ heartbeats (60s)
 
 ### State Definitions
 
@@ -404,7 +411,7 @@ stateDiagram-v2
     
     ACTIVE --> ACKNOWLEDGED : acknowledge()
     ACTIVE --> SNOOZED : snooze()
-    ACTIVE --> RESOLVED : resolve()\nauto_resolve()
+    ACTIVE --> RESOLVED : resolve()
     
     ACKNOWLEDGED --> RESOLVED : resolve()
     
@@ -413,6 +420,8 @@ stateDiagram-v2
     
     RESOLVED --> [*]
 ```
+
+**Auto-resolve:** Alerts can also be automatically resolved when the triggering condition clears.
 
 ### Alert Lifecycle
 

@@ -531,7 +531,6 @@ classDiagram
     Runner "1" o-- "*" JobAssignment
     Runner --> RunnerStatus
     
-    note for RunnerStatus "AVAILABLE: Can accept jobs\nBUSY: At max capacity\nDRAINING: Admin requested drain\nDRAINED: Drain complete\nSUSPECT: Missed 1-2 heartbeats\nDEAD: Missed 3+ heartbeats"
 ```
 
 ---

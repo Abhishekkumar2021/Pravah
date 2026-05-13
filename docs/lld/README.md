@@ -93,7 +93,7 @@ This directory contains detailed low-level design documentation for Pravah. Use 
 6. **Alert** — ACTIVE → ACKNOWLEDGED → RESOLVED
 
 **Includes:**
-- ASCII diagrams
+- Mermaid state diagrams
 - Transition tables
 - Java implementation code
 - Interview questions
@@ -112,7 +112,7 @@ This directory contains detailed low-level design documentation for Pravah. Use 
 8. AI Diagnosis
 
 **Includes:**
-- Detailed ASCII sequence diagrams
+- Mermaid sequence diagrams
 - Service interactions
 - Kafka event flows
 - Error handling paths
@@ -131,7 +131,7 @@ This directory contains detailed low-level design documentation for Pravah. Use 
 8. Agent Service — Observation, HealingAction, Tool
 
 **Includes:**
-- UML-style ASCII diagrams
+- Mermaid class diagrams
 - Java code examples
 - Value objects
 - Repository patterns

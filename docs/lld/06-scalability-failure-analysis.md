@@ -376,7 +376,7 @@ stateDiagram-v2
     SUSPECT --> DEAD : heartbeat timeout (60s)
     DEAD --> AVAILABLE : reconnect
     
-    note right of DEAD : Orphaned jobs marked FAILED\nRetryable jobs re-queued
+    note right of DEAD : Orphaned jobs marked FAILED, retryable jobs re-queued
 ```
 
 **Impact:** Jobs on that runner are orphaned  

@@ -18,7 +18,7 @@
 
 ## What Is Pravah?
 
-Pravah is a **GitHub Actions / Airbyte / Prefect-level ETL platform** built from scratch — designed as an engineering deep-dive and FAANG-level portfolio project.
+Pravah is a **GitHub Actions / Airbyte / Prefect-level ETL platform** built from scratch — designed as an engineering deep-dive and senior-level portfolio project.
 
 It handles the full lifecycle of data pipelines: scheduling, distributed execution across self-hosted and cloud runners, lineage tracking, observability, and an agentic layer that can detect and heal schema drift automatically.
 
@@ -38,72 +38,107 @@ It handles the full lifecycle of data pipelines: scheduling, distributed executi
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────── CONTROL PLANE ────────────────────────────────────┐
-│                                                                                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │  Pipeline    │  │  Scheduler   │  │  Execution   │  │  Agent Service           │  │
-│  │  Service     │  │  Service     │  │  Service     │  │  (LLM / auto-heal)       │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────────────────────────┘  │
-│         └─────────────────┴──────────────────┘                                        │
-│                            gRPC mesh (internal)                                       │
-│                                    │                                                  │
-│  ┌─────────────┐  ┌────────────────▼──────────────┐  ┌──────────────────────────┐   │
-│  │ API Gateway │  │       Kafka Cluster            │  │ Observability Stack      │   │
-│  │ (REST + WS) │  │  job.assigned · job.result     │  │ Prometheus · Grafana     │   │
-│  │             │  │  runner.heartbeat · audit.log  │  │ Jaeger · ELK             │   │
-│  └─────────────┘  └───────────────────────────────┘  └──────────────────────────┘   │
-│                                                                                       │
-│  ┌────────────────────────────────────────────────────────────────────────────────┐  │
-│  │                              Data Layer                                         │  │
-│  │  PostgreSQL (metadata)  ·  Redis (state/cache)  ·  MinIO (artifacts)           │  │
-│  │  Elasticsearch (logs/lineage)  ·  HashiCorp Vault (secrets)                    │  │
-│  └────────────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────┬────────────────────────────────────────────────┘
-                                       │
-                        gRPC Bidirectional Streaming + mTLS
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              │                        │                        │
-   ┌──────────▼──────────┐  ┌──────────▼──────────┐  ┌─────────▼──────────┐
-   │   Self-Hosted Runner │  │  Cloud Runner (K8s) │  │  Ephemeral Runner  │
-   │   On-prem data access│  │  Auto-scaled pods   │  │  Per-job pod       │
-   │   JAR / Docker       │  │  Managed by Pravah  │  │  Destroyed on done │
-   └──────────────────────┘  └──────────────────────┘  └────────────────────┘
+```mermaid
+flowchart TB
+    subgraph CP["CONTROL PLANE"]
+        direction TB
+        GW[API Gateway<br/>REST + GraphQL]
+        PS[Pipeline Service]
+        SS[Scheduler Service]
+        ES[Execution Service]
+        AS[Agent Service<br/>LLM / auto-heal]
+        
+        GW --> PS
+        GW --> ES
+        PS <--> KFK
+        SS --> ES
+        ES <--> KFK
+        AS <--> KFK
+    end
+    
+    subgraph DATA["DATA LAYER"]
+        direction LR
+        PG[(PostgreSQL)]
+        RDS[(Redis)]
+        MINIO[(MinIO)]
+        ELK[(Elasticsearch)]
+        VAULT[(Vault)]
+    end
+    
+    subgraph KFK["KAFKA CLUSTER"]
+        direction LR
+        T1[job.assigned]
+        T2[job.result]
+        T3[lineage.events]
+    end
+    
+    subgraph OBS["OBSERVABILITY"]
+        PROM[Prometheus]
+        GRAF[Grafana]
+        JAEG[Jaeger]
+    end
+    
+    subgraph RUNNERS["RUNNER TIER"]
+        direction LR
+        R1[Self-Hosted Runner<br/>On-prem data access]
+        R2[Cloud Runner K8s<br/>Auto-scaled pods]
+        R3[Ephemeral Runner<br/>Per-job pod]
+    end
+    
+    CP --> DATA
+    KFK --> RUNNERS
+    RUNNERS --> KFK
+    CP --> OBS
 ```
 
-> **Data flow for a single pipeline run:** UI/API/Cron → Scheduler resolves DAG → `job.assigned` to Kafka → Execution Service assigns runner → Job pushed via gRPC stream → Runner extracts, transforms (DuckDB), loads → Lineage event emitted → Agent monitors for anomalies → Notification fires if configured.
+**Data flow for a single pipeline run:**
 
-See [`docs/design/system-architecture.md`](docs/design/system-architecture.md) for the complete design document.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as UI/API/Cron
+    participant Sched as Scheduler
+    participant Exec as Execution Service
+    participant Kafka
+    participant Runner
+    participant Agent
+    
+    UI->>Sched: Trigger pipeline
+    Sched->>Sched: Resolve DAG
+    Sched->>Kafka: job.assigned
+    Kafka->>Exec: Assign runner
+    Exec->>Runner: gRPC stream: Job
+    Runner->>Runner: Extract → Transform (DuckDB) → Load
+    Runner->>Kafka: lineage.events
+    Runner->>Kafka: job.completed
+    Kafka->>Agent: Monitor for anomalies
+    Agent->>Agent: Diagnose if failed
+```
+
+See [`docs/architecture/high-level-architecture.md`](docs/architecture/high-level-architecture.md) for the complete design document.
 
 ---
 
 ## Tech Stack
 
-```
-┌─────────────────┬──────────────────────────────────────────────────────────────┐
-│ Layer           │ Technology                                                   │
-├─────────────────┼──────────────────────────────────────────────────────────────┤
-│ Services        │ Java 21 · Spring Boot 3 · Spring Cloud                       │
-│ Inter-service   │ gRPC (sync/streaming) + Kafka (async events)                 │
-│ Runner protocol │ gRPC bidirectional stream · mTLS per-runner certs            │
-│ External API    │ REST (mutations, SDK) + GraphQL (UI read queries)            │
-│ Database        │ PostgreSQL 16 + Flyway · Patroni HA (auto-failover)          │
-│ Cache / State   │ Redis Sentinel — locks, pub/sub, rate limiting, session state │
-│ Object Store    │ MinIO (S3-compatible) — artifacts, logs, snapshots            │
-│ Search / Lineage│ Elasticsearch — log search, data catalog, lineage graph      │
-│ Secrets         │ HashiCorp Vault — dynamic credentials, mTLS PKI, Transit enc │
-│ Processing      │ DuckDB (embedded, per runner) — in-process SQL transforms    │
-│ Observability   │ Prometheus + Grafana + OpenTelemetry + Jaeger + ELK          │
-│ Auth            │ JWT RS256 + OAuth 2.0 + SSO (OIDC/SAML 2.0) + mTLS         │
-│ Feature flags   │ OpenFeature SDK — Redis provider, kill switches, rollouts    │
-│ Data lineage    │ OpenLineage spec — column-level, stored in Elasticsearch      │
-│ Service mesh    │ Istio — L7 AuthorizationPolicy, traffic management           │
-│ Infra / GitOps  │ Kubernetes + Helm + Argo CD + KEDA                          │
-│ UI              │ Next.js 14 · React Flow (DAG canvas) · TailwindCSS           │
-│ Agent           │ Spring AI · Claude / GPT-4 · ReAct · pgvector               │
-└─────────────────┴──────────────────────────────────────────────────────────────┘
-```
+| Layer | Technology |
+|-------|------------|
+| **Services** | Java 21 · Spring Boot 3 · Spring Cloud |
+| **Inter-service** | gRPC (sync/streaming) + Kafka (async events) |
+| **Runner protocol** | gRPC bidirectional stream · mTLS per-runner certs |
+| **External API** | REST (mutations, SDK) + GraphQL (UI read queries) |
+| **Database** | PostgreSQL 16 + Flyway · Patroni HA (auto-failover) |
+| **Cache / State** | Redis Sentinel — locks, pub/sub, rate limiting |
+| **Object Store** | MinIO (S3-compatible) — artifacts, logs, snapshots |
+| **Search / Lineage** | Elasticsearch — log search, data catalog, lineage graph |
+| **Secrets** | HashiCorp Vault — dynamic credentials, mTLS PKI |
+| **Processing** | DuckDB (embedded, per runner) — in-process SQL transforms |
+| **Observability** | Prometheus + Grafana + OpenTelemetry + Jaeger + ELK |
+| **Auth** | JWT RS256 + OAuth 2.0 + SSO (OIDC/SAML 2.0) + mTLS |
+| **Data lineage** | OpenLineage spec — column-level, stored in Elasticsearch |
+| **Infra / GitOps** | Kubernetes + Helm + Argo CD + KEDA |
+| **UI** | Next.js 14 · React Flow (DAG canvas) · TailwindCSS |
+| **Agent** | Spring AI · Claude / GPT-4 · ReAct · pgvector |
 
 ---
 
@@ -117,136 +152,123 @@ Pravah/
 │   ├── architecture/
 │   │   └── high-level-architecture.md    # Full service map, data flows, infra
 │   ├── adr/                              # Architecture Decision Records (ADR-001–033)
-│   ├── design/                           # Extended design documents
+│   ├── design/                           # API contracts, event schemas
+│   ├── product/                          # Product vision, epics, user stories
+│   ├── lld/                              # Low-level design (patterns, ERDs, state machines)
 │   └── theory/                           # 9-phase engineering curriculum (75 chapters)
-│       ├── README.md                     # Full chapter index
-│       ├── phase-1-distributed-systems/  # 12 chapters ✅
-│       ├── phase-2-kafka-messaging/      # 12 chapters ✅
-│       ├── phase-3-database-design/      # 13 chapters ✅
-│       ├── phase-4-observability/        #  7 chapters ✅
-│       ├── phase-5-security/             #  7 chapters ✅
-│       ├── phase-6-kubernetes/           #  6 chapters ✅
-│       ├── phase-7-ai-agent-architecture/#  7 chapters ✅
-│       ├── phase-8-etl-data-engineering/ #  7 chapters ✅
-│       └── phase-9-system-design-synthesis/ # 4 chapters ✅
 │
-├── implementation/                       # Source code — starts next
-│   ├── services/                         # Spring Boot microservices
-│   ├── runner/                           # Standalone runner binary
-│   ├── proto/                            # Protobuf contracts
-│   └── infra/                            # Docker Compose, Helm charts
+├── playground/                           # Hands-on learning exercises (12 modules)
+│   ├── 01-kafka/                         # Kafka producer, consumer, exactly-once
+│   ├── 02-grpc/                          # Bidirectional streaming, mTLS
+│   ├── 03-postgresql/                    # Partitioning, RLS, PgBouncer
+│   ├── 04-redis/                         # Distributed locks, rate limiting
+│   ├── 05-vault/                         # Dynamic credentials, PKI
+│   ├── 06-outbox-pattern/                # Transactional outbox
+│   ├── 07-saga/                          # Choreography-based saga
+│   ├── 08-duckdb/                        # In-process analytics
+│   ├── 09-spring-ai/                     # ReAct pattern, LLM tools
+│   ├── 10-kubernetes/                    # Kind, KEDA auto-scaling
+│   ├── 11-opentelemetry/                 # Distributed tracing
+│   └── 12-graphql/                       # DataLoader, pagination
 │
-└── scripts/                              # Migration scripts, tooling
+└── implementation/                       # Source code (coming next)
+    ├── services/                         # Spring Boot microservices
+    ├── runner/                           # Standalone runner binary
+    ├── proto/                            # Protobuf contracts
+    └── infra/                            # Docker Compose, Helm charts
 ```
 
 ---
 
-## Theory Curriculum
+## Documentation
 
-The [`docs/theory/`](docs/theory/) directory is a **self-contained engineering course** — covering every concept needed to build and reason about a distributed system at this scale. Each chapter is a standalone reference document with architecture diagrams, code examples, and interview angles.
+### Theory Curriculum (75 chapters)
 
----
+The [`docs/theory/`](docs/theory/) directory is a **self-contained engineering course** covering every concept needed to build a distributed system at this scale.
 
-### Phase 1 — Distributed Systems Fundamentals ✅
+| Phase | Topic | Chapters |
+|-------|-------|----------|
+| **1** | Distributed Systems Fundamentals | 12 ✅ |
+| **2** | Messaging & Kafka Internals | 12 ✅ |
+| **3** | Database Design & Scaling | 13 ✅ |
+| **4** | Observability & Reliability | 7 ✅ |
+| **5** | Security, Auth & Multi-Tenancy | 7 ✅ |
+| **6** | Kubernetes & Production Infra | 6 ✅ |
+| **7** | AI/Agent Architecture | 7 ✅ |
+| **8** | ETL & Data Engineering | 7 ✅ |
+| **9** | System Design Synthesis | 4 ✅ |
 
-> The foundation: how distributed systems make guarantees, fail, communicate, and stay correct under chaos.
-
-| # | Chapter | Core Concept |
-|---|---------|-------------|
-| [1.1](docs/theory/phase-1-distributed-systems/1.1-cap-theorem-and-consistency.md) | CAP Theorem & Pravah's Consistency Choices | CP vs AP per component |
-| [1.2](docs/theory/phase-1-distributed-systems/1.2-consistency-models.md) | Consistency Models | Linearizability → Sequential → Causal → Eventual |
-| [1.3](docs/theory/phase-1-distributed-systems/1.3-distributed-clocks-ordering-causality.md) | Distributed Clocks, Ordering & Causality | Lamport timestamps, vector clocks |
-| [1.4](docs/theory/phase-1-distributed-systems/1.4-leader-election.md) | Leader Election | Fencing tokens, split-brain prevention |
-| [1.5](docs/theory/phase-1-distributed-systems/1.5-consensus-algorithms-raft-paxos.md) | Consensus — Raft & Paxos | How etcd / ZooKeeper actually work |
-| [1.6](docs/theory/phase-1-distributed-systems/1.6-failure-modes.md) | Failure Modes | Crash, Byzantine, partition; detection strategies |
-| [1.7](docs/theory/phase-1-distributed-systems/1.7-idempotency-exactly-once.md) | Idempotency & Exactly-Once | Idempotency keys, deduplication, retry safety |
-| [1.8](docs/theory/phase-1-distributed-systems/1.8-saga-pattern.md) | Saga Pattern | Orchestration vs choreography; compensating transactions |
-| [1.9](docs/theory/phase-1-distributed-systems/1.9-event-sourcing-cqrs.md) | Event Sourcing & CQRS | Immutable event log, time travel, read/write split |
-| [1.10](docs/theory/phase-1-distributed-systems/1.10-outbox-pattern.md) | The Outbox Pattern | Atomic writes across DB and Kafka without 2PC |
-| [1.11](docs/theory/phase-1-distributed-systems/1.11-circuit-breaker-bulkhead-backpressure.md) | Circuit Breaker, Bulkhead & Backpressure | Resilience4j; cascading failure prevention |
-| [1.12](docs/theory/phase-1-distributed-systems/1.12-two-phase-commit.md) | Two-Phase Commit & Why We Avoid It | 2PC failure modes; Pravah's alternative stack |
-
----
-
-### Phase 2 — Messaging & Kafka Internals ✅
-
-> Kafka as Pravah's nervous system: internals, producers, consumers, schema evolution, CDC, streaming, and gRPC.
-
-| # | Chapter | Core Concept |
-|---|---------|-------------|
-| [2.1](docs/theory/phase-2-kafka-messaging/2.1-why-kafka.md) | Why Kafka Over RabbitMQ / SQS | Log-based vs queue-based; 5 Pravah requirements |
-| [2.2](docs/theory/phase-2-kafka-messaging/2.2-kafka-architecture.md) | Kafka Architecture | Brokers, topics, partitions, offsets, ISR |
-| [2.3](docs/theory/phase-2-kafka-messaging/2.3-producer-internals.md) | Producer Internals | Batching, compression, `acks`, idempotent producers |
-| [2.4](docs/theory/phase-2-kafka-messaging/2.4-consumer-groups-rebalancing.md) | Consumer Groups & Rebalancing | Partition assignment, offset commits, cooperative rebalancing |
-| [2.5](docs/theory/phase-2-kafka-messaging/2.5-partition-strategy.md) | Partition Strategy | Key selection, hot partitions, custom partitioners |
-| [2.6](docs/theory/phase-2-kafka-messaging/2.6-exactly-once-kafka-transactions.md) | Exactly-Once: Kafka Transactions | Idempotent producer, transaction coordinator, `consume-transform-produce` |
-| [2.7](docs/theory/phase-2-kafka-messaging/2.7-schema-registry-avro-protobuf.md) | Schema Registry | Avro / Protobuf, compatibility modes, schema evolution |
-| [2.8](docs/theory/phase-2-kafka-messaging/2.8-dead-letter-queues-poison-pill.md) | Dead Letter Queues | Poison pill detection, DLQ routing, replay UI |
-| [2.9](docs/theory/phase-2-kafka-messaging/2.9-kafka-connect-cdc-debezium.md) | Kafka Connect & CDC | Debezium WAL capture, connector lifecycle, lag monitoring |
-| [2.10](docs/theory/phase-2-kafka-messaging/2.10-kafka-streams-vs-flink.md) | Kafka Streams vs Flink | Event time, windowing, watermarks, when to use each |
-| [2.11](docs/theory/phase-2-kafka-messaging/2.11-grpc-internals.md) | gRPC Internals | HTTP/2 frames, bidirectional streaming, flow control, Netty |
-| [2.12](docs/theory/phase-2-kafka-messaging/2.12-grpc-vs-rest-vs-websocket.md) | gRPC vs REST vs WebSocket | Protocol selection per use-case across Pravah |
-
----
-
-### Phase 3 — Database Design & Scaling ✅
-
-> PostgreSQL deep-dive: MVCC, WAL, indexing, partitioning, PgBouncer, replication, sharding, Redis, Elasticsearch, cold storage archival.
-
-See [docs/theory/phase-3-database-design/](docs/theory/phase-3-database-design/README.md) — 13 chapters complete.
-
----
-
-### Phases 4–9 ✅
-
-| Phase | Topic Area | Chapters |
-|-------|-----------|----------|
-| **Phase 4** | Observability & Reliability — SLOs, Prometheus, tracing, logging, alerting, chaos | 7 ✅ |
-| **Phase 5** | Security, Auth & Multi-Tenancy — JWT, mTLS, Vault, RBAC, RLS, OWASP | 7 ✅ |
-| **Phase 6** | Kubernetes, Helm & Production Infra — workloads, autoscaling, GitOps, PDBs | 6 ✅ |
-| **Phase 7** | AI/Agent Architecture — LLM fundamentals, ReAct, Spring AI, RAG, memory, evals | 7 ✅ |
-| **Phase 8** | ETL & Data Engineering — DAG design, CDC, data contracts, backfill, lineage, DuckDB | 7 ✅ |
-| **Phase 9** | System Design Synthesis — full walkthrough, capacity planning, bottleneck analysis, interview prep | 4 ✅ |
-
-→ Full chapter index: [docs/theory/README.md](docs/theory/README.md)
-
----
-
-## Architecture & Design Documents
+### Architecture & Design
 
 | Document | Description |
 |----------|-------------|
-| [High-Level Architecture](docs/architecture/high-level-architecture.md) | Complete service map, data flows, infrastructure, security, multi-tenancy, observability |
-| [Service API & Event Contracts](docs/design/system-architecture.md) | REST endpoints, GraphQL schema, gRPC protobuf definitions, Kafka event schemas, DB schema summaries |
-| [ADR Index](docs/adr/README.md) | 33 Architecture Decision Records — every major design decision |
+| [High-Level Architecture](docs/architecture/high-level-architecture.md) | Complete service map, data flows, infrastructure |
+| [ADR Index](docs/adr/README.md) | 33 Architecture Decision Records |
+| [Design Patterns](docs/lld/01-design-patterns.md) | 28 patterns with code examples |
+| [Database ERD](docs/lld/02-database-erd.md) | Complete schemas for all 8 services |
+| [State Machines](docs/lld/03-state-machines.md) | Pipeline, Execution, Job, Runner lifecycles |
+| [Sequence Diagrams](docs/lld/04-sequence-diagrams.md) | 8 key system flows |
+| [Class Diagrams](docs/lld/05-class-diagrams.md) | Domain models per service |
+| [Scalability Analysis](docs/lld/06-scalability-failure-analysis.md) | Bottlenecks, failures, DR planning |
+
+### Product Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Product Vision](docs/product/PRODUCT-VISION.md) | Mission, value props, target users |
+| [Epics Overview](docs/product/EPICS-OVERVIEW.md) | 12 epics, 180 user stories |
+| [Release Plan](docs/product/releases/RELEASE-PLAN.md) | Alpha → Beta → GA roadmap |
 
 ---
 
 ## Project Status
 
 ```
-Theory (75 chapters — complete)
-  ✅  Phase 1 — Distributed Systems Fundamentals    (12/12 chapters)
-  ✅  Phase 2 — Messaging & Kafka Internals         (12/12 chapters)
-  ✅  Phase 3 — Database Design & Scaling           (13/13 chapters)
-  ✅  Phase 4 — Observability & Reliability          (7/7  chapters)
-  ✅  Phase 5 — Security, Auth & Multi-Tenancy       (7/7  chapters)
-  ✅  Phase 6 — Kubernetes & Production Infra        (6/6  chapters)
-  ✅  Phase 7 — AI/Agent Architecture                (7/7  chapters)
-  ✅  Phase 8 — ETL & Data Engineering               (7/7  chapters)
-  ✅  Phase 9 — System Design Synthesis              (4/4  chapters)
-
-Architecture (complete)
-  ✅  33 Architecture Decision Records (ADR-001 through ADR-033)
-  ✅  High-Level Architecture — full service map, all 11 services, all data flows
-
-Implementation  ← starts next
-  📋  Gradle multi-module project skeleton
-  📋  Protobuf contracts for all gRPC services
-  📋  Database schemas + Flyway migrations (per service)
-  📋  Docker Compose local dev environment
-  📋  Kubernetes + Helm charts
+Theory (75 chapters)                        ████████████████████ 100%
+Architecture Decision Records (33 ADRs)     ████████████████████ 100%
+Product Documentation (12 epics)            ████████████████████ 100%
+Low-Level Design (6 documents)              ████████████████████ 100%
+Playground Exercises (12 modules)           ████████████████████ 100%
+Implementation                              ░░░░░░░░░░░░░░░░░░░░ 0%   ← Next
 ```
+
+### Completed
+
+- ✅ 75 theory chapters across 9 phases
+- ✅ 33 Architecture Decision Records
+- ✅ High-Level Architecture with all 11 services
+- ✅ Product documentation: vision, 12 epics, 180 user stories
+- ✅ Low-Level Design: patterns, ERDs, state machines, sequences
+- ✅ 12 playground modules for hands-on learning
+
+### Next Steps
+
+- 📋 Gradle multi-module project skeleton
+- 📋 Protobuf contracts for all gRPC services
+- 📋 Database schemas + Flyway migrations
+- 📋 Docker Compose local dev environment
+- 📋 Kubernetes + Helm charts
+
+---
+
+## Playground Modules
+
+Each playground is a standalone Spring Boot project demonstrating a core concept:
+
+| Module | Concepts | Technologies |
+|--------|----------|--------------|
+| **01-kafka** | Producer, Consumer Groups, Exactly-Once, DLT | Kafka, Spring Kafka, Testcontainers |
+| **02-grpc** | Bidirectional Streaming, Reflection | gRPC, Protobuf, Netty |
+| **03-postgresql** | Partitioning, RLS, Connection Pooling | PostgreSQL 16, PgBouncer, Flyway |
+| **04-redis** | Distributed Locks, Rate Limiting | Redis 7, Lua Scripts, Spring Data Redis |
+| **05-vault** | Dynamic Credentials, PKI | HashiCorp Vault, Spring Vault |
+| **06-outbox** | Transactional Outbox Pattern | PostgreSQL, Kafka, JPA |
+| **07-saga** | Choreography, Compensation | Kafka, Event-Driven, Idempotency |
+| **08-duckdb** | In-Process Analytics, Parquet | DuckDB, JDBC |
+| **09-spring-ai** | ReAct Pattern, Tool Calling | Spring AI, Gemini |
+| **10-kubernetes** | Auto-scaling, KEDA | Kind, KEDA, Kafka Trigger |
+| **11-opentelemetry** | Distributed Tracing | OTel, Jaeger, OTLP |
+| **12-graphql** | DataLoader, Pagination | Spring GraphQL, N+1 Prevention |
 
 ---
 
@@ -254,25 +276,55 @@ Implementation  ← starts next
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/Pravah.git
+git clone https://github.com/AbhishekKr-Jha/Pravah.git
 cd Pravah
 
-# Start from the theory curriculum
+# Start with the theory curriculum
 open docs/theory/README.md
 
-# Or start from the architecture
+# Or explore the architecture
 open docs/architecture/high-level-architecture.md
 
-# Explore the full ADR set
-open docs/adr/README.md
+# Run a playground module
+cd playground/01-kafka
+./gradlew test
 ```
 
-> Implementation bootstrap instructions will be added once the service skeletons are committed.
+---
+
+## Key Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Event backbone | Kafka over RabbitMQ | Log-based replay, partitioning, exactly-once semantics |
+| Inter-service sync | gRPC over REST | Streaming, type safety, performance |
+| Multi-tenancy | RLS over schema-per-tenant | Simpler ops, connection pooling friendly |
+| Saga pattern | Choreography over orchestration | Loose coupling, no coordinator bottleneck |
+| Pipeline state | Event Sourcing | Full audit trail, time-travel debugging |
+| DB consistency | Transactional Outbox | Dual-write problem solved without 2PC |
+
+See the [ADR Index](docs/adr/README.md) for all 33 decisions with context and trade-offs.
+
+---
+
+## System Design Interview Angles
+
+This project demonstrates production-ready implementations of:
+
+- **Distributed Systems**: CAP theorem trade-offs, consensus, leader election
+- **Messaging**: Exactly-once semantics, consumer groups, dead letter queues
+- **Database**: Partitioning, RLS, connection pooling, event sourcing
+- **Resilience**: Circuit breakers, bulkheads, retry with backoff
+- **Observability**: Metrics, tracing, logging, alerting
+- **Security**: mTLS, JWT, RBAC, secrets management
+- **Scalability**: Horizontal scaling, KEDA, bottleneck analysis
 
 ---
 
 <div align="center">
 
 Built as a serious engineering study — every design decision is intentional, documented, and interview-ready.
+
+**[Theory](docs/theory/README.md) · [Architecture](docs/architecture/high-level-architecture.md) · [ADRs](docs/adr/README.md) · [Product](docs/product/README.md) · [LLD](docs/lld/README.md)**
 
 </div>
