@@ -313,7 +313,7 @@ sequenceDiagram
     TenantSvc->>Vault: Get signing key
     Vault-->>TenantSvc: signing_key
     
-    TenantSvc->>TenantSvc: Sign JWT:<br/>{sub: user_id, org: org_id, exp: +24h}
+    TenantSvc->>TenantSvc: Sign JWT:<br/>{sub: user_id, tenant_id: ..., exp: +24h}
     TenantSvc->>DB: Create session
     
     TenantSvc-->>Gateway: {token, user}
@@ -333,12 +333,12 @@ sequenceDiagram
     User->>Gateway: GET /pipelines<br/>Authorization: Bearer eyJ...
     
     Gateway->>Gateway: Parse JWT<br/>Verify signature<br/>Check expiry
-    Gateway->>Gateway: Extract: user_id, org_id, permissions
+    Gateway->>Gateway: Extract: user_id, tenant_id, permissions
     Gateway->>Gateway: Set headers:<br/>X-Tenant-ID, X-User-ID
     
     Gateway->>PipelineSvc: Forward (headers propagated)
     
-    PipelineSvc->>DB: SET LOCAL app.current_tenant_id = ?
+    PipelineSvc->>DB: SET LOCAL pravah.current_tenant_id = ?
     PipelineSvc->>DB: SELECT * FROM pipelines<br/>[RLS filters by tenant]
     DB-->>PipelineSvc: Filtered results
     PipelineSvc-->>Gateway: Pipelines
