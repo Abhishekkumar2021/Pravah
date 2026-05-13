@@ -10,7 +10,7 @@ ARG SERVICE_NAME
 # ----------------------------------------------------------------------------
 # Stage 1: Build context extractor
 # ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS builder
+FROM eclipse-temurin:25-jre-alpine AS builder
 
 ARG SERVICE_NAME
 WORKDIR /app
@@ -24,7 +24,7 @@ RUN java -Djarmode=layertools -jar app.jar extract
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime
 # ----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # Security: Run as non-root user
 RUN addgroup -g 1000 pravah && \
