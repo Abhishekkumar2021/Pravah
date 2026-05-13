@@ -22,7 +22,7 @@ dependencies {
     }
 
     // Testcontainers
-    api(platform("org.testcontainers:testcontainers-bom:1.19.7"))
+    api(platform("org.testcontainers:testcontainers-bom:2.0.5"))
     api("org.testcontainers:junit-jupiter")
     api("org.testcontainers:postgresql")
     api("org.testcontainers:kafka")
