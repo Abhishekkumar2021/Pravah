@@ -79,7 +79,7 @@ Each chapter follows the same structure:
 2. **How It Works** — internals with ASCII architecture diagrams
 3. **Pravah Context** — exactly where and how Pravah applies it
 4. **Trade-offs** — what you give up; alternatives considered
-5. **Interview Angles** — how FAANG interviewers probe this topic
+5. **Interview Angles** — how Senior-level interviewers probe this topic
 6. **Key Takeaways** — summary and link to next chapter
 
 ---

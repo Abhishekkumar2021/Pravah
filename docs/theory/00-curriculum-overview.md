@@ -199,7 +199,7 @@ Job status on dashboard = News website (AP)
   Security credentials               Metrics & dashboards
   Pipeline version to execute        Search & catalog
   Leader election                    Heartbeat tracking
-🎯 How FAANG Interviewers Test This
+🎯 How Senior Interviewers Test This
 They never ask "explain CAP theorem." They ask:
 
 ❓ "What happens to Pravah's scheduler if

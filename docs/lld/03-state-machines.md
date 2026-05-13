@@ -21,44 +21,16 @@ This document defines all state machines in Pravah. State machines are critical 
 
 Pipelines have a simple lifecycle focused on version management.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │         PIPELINE STATES              │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │                          ┌──────────┐                               │
-    │           create()       │          │                               │
-    │        ─────────────────▶│  DRAFT   │                               │
-    │                          │          │                               │
-    │                          └────┬─────┘                               │
-    │                               │                                      │
-    │                               │ publish()                            │
-    │                               │ [validation passes]                  │
-    │                               ▼                                      │
-    │                          ┌──────────┐                               │
-    │                          │          │◀────────────────┐             │
-    │                          │  ACTIVE  │                 │             │
-    │                          │          │─────────────────┘             │
-    │                          └────┬─────┘    update() + publish()       │
-    │                               │                                      │
-    │                               │ archive()                            │
-    │                               ▼                                      │
-    │                          ┌──────────┐                               │
-    │                          │          │                               │
-    │                          │ ARCHIVED │                               │
-    │                          │          │                               │
-    │                          └────┬─────┘                               │
-    │                               │                                      │
-    │                               │ restore()                            │
-    │                               │                                      │
-    │                               ▼                                      │
-    │                          ┌──────────┐                               │
-    │                          │  ACTIVE  │                               │
-    │                          └──────────┘                               │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT : create()
+    
+    DRAFT --> ACTIVE : publish()\n[validation passes]
+    
+    ACTIVE --> ACTIVE : update() + publish()
+    ACTIVE --> ARCHIVED : archive()
+    
+    ARCHIVED --> ACTIVE : restore()
 ```
 
 ### State Definitions
@@ -87,20 +59,24 @@ public enum PipelineState {
 
 ### Version Management
 
+```mermaid
+graph TB
+    subgraph "Pipeline (id: pipe-001)"
+        V1["Version 1<br/>published 2026-01-15"]
+        V2["Version 2<br/>published 2026-02-20"]
+        V3["Version 3<br/>published 2026-03-10<br/>◀ current_version"]
+        Status["Status: ACTIVE"]
+    end
+    
+    V1 --> V2
+    V2 --> V3
 ```
-Pipeline (id: pipe-001)
-│
-├── Version 1 (published 2026-01-15)
-├── Version 2 (published 2026-02-20)
-├── Version 3 (published 2026-03-10) ◀── current_version
-│
-└── Status: ACTIVE
 
+**Version Rules:**
 - Versions are immutable once published
-- current_version points to latest published
+- `current_version` points to latest published
 - Executions reference a specific version
 - Old versions kept for audit and rollback
-```
 
 ---
 
@@ -108,53 +84,29 @@ Pipeline (id: pipe-001)
 
 Executions represent a single run of a pipeline. This is the most complex state machine.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │         EXECUTION STATES             │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │                          ┌───────────┐                              │
-    │           trigger()      │           │                              │
-    │        ─────────────────▶│  PENDING  │                              │
-    │                          │           │                              │
-    │                          └─────┬─────┘                              │
-    │                                │                                     │
-    │                 ┌──────────────┼──────────────┐                     │
-    │                 │              │              │                     │
-    │            cancel()    start_first_job()  validation_failed()      │
-    │                 │              │              │                     │
-    │                 ▼              ▼              ▼                     │
-    │          ┌───────────┐  ┌───────────┐  ┌───────────┐               │
-    │          │           │  │           │  │           │               │
-    │          │ CANCELLED │  │  RUNNING  │  │  FAILED   │               │
-    │          │           │  │           │  │           │               │
-    │          └───────────┘  └─────┬─────┘  └───────────┘               │
-    │                               │                                     │
-    │                ┌──────────────┼──────────────┐                     │
-    │                │              │              │                     │
-    │           cancel()   all_jobs_succeeded() any_job_failed()         │
-    │                │              │              │                     │
-    │                ▼              ▼              ▼                     │
-    │          ┌───────────┐  ┌───────────┐  ┌───────────┐               │
-    │          │           │  │           │  │           │               │
-    │          │ CANCELLED │  │ SUCCEEDED │  │  FAILED   │               │
-    │          │           │  │           │  │           │               │
-    │          └───────────┘  └───────────┘  └─────┬─────┘               │
-    │                                              │                     │
-    │                                              │ retry()             │
-    │                                              │ [from failed stage] │
-    │                                              ▼                     │
-    │                                        ┌───────────┐               │
-    │                                        │           │               │
-    │                                        │ RETRYING  │───▶ RUNNING   │
-    │                                        │           │               │
-    │                                        └───────────┘               │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
-
-Terminal States: SUCCEEDED, FAILED, CANCELLED
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : trigger()
+    
+    PENDING --> RUNNING : start_first_job()
+    PENDING --> FAILED : validation_failed()
+    PENDING --> CANCELLED : cancel()
+    
+    RUNNING --> SUCCEEDED : all_jobs_succeeded()
+    RUNNING --> FAILED : any_job_failed()
+    RUNNING --> CANCELLED : cancel()
+    
+    FAILED --> RETRYING : retry()\n[from failed stage]
+    
+    RETRYING --> RUNNING : job_started
+    
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
+    
+    note right of SUCCEEDED : Terminal State
+    note right of FAILED : Terminal State\n(unless retried)
+    note right of CANCELLED : Terminal State
 ```
 
 ### State Definitions
@@ -219,52 +171,25 @@ public class Execution {
 
 Jobs are individual stage executions within an Execution.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │            JOB STATES                │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │                          ┌───────────┐                              │
-    │     execution_started    │           │                              │
-    │        ─────────────────▶│  PENDING  │                              │
-    │                          │           │                              │
-    │                          └─────┬─────┘                              │
-    │                                │                                     │
-    │                 ┌──────────────┼──────────────┐                     │
-    │                 │              │              │                     │
-    │       dependencies_not_met  deps_met()   skip_condition_true       │
-    │                 │              │              │                     │
-    │                 │              ▼              ▼                     │
-    │                 │        ┌───────────┐  ┌───────────┐               │
-    │                 │        │           │  │           │               │
-    │                 │        │  QUEUED   │  │  SKIPPED  │               │
-    │                 │        │           │  │           │               │
-    │                 │        └─────┬─────┘  └───────────┘               │
-    │                 │              │              (terminal)            │
-    │                 │              │ runner_assigned()                  │
-    │                 │              ▼                                    │
-    │                 │        ┌───────────┐                              │
-    │                 │        │           │                              │
-    │                 │        │  RUNNING  │◀─────────────┐              │
-    │                 │        │           │              │              │
-    │                 │        └─────┬─────┘              │              │
-    │                 │              │                    │              │
-    │                 │   ┌──────────┼──────────┐        │              │
-    │                 │   │          │          │        │ retry()      │
-    │                 │ success() cancel()  failure()   │ [attempt < max]│
-    │                 │   │          │          │        │              │
-    │                 │   ▼          ▼          ▼        │              │
-    │                 │ ┌─────────┐ ┌─────────┐ ┌───────┴───┐           │
-    │                 │ │SUCCEEDED│ │CANCELLED│ │  FAILED   │           │
-    │                 │ └─────────┘ └─────────┘ └───────────┘           │
-    │                 │  (terminal)  (terminal)  (terminal if           │
-    │                 │                           retries exhausted)    │
-    │                 └─────────────────────────────────────────────────│
-    │                   (wait for dependencies)                          │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : execution_started
+    
+    PENDING --> QUEUED : deps_met()
+    PENDING --> SKIPPED : skip_condition_true
+    PENDING --> PENDING : dependencies_not_met\n(wait)
+    
+    QUEUED --> RUNNING : runner_assigned()
+    
+    RUNNING --> SUCCEEDED : success()
+    RUNNING --> FAILED : failure()\n[attempt >= max]
+    RUNNING --> QUEUED : failure()\n[attempt < max]\nretry()
+    RUNNING --> CANCELLED : cancel()
+    
+    SUCCEEDED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
+    SKIPPED --> [*]
 ```
 
 ### State Definitions
@@ -281,29 +206,30 @@ Jobs are individual stage executions within an Execution.
 
 ### Dependency Resolution
 
+```mermaid
+graph TB
+    subgraph "Pipeline DAG"
+        A[Job A] --> B[Job B]
+        A --> C[Job C]
+        B --> D[Job D]
+        C --> D
+        D --> E[Job E]
+    end
+    
+    subgraph "Execution State"
+        AS["A: SUCCEEDED ✓"]
+        BS["B: SUCCEEDED ✓"]
+        CS["C: QUEUED ◀ waiting"]
+        DS["D: PENDING"]
+        ES["E: PENDING"]
+    end
 ```
-Pipeline DAG:           Execution Jobs:
-                        
-    ┌───┐               Job A: SUCCEEDED
-    │ A │               Job B: SUCCEEDED  
-    └─┬─┘               Job C: QUEUED      ◀── Waiting for runner
-      │                 Job D: PENDING     ◀── Waiting for B,C
-    ┌─┴─┐               Job E: PENDING     ◀── Waiting for D
-    │   │               
-  ┌─┴─┐ ┌─┴─┐           When C completes:
-  │ B │ │ C │             - C → SUCCEEDED
-  └─┬─┘ └─┬─┘             - D deps met? [B: ✓, C: ✓] → D → QUEUED
-    │     │               - E still waiting for D
-    └──┬──┘
-       │
-     ┌─┴─┐
-     │ D │
-     └─┬─┘
-       │
-     ┌─┴─┐
-     │ E │
-     └───┘
-```
+
+**Resolution Logic:**
+When C completes:
+1. C → SUCCEEDED
+2. Check D deps: [B: ✓, C: ✓] → D → QUEUED
+3. E still waiting for D
 
 ### Retry Logic
 
@@ -333,68 +259,31 @@ public class Job {
 
 Runners are the execution agents that run jobs.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │          RUNNER STATES               │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │     register()                                                       │
-    │    ───────────────▶  ┌─────────────┐                                │
-    │                      │             │                                │
-    │                      │  AVAILABLE  │◀──────────────────────┐       │
-    │                      │             │                        │       │
-    │                      └──────┬──────┘                        │       │
-    │                             │                               │       │
-    │                  ┌──────────┼──────────┐                   │       │
-    │                  │          │          │                   │       │
-    │           job_assigned()   drain()  heartbeat_timeout()   │       │
-    │                  │          │          │                   │       │
-    │                  ▼          ▼          ▼                   │       │
-    │            ┌──────────┐ ┌──────────┐ ┌──────────┐         │       │
-    │            │          │ │          │ │          │         │       │
-    │            │   BUSY   │ │ DRAINING │ │  SUSPECT │         │       │
-    │            │          │ │          │ │          │         │       │
-    │            └────┬─────┘ └────┬─────┘ └────┬─────┘         │       │
-    │                 │            │            │                │       │
-    │        all_jobs_complete()   │   heartbeat_received()     │       │
-    │                 │            │            │                │       │
-    │                 │            │            └────────────────┘       │
-    │                 │            │                                      │
-    │                 └────────────┼───────────────────────────────┐     │
-    │                              │                               │     │
-    │                              │ all_jobs_complete()           │     │
-    │                              ▼                               │     │
-    │                        ┌──────────┐                          │     │
-    │                        │          │                          │     │
-    │                        │ DRAINED  │                          │     │
-    │                        │          │                          │     │
-    │                        └────┬─────┘                          │     │
-    │                             │                                │     │
-    │                             │ resume()                       │     │
-    │                             │                                │     │
-    │                             └────────────────────────────────┘     │
-    │                                                                      │
-    │                                                                      │
-    │     heartbeat_timeout(SUSPECT) ──────▶ ┌──────────┐                 │
-    │                                        │          │                 │
-    │                                        │   DEAD   │                 │
-    │                                        │          │                 │
-    │                                        └────┬─────┘                 │
-    │                                             │                        │
-    │                                             │ reconnect()            │
-    │                                             ▼                        │
-    │                                        ┌──────────┐                 │
-    │                                        │ AVAILABLE│                 │
-    │                                        └──────────┘                 │
-    │                                                                      │
-    │     deregister() ─────────────────────▶ ┌──────────────┐            │
-    │                                         │ DEREGISTERED │            │
-    │                                         └──────────────┘            │
-    │                                           (terminal)                │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> AVAILABLE : register()
+    
+    AVAILABLE --> BUSY : job_assigned()\n[at capacity]
+    AVAILABLE --> DRAINING : drain()
+    AVAILABLE --> SUSPECT : heartbeat_timeout\n(30s)
+    
+    BUSY --> AVAILABLE : job_complete()\n[below capacity]
+    BUSY --> DRAINING : drain()
+    
+    DRAINING --> DRAINED : all_jobs_complete()
+    
+    DRAINED --> AVAILABLE : resume()
+    
+    SUSPECT --> AVAILABLE : heartbeat_received()
+    SUSPECT --> DEAD : heartbeat_timeout\n(60s total)
+    
+    DEAD --> AVAILABLE : reconnect()
+    
+    AVAILABLE --> DEREGISTERED : deregister()
+    BUSY --> DEREGISTERED : deregister()
+    DRAINED --> DEREGISTERED : deregister()
+    
+    DEREGISTERED --> [*]
 ```
 
 ### State Definitions
@@ -411,19 +300,27 @@ Runners are the execution agents that run jobs.
 
 ### Health Monitoring Timeline
 
+```mermaid
+gantt
+    title Runner Health Monitoring
+    dateFormat X
+    axisFormat %s
+    
+    section Heartbeats
+    HB1 :milestone, 0, 0
+    HB2 :milestone, 10, 10
+    HB3 :milestone, 20, 20
+    
+    section State
+    AVAILABLE :active, 0, 30
+    SUSPECT :crit, 30, 60
+    DEAD :done, 60, 70
 ```
-Time  0s   10s   20s   30s   40s   50s   60s   70s
-      │     │     │     │     │     │     │     │
-      ├─HB──┼─HB──┼─HB──┼─────┼─────┼─────┼─────┼────
-      │     │     │     │     │     │     │     │
-State: AVAILABLE ────────────▶ SUSPECT ────▶ DEAD
-                              (30s)        (60s)
 
-HB = Heartbeat received
-Runner sends heartbeat every 10 seconds
-SUSPECT after 30s silence
-DEAD after 60s silence
-```
+**Timeline:**
+- Runner sends heartbeat every 10 seconds
+- SUSPECT after 30s silence
+- DEAD after 60s silence
 
 ### Capacity Management
 
@@ -462,35 +359,17 @@ public class Runner {
 
 Schedules are simple: active or paused.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │         SCHEDULE STATES              │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │     create()       ┌───────────┐          pause()                   │
-    │    ────────────────│           │─────────────────────────┐          │
-    │                    │  ACTIVE   │                         │          │
-    │           ┌───────▶│           │◀──────────┐             │          │
-    │           │        └───────────┘           │             │          │
-    │           │                                │             ▼          │
-    │           │        resume()                │        ┌───────────┐   │
-    │           │                                │        │           │   │
-    │           └────────────────────────────────┼────────│  PAUSED   │   │
-    │                                            │        │           │   │
-    │                                            │        └─────┬─────┘   │
-    │                                            │              │         │
-    │                                            │              │ delete()│
-    │                                            │              ▼         │
-    │                                            │        ┌───────────┐   │
-    │                                            │        │           │   │
-    │           delete()                         └────────│  DELETED  │   │
-    │           ─────────────────────────────────────────▶│           │   │
-    │                                                     └───────────┘   │
-    │                                                       (terminal)    │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE : create()
+    
+    ACTIVE --> PAUSED : pause()
+    ACTIVE --> DELETED : delete()
+    
+    PAUSED --> ACTIVE : resume()
+    PAUSED --> DELETED : delete()
+    
+    DELETED --> [*]
 ```
 
 ### Schedule Evaluation
@@ -519,47 +398,20 @@ public void evaluateSchedules() {
 
 Alerts track lifecycle from firing to resolution.
 
-```
-                              ┌─────────────────────────────────────┐
-                              │           ALERT STATES               │
-                              └─────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                                                                      │
-    │     fire()         ┌───────────┐                                    │
-    │    ─────────────▶  │           │                                    │
-    │                    │  ACTIVE   │                                    │
-    │                    │           │                                    │
-    │                    └─────┬─────┘                                    │
-    │                          │                                          │
-    │               ┌──────────┼──────────┬──────────────┐               │
-    │               │          │          │              │               │
-    │          acknowledge() snooze()  resolve()    auto_resolve()      │
-    │               │          │          │              │               │
-    │               ▼          ▼          │              │               │
-    │        ┌───────────┐ ┌───────────┐  │              │               │
-    │        │           │ │           │  │              │               │
-    │        │   ACKED   │ │  SNOOZED  │  │              │               │
-    │        │           │ │           │  │              │               │
-    │        └─────┬─────┘ └─────┬─────┘  │              │               │
-    │              │             │        │              │               │
-    │              │     snooze_expired() │              │               │
-    │              │             │        │              │               │
-    │              │             └────────┼──────────────┘               │
-    │              │                      │                               │
-    │              │ resolve()            │                               │
-    │              │                      │                               │
-    │              └──────────────────────┼──────────────┐               │
-    │                                     │              │               │
-    │                                     ▼              │               │
-    │                              ┌───────────┐        │               │
-    │                              │           │        │               │
-    │                              │ RESOLVED  │◀───────┘               │
-    │                              │           │                         │
-    │                              └───────────┘                         │
-    │                                (terminal)                          │
-    │                                                                      │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE : fire()
+    
+    ACTIVE --> ACKNOWLEDGED : acknowledge()
+    ACTIVE --> SNOOZED : snooze()
+    ACTIVE --> RESOLVED : resolve()\nauto_resolve()
+    
+    ACKNOWLEDGED --> RESOLVED : resolve()
+    
+    SNOOZED --> ACTIVE : snooze_expired()
+    SNOOZED --> RESOLVED : resolve()
+    
+    RESOLVED --> [*]
 ```
 
 ### Alert Lifecycle
@@ -679,3 +531,4 @@ public enum ExecutionState {
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-05-13 | Engineering | Initial state machines |
+| 1.1 | 2026-05-13 | Engineering | Updated to Mermaid diagrams |

@@ -54,19 +54,24 @@ This document catalogs all design patterns used in Pravah, explaining **what**, 
 - Enables rebuilding projections without data loss
 
 **How:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    pipeline_events table                     │
-├──────────┬────────────┬───────────┬─────────────────────────┤
-│ event_id │ pipeline_id│ event_type│ payload (JSONB)         │
-├──────────┼────────────┼───────────┼─────────────────────────┤
-│ evt-001  │ pipe-123   │ CREATED   │ {name: "ETL", ...}      │
-│ evt-002  │ pipe-123   │ UPDATED   │ {changes: [...]}        │
-│ evt-003  │ pipe-123   │ PUBLISHED │ {version: 2}            │
-└──────────┴────────────┴───────────┴─────────────────────────┘
 
-Current state = replay(all events for pipeline-123)
+```mermaid
+flowchart LR
+    subgraph "Event Store"
+        E1[evt-001<br/>CREATED]
+        E2[evt-002<br/>UPDATED]
+        E3[evt-003<br/>PUBLISHED]
+    end
+    
+    E1 --> E2 --> E3 --> REPLAY[Replay]
+    REPLAY --> STATE[Current State]
 ```
+
+| event_id | pipeline_id | event_type | payload |
+|----------|-------------|------------|---------|
+| evt-001 | pipe-123 | CREATED | {name: "ETL"} |
+| evt-002 | pipe-123 | UPDATED | {changes: [...]} |
+| evt-003 | pipe-123 | PUBLISHED | {version: 2} |
 
 **Trade-offs:**
 - ✅ Complete history, audit, replay
@@ -91,28 +96,17 @@ Current state = replay(all events for pipeline-123)
 - With outbox: both writes are in same transaction → atomic
 
 **How:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Single Transaction                        │
-│  ┌─────────────────┐    ┌─────────────────┐                 │
-│  │ Business Table  │    │  Outbox Table   │                 │
-│  │ INSERT pipeline │    │ INSERT event    │                 │
-│  └─────────────────┘    └─────────────────┘                 │
-│                    COMMIT                                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-              ┌───────────────────────────────┐
-              │  Outbox Publisher (polling)   │
-              │  SELECT * FROM outbox         │
-              │  WHERE published = false      │
-              │  FOR UPDATE SKIP LOCKED       │
-              └───────────────────────────────┘
-                              │
-                              ▼
-                         ┌─────────┐
-                         │  Kafka  │
-                         └─────────┘
+
+```mermaid
+flowchart TB
+    subgraph TX["Single Transaction"]
+        BIZ[Business Table<br/>INSERT pipeline]
+        OUT[Outbox Table<br/>INSERT event]
+    end
+    
+    TX --> COMMIT[COMMIT]
+    COMMIT --> PUB[Outbox Publisher<br/>SELECT ... FOR UPDATE SKIP LOCKED]
+    PUB --> KFK[(Kafka)]
 ```
 
 **Trade-offs:**
@@ -139,34 +133,33 @@ Current state = replay(all events for pipeline-123)
 - Compensation (rollback) is explicit
 
 **How:**
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Execution  │     │   Runner    │     │  Execution  │
-│   Service   │     │   Service   │     │   Service   │
-└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-       │                   │                   │
-       │ job.created       │                   │
-       │──────────────────▶│                   │
-       │                   │                   │
-       │                   │ job.assigned      │
-       │                   │──────────────────▶│
-       │                   │                   │
-       │                   │ (runner executes) │
-       │                   │                   │
-       │                   │ job.completed     │
-       │◀──────────────────│                   │
-       │                   │                   │
-       │ execution.completed                   │
-       │──────────────────────────────────────▶│
+
+```mermaid
+sequenceDiagram
+    participant ES as Execution Service
+    participant KFK as Kafka
+    participant RS as Runner Service
+    
+    ES->>KFK: job.created
+    KFK->>RS: job.created
+    RS->>RS: Assign runner
+    RS->>KFK: job.assigned
+    KFK->>ES: job.assigned
+    RS->>RS: Execute job
+    RS->>KFK: job.completed
+    KFK->>ES: job.completed
+    ES->>KFK: execution.completed
 ```
 
 **Compensation Example:**
-```
-If job fails → Runner publishes job.failed
-→ Execution Service marks execution FAILED
-→ Publishes execution.failed
-→ Notification Service sends alert
-→ Agent Service begins diagnosis
+
+```mermaid
+flowchart LR
+    FAIL[Job Fails] --> JF[job.failed]
+    JF --> EF[Execution FAILED]
+    EF --> EFE[execution.failed]
+    EFE --> NS[Notification Service<br/>sends alert]
+    EFE --> AS[Agent Service<br/>begins diagnosis]
 ```
 
 **Trade-offs:**
@@ -194,25 +187,19 @@ If job fails → Runner publishes job.failed
 - Event-sourced write model + denormalized read model
 
 **How:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     WRITE SIDE                               │
-│  ┌─────────────┐     ┌──────────────────┐                   │
-│  │  Command    │────▶│   Event Store    │                   │
-│  │  Handler    │     │ (append-only)    │                   │
-│  └─────────────┘     └────────┬─────────┘                   │
-│                               │                              │
-│                               ▼ (project)                    │
-│                      ┌──────────────────┐                   │
-│                      │   Read Model     │                   │
-│                      │ (denormalized)   │                   │
-│                      └────────┬─────────┘                   │
-│                               │                              │
-│                               ▼                              │
-│                      ┌──────────────────┐                   │
-│                      │  Query Handler   │◀── READ SIDE      │
-│                      └──────────────────┘                   │
-└─────────────────────────────────────────────────────────────┘
+
+```mermaid
+flowchart TB
+    subgraph "WRITE SIDE"
+        CMD[Command Handler] --> ES[(Event Store<br/>append-only)]
+    end
+    
+    ES --> PROJ[Project]
+    PROJ --> RM[(Read Model<br/>denormalized)]
+    
+    subgraph "READ SIDE"
+        QH[Query Handler] --> RM
+    end
 ```
 
 **Trade-offs:**
@@ -237,21 +224,20 @@ If job fails → Runner publishes job.failed
 - Aggregates responses from multiple services
 
 **How:**
-```
-┌─────────┐     ┌─────────────────────────────────────────────┐
-│ Client  │────▶│              Gateway Service                │
-└─────────┘     │  ┌─────────┐ ┌──────────┐ ┌─────────────┐  │
-                │  │  Auth   │ │ Rate     │ │  Routing    │  │
-                │  │ Filter  │ │ Limiter  │ │  Logic      │  │
-                │  └─────────┘ └──────────┘ └─────────────┘  │
-                └──────────────────┬──────────────────────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    ▼              ▼              ▼
-              ┌──────────┐  ┌──────────┐  ┌──────────┐
-              │ Pipeline │  │Execution │  │ Tenant   │
-              │ Service  │  │ Service  │  │ Service  │
-              └──────────┘  └──────────┘  └──────────┘
+
+```mermaid
+flowchart TB
+    C[Client] --> GW[Gateway Service]
+    
+    subgraph GW[Gateway Service]
+        AUTH[Auth Filter]
+        RL[Rate Limiter]
+        ROUTE[Routing Logic]
+    end
+    
+    GW --> PS[Pipeline Service]
+    GW --> ES[Execution Service]
+    GW --> TS[Tenant Service]
 ```
 
 **Related ADR:** [ADR-033](../adr/ADR-033-graphql-api.md)
@@ -286,23 +272,20 @@ If job fails → Runner publishes job.failed
 - Graceful degradation instead of total failure
 
 **How:**
-```
-         ┌─────────────────────────────────────────┐
-         │            Circuit Breaker              │
-         │                                         │
-         │  CLOSED ──(failures > threshold)──▶ OPEN
-         │    ▲                                  │ │
-         │    │                                  │ │
-         │    └────(success)────── HALF-OPEN ◀──┘ │
-         │                            │           │
-         │                            └─(failure)─┘
-         └─────────────────────────────────────────┘
 
-States:
-- CLOSED: Normal operation, calls pass through
-- OPEN: Fail immediately, don't call downstream
-- HALF-OPEN: Allow one test call to check recovery
+```mermaid
+stateDiagram-v2
+    [*] --> CLOSED
+    CLOSED --> OPEN : failures > threshold
+    OPEN --> HALF_OPEN : timeout expires
+    HALF_OPEN --> CLOSED : success
+    HALF_OPEN --> OPEN : failure
 ```
+
+**States:**
+- **CLOSED:** Normal operation, calls pass through
+- **OPEN:** Fail immediately, don't call downstream
+- **HALF-OPEN:** Allow one test call to check recovery
 
 **Implementation:** Resilience4j library
 
@@ -324,6 +307,7 @@ States:
 - Jitter prevents synchronized retries across instances
 
 **How:**
+
 ```java
 // Retry delays: 1s, 2s, 4s, 8s, 16s (capped)
 // With jitter: 0.8s-1.2s, 1.6s-2.4s, ...
@@ -353,21 +337,20 @@ public void processMessage(Message msg) { ... }
 - Resource isolation prevents total system failure
 
 **How:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Gateway Service                          │
-│                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ Pipeline Pool   │  │ Execution Pool  │  │ Tenant Pool │ │
-│  │ (20 threads)    │  │ (20 threads)    │  │ (10 threads)│ │
-│  └────────┬────────┘  └────────┬────────┘  └──────┬──────┘ │
-│           │                    │                  │        │
-└───────────┼────────────────────┼──────────────────┼────────┘
-            ▼                    ▼                  ▼
-      Pipeline Svc         Execution Svc       Tenant Svc
 
-If Execution Service is slow, only the Execution Pool is affected.
-Pipeline and Tenant calls continue normally.
+```mermaid
+flowchart TB
+    subgraph "Gateway Service"
+        PP[Pipeline Pool<br/>20 threads]
+        EP[Execution Pool<br/>20 threads]
+        TP[Tenant Pool<br/>10 threads]
+    end
+    
+    PP --> PS[Pipeline Svc]
+    EP --> ES[Execution Svc]
+    TP --> TS[Tenant Svc]
+    
+    note["If Execution Service is slow,<br/>only Execution Pool is affected"]
 ```
 
 ---
@@ -385,20 +368,16 @@ Pipeline and Tenant calls continue normally.
 - Clear ownership boundaries
 
 **How:**
-```
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   Pipeline   │  │  Execution   │  │    Tenant    │
-│   Service    │  │   Service    │  │   Service    │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                 │                 │
-       ▼                 ▼                 ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ pipeline_db  │  │ execution_db │  │  tenant_db   │
-│              │  │              │  │              │
-│ - pipelines  │  │ - executions │  │ - tenants    │
-│ - versions   │  │ - jobs       │  │ - users      │
-│ - events     │  │ - logs       │  │ - roles      │
-└──────────────┘  └──────────────┘  └──────────────┘
+
+```mermaid
+flowchart TB
+    PS[Pipeline Service] --> PDB[(pipeline_db)]
+    ES[Execution Service] --> EDB[(execution_db)]
+    TS[Tenant Service] --> TDB[(tenant_db)]
+    
+    PDB --> P_TABLES[pipelines<br/>versions<br/>events]
+    EDB --> E_TABLES[executions<br/>jobs<br/>logs]
+    TDB --> T_TABLES[tenants<br/>users<br/>roles]
 ```
 
 **Trade-offs:**
@@ -424,18 +403,21 @@ Pipeline and Tenant calls continue normally.
 - Rollback is easy (route back to old system)
 
 **How:**
-```
-Phase 1: Airflow handles 100% of traffic
-         Pravah handles 0%
 
-Phase 2: Some workflows migrated
-         ┌─────────┐
-         │ Router  │──(old workflows)──▶ Airflow
-         │         │──(new workflows)──▶ Pravah
-         └─────────┘
-
-Phase 3: All workflows migrated
-         Airflow decommissioned
+```mermaid
+flowchart LR
+    subgraph "Phase 1"
+        R1[Router] --> AF1[Airflow 100%]
+    end
+    
+    subgraph "Phase 2"
+        R2[Router] --> AF2[Airflow<br/>old workflows]
+        R2 --> PR2[Pravah<br/>new workflows]
+    end
+    
+    subgraph "Phase 3"
+        PR3[Pravah 100%]
+    end
 ```
 
 ---
@@ -454,6 +436,7 @@ Phase 3: All workflows migrated
 - Sidecars handle cross-cutting infrastructure concerns
 
 **How:**
+
 ```yaml
 # Kubernetes Pod
 spec:
@@ -494,17 +477,20 @@ spec:
 - Ensures exactly-once processing for singleton tasks
 
 **How:**
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Scheduler Service                          │
-│                                                               │
-│  Instance 1 ──┐                                              │
-│               │     ┌─────────────┐                          │
-│  Instance 2 ──┼────▶│   Consul    │────▶ Only ONE instance   │
-│               │     │   Lock      │      runs scheduler loop │
-│  Instance 3 ──┘     └─────────────┘                          │
-│                                                               │
-└──────────────────────────────────────────────────────────────┘
+
+```mermaid
+flowchart LR
+    subgraph "Scheduler Service Cluster"
+        I1[Instance 1]
+        I2[Instance 2]
+        I3[Instance 3]
+    end
+    
+    I1 --> LOCK[(Consul Lock)]
+    I2 --> LOCK
+    I3 --> LOCK
+    
+    LOCK --> LEADER[Only ONE runs<br/>scheduler loop]
 ```
 
 **Implementation:** Spring Cloud Kubernetes Leadership or Consul-based lock
@@ -525,20 +511,22 @@ spec:
 - Load balancing is automatic
 
 **How:**
-```
-                    ┌─────────────────────────────┐
-                    │    Kafka Topic (4 parts)    │
-                    │  [P0] [P1] [P2] [P3]        │
-                    └──────────┬──────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                ▼
-        ┌──────────┐    ┌──────────┐    ┌──────────┐
-        │Consumer 1│    │Consumer 2│    │Consumer 3│
-        │ P0, P1   │    │   P2     │    │   P3     │
-        └──────────┘    └──────────┘    └──────────┘
-        
-        Consumer Group: "execution-service"
+
+```mermaid
+flowchart TB
+    subgraph "Kafka Topic (4 partitions)"
+        P0[P0]
+        P1[P1]
+        P2[P2]
+        P3[P3]
+    end
+    
+    P0 --> C1[Consumer 1]
+    P1 --> C1
+    P2 --> C2[Consumer 2]
+    P3 --> C3[Consumer 3]
+    
+    note["Consumer Group: execution-service"]
 ```
 
 ---
@@ -555,6 +543,7 @@ spec:
 - Consumer restarts may reprocess messages
 
 **How:**
+
 ```java
 @Transactional
 public void handleJobCompleted(JobCompletedEvent event) {
@@ -589,27 +578,15 @@ public void handleJobCompleted(JobCompletedEvent event) {
 - Manual retry after fixing the issue
 
 **How:**
-```
-                    ┌─────────────────────────────┐
-                    │    Main Topic               │
-                    │  pravah.job.created         │
-                    └──────────┬──────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────────────┐
-                    │       Consumer              │
-                    │  (3 retry attempts)         │
-                    └──────────┬──────────────────┘
-                               │
-                    ┌──────────┴──────────┐
-                    │                     │
-               (success)             (all retries failed)
-                    │                     │
-                    ▼                     ▼
-              [Processed]    ┌─────────────────────────────┐
-                             │    Dead Letter Topic        │
-                             │  pravah.job.created.DLT     │
-                             └─────────────────────────────┘
+
+```mermaid
+flowchart TB
+    MAIN[Main Topic<br/>pravah.job.created] --> CONS[Consumer<br/>3 retry attempts]
+    
+    CONS --> |success| PROC[Processed]
+    CONS --> |all retries failed| DLT[Dead Letter Topic<br/>pravah.job.created.DLT]
+    
+    DLT --> ALERT[Alert Team]
 ```
 
 **Related ADR:** [ADR-002](../adr/ADR-002-kafka-event-backbone.md)
@@ -628,14 +605,17 @@ public void handleJobCompleted(JobCompletedEvent event) {
 - Reference is small and fast
 
 **How:**
-```
-Instead of:
-  Message: { logs: "...10MB of logs..." }
 
-Use claim check:
-  1. Upload logs to S3: s3://pravah-artifacts/logs/job-123.log
-  2. Message: { logsRef: "s3://pravah-artifacts/logs/job-123.log" }
-  3. Consumer downloads from S3 when needed
+```mermaid
+flowchart LR
+    subgraph "Instead of"
+        MSG1[Message: logs = 10MB]
+    end
+    
+    subgraph "Use Claim Check"
+        UPLOAD[Upload to S3] --> REF[Message: logsRef = s3://...]
+        REF --> DOWNLOAD[Consumer downloads<br/>when needed]
+    end
 ```
 
 ---
@@ -654,6 +634,7 @@ Use claim check:
 - Domain logic doesn't know about persistence details
 
 **How:**
+
 ```java
 public interface PipelineRepository {
     Pipeline findById(PipelineId id);
@@ -695,6 +676,7 @@ public class JpaPipelineRepository implements PipelineRepository {
 - Enables event sourcing
 
 **How:**
+
 ```java
 public sealed interface PipelineEvent {
     record Created(PipelineId id, String name, TenantId tenantId, Instant at) 
@@ -720,17 +702,18 @@ public sealed interface PipelineEvent {
 - Transaction boundary
 
 **How:**
-```
-┌─────────────────────────────────────────────┐
-│              Pipeline (Aggregate Root)       │
-│                                              │
-│  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
-│  │  Steps   │  │ Schedules│  │ Variables │  │
-│  └──────────┘  └──────────┘  └───────────┘  │
-│                                              │
-│  All modifications go through Pipeline      │
-│  pipeline.addStep(), not step.save()        │
-└─────────────────────────────────────────────┘
+
+```mermaid
+flowchart TB
+    subgraph AGG["Pipeline (Aggregate Root)"]
+        STEPS[Steps]
+        SCHED[Schedules]
+        VARS[Variables]
+    end
+    
+    EXT[External Access] --> AGG
+    
+    note["All modifications through Pipeline<br/>pipeline.addStep(), not step.save()"]
 ```
 
 ---
@@ -747,6 +730,7 @@ public sealed interface PipelineEvent {
 - Self-validating
 
 **How:**
+
 ```java
 public record CronExpression(String expression) {
     public CronExpression {
@@ -773,6 +757,7 @@ public record CronExpression(String expression) {
 **Where:** StageExecutorFactory — creates appropriate executor for stage type
 
 **How:**
+
 ```java
 @Component
 public class StageExecutorFactory {
@@ -796,6 +781,7 @@ public class StageExecutorFactory {
 **Where:** Stage execution strategies, retry strategies
 
 **How:**
+
 ```java
 public interface RetryStrategy {
     Duration nextDelay(int attempt);
@@ -816,6 +802,7 @@ public class NoRetry implements RetryStrategy { ... }
 **Where:** Spring's `@EventListener` for domain events
 
 **How:**
+
 ```java
 @Component
 public class AuditEventListener {
@@ -840,9 +827,8 @@ public class AuditEventListener {
 - Clear documentation of lifecycle
 
 **How:**
-```
-See: docs/lld/03-state-machines.md for full diagrams
-```
+
+See: [docs/lld/03-state-machines.md](./03-state-machines.md) for full diagrams
 
 ---
 
@@ -853,6 +839,7 @@ See: docs/lld/03-state-machines.md for full diagrams
 **Where:** BaseStageExecutor
 
 **How:**
+
 ```java
 public abstract class BaseStageExecutor {
     // Template method
@@ -892,3 +879,4 @@ public abstract class BaseStageExecutor {
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-05-13 | Engineering | Initial catalog |
+| 1.1 | 2026-05-13 | Engineering | Updated to Mermaid diagrams |

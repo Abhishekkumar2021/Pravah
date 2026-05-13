@@ -13,4 +13,4 @@ These chapters are also preparation for system design discussions — whether fo
 | 9.1 | [Full Architecture Walkthrough](9.1-full-architecture-walkthrough.md) | End-to-end flow, service interactions, data paths, failure modes |
 | 9.2 | [Capacity Planning & Back-of-Envelope](9.2-capacity-planning.md) | Load estimation, storage sizing, throughput math, cost modeling |
 | 9.3 | [Bottleneck Analysis & Performance Engineering](9.3-bottleneck-analysis.md) | Finding bottlenecks, profiling, database tuning, Kafka tuning |
-| 9.4 | [System Design Interview Preparation](9.4-system-design-interview-prep.md) | FAANG-style design questions, framework, common mistakes |
+| 9.4 | [System Design Interview Preparation](9.4-system-design-interview-prep.md) | senior-level design questions, framework, common mistakes |

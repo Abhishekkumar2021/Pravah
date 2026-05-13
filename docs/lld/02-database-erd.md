@@ -6,33 +6,38 @@ Complete database schema for all Pravah services. Each service owns its database
 
 ## Database Overview
 
+```mermaid
+graph TB
+    subgraph "Pravah Databases"
+        subgraph "Core Services"
+            PDB[(pipeline_db)]
+            EDB[(execution_db)]
+            TDB[(tenant_db)]
+            SDB[(scheduler_db)]
+        end
+        subgraph "Support Services"
+            RDB[(runner_db)]
+            MDB[(metadata_db)]
+            NDB[(notification_db)]
+            ADB[(agent_db)]
+        end
+    end
+    
+    PDB --- |Event-sourced pipelines|P1[Pipeline Service]
+    EDB --- |Job state tracking|E1[Execution Service]
+    TDB --- |Users, roles, permissions|T1[Tenant Service]
+    SDB --- |Schedules, triggers|S1[Scheduler Service]
+    RDB --- |Runner fleet management|R1[Runner Service]
+    MDB --- |Lineage, catalog|M1[Metadata Service]
+    NDB --- |Alerts, channels|N1[Notification Service]
+    ADB --- |AI diagnosis, observations|A1[Agent Service]
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Pravah Databases                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │ pipeline_db  │  │ execution_db │  │  tenant_db   │  │ scheduler_db │    │
-│  │              │  │              │  │              │  │              │    │
-│  │ Event-sourced│  │ Job state    │  │ Users, roles │  │ Schedules    │    │
-│  │ pipelines    │  │ tracking     │  │ permissions  │  │ triggers     │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │  runner_db   │  │ metadata_db  │  │notification_db│ │   agent_db   │    │
-│  │              │  │              │  │              │  │              │    │
-│  │ Runner fleet │  │ Lineage,     │  │ Alerts,      │  │ AI diagnosis │    │
-│  │ management   │  │ catalog      │  │ channels     │  │ observations │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
 
-All databases:
+**All databases:**
 - PostgreSQL 16
 - RLS enabled for tenant isolation
 - PgBouncer for connection pooling
 - Flyway for migrations
-```
 
 ---
 
@@ -40,77 +45,121 @@ All databases:
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              tenant_db                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────┐         ┌─────────────────┐                            │
-│  │  organizations  │         │     teams       │                            │
-│  ├─────────────────┤         ├─────────────────┤                            │
-│  │ PK id           │◀───────┐│ PK id           │                            │
-│  │    name         │        ││ FK org_id       │────────────────────────┐   │
-│  │    slug         │        │├─────────────────┤                        │   │
-│  │    tier         │        ││    name         │                        │   │
-│  │    settings     │        ││    settings     │                        │   │
-│  │    created_at   │        │└─────────────────┘                        │   │
-│  └─────────────────┘        │                                           │   │
-│                             │  ┌─────────────────┐                      │   │
-│                             │  │    projects     │                      │   │
-│                             │  ├─────────────────┤                      │   │
-│                             └──│ PK id           │                      │   │
-│                                │ FK team_id      │───────────────────┐  │   │
-│                                │ FK org_id       │───────────────────┼──┘   │
-│                                ├─────────────────┤                   │      │
-│                                │    name         │                   │      │
-│                                │    description  │                   │      │
-│                                │    settings     │                   │      │
-│                                └─────────────────┘                   │      │
-│                                                                      │      │
-│  ┌─────────────────┐         ┌─────────────────┐                    │      │
-│  │     users       │         │  team_members   │                    │      │
-│  ├─────────────────┤         ├─────────────────┤                    │      │
-│  │ PK id           │◀────────│ FK user_id      │                    │      │
-│  │ FK org_id       │─────────│ FK team_id      │                    │      │
-│  ├─────────────────┤         │ FK role_id      │                    │      │
-│  │    email        │         │    joined_at    │                    │      │
-│  │    name         │         └─────────────────┘                    │      │
-│  │    password_hash│                                                │      │
-│  │    mfa_secret   │         ┌─────────────────┐                    │      │
-│  │    status       │         │     roles       │                    │      │
-│  │    last_login   │         ├─────────────────┤                    │      │
-│  └─────────────────┘         │ PK id           │                    │      │
-│                              │ FK org_id       │────────────────────┼──────┘
-│                              ├─────────────────┤                    │
-│  ┌─────────────────┐         │    name         │                    │
-│  │   api_tokens    │         │    permissions  │ (JSONB)            │
-│  ├─────────────────┤         │    is_system    │                    │
-│  │ PK id           │         └─────────────────┘                    │
-│  │ FK user_id      │                                                │
-│  │ FK org_id       │         ┌─────────────────┐                    │
-│  ├─────────────────┤         │ project_members │                    │
-│  │    name         │         ├─────────────────┤                    │
-│  │    token_hash   │         │ FK user_id      │                    │
-│  │    permissions  │         │ FK project_id   │────────────────────┘
-│  │    expires_at   │         │ FK role_id      │
-│  │    last_used_at │         └─────────────────┘
-│  └─────────────────┘                                                        │
-│                                                                              │
-│  ┌─────────────────┐         ┌─────────────────┐                            │
-│  │   audit_logs    │         │    sessions     │                            │
-│  ├─────────────────┤         ├─────────────────┤                            │
-│  │ PK id           │         │ PK id           │                            │
-│  │ FK org_id       │         │ FK user_id      │                            │
-│  │ FK user_id      │         ├─────────────────┤                            │
-│  ├─────────────────┤         │    token_hash   │                            │
-│  │    action       │         │    ip_address   │                            │
-│  │    resource_type│         │    user_agent   │                            │
-│  │    resource_id  │         │    created_at   │                            │
-│  │    details      │ (JSONB) │    expires_at   │                            │
-│  │    ip_address   │         └─────────────────┘                            │
-│  │    created_at   │                                                        │
-│  └─────────────────┘                                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    organizations ||--o{ teams : has
+    organizations ||--o{ users : has
+    organizations ||--o{ roles : has
+    organizations ||--o{ audit_logs : generates
+    
+    teams ||--o{ projects : contains
+    teams ||--o{ team_members : has
+    
+    users ||--o{ team_members : belongs_to
+    users ||--o{ api_tokens : owns
+    users ||--o{ sessions : has
+    users ||--o{ project_members : belongs_to
+    
+    roles ||--o{ team_members : assigned_via
+    roles ||--o{ project_members : assigned_via
+    
+    projects ||--o{ project_members : has
+
+    organizations {
+        uuid id PK
+        varchar name
+        varchar slug UK
+        varchar tier
+        jsonb settings
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    
+    teams {
+        uuid id PK
+        uuid org_id FK
+        varchar name
+        jsonb settings
+        timestamptz created_at
+    }
+    
+    projects {
+        uuid id PK
+        uuid org_id FK
+        uuid team_id FK
+        varchar name
+        text description
+        jsonb settings
+        timestamptz created_at
+    }
+    
+    users {
+        uuid id PK
+        uuid org_id FK
+        varchar email
+        varchar name
+        varchar password_hash
+        varchar mfa_secret
+        varchar status
+        timestamptz last_login_at
+        timestamptz created_at
+    }
+    
+    roles {
+        uuid id PK
+        uuid org_id FK
+        varchar name
+        jsonb permissions
+        boolean is_system
+        timestamptz created_at
+    }
+    
+    team_members {
+        uuid user_id PK,FK
+        uuid team_id PK,FK
+        uuid role_id FK
+        timestamptz joined_at
+    }
+    
+    project_members {
+        uuid user_id PK,FK
+        uuid project_id PK,FK
+        uuid role_id FK
+    }
+    
+    api_tokens {
+        uuid id PK
+        uuid user_id FK
+        uuid org_id FK
+        varchar name
+        varchar token_hash UK
+        jsonb permissions
+        timestamptz expires_at
+        timestamptz last_used_at
+        timestamptz created_at
+    }
+    
+    sessions {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash UK
+        inet ip_address
+        text user_agent
+        timestamptz created_at
+        timestamptz expires_at
+    }
+    
+    audit_logs {
+        uuid id PK
+        uuid org_id FK
+        uuid user_id FK
+        varchar action
+        varchar resource_type
+        uuid resource_id
+        jsonb details
+        inet ip_address
+        timestamptz created_at
+    }
 ```
 
 ### Table Definitions
@@ -270,83 +319,88 @@ CREATE POLICY tenant_isolation_audit ON audit_logs
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              pipeline_db                                     │
-│                           (Event-Sourced)                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        pipeline_events                               │    │
-│  │                      (Append-Only Event Store)                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK event_id        UUID                                              │    │
-│  │    pipeline_id     UUID                                              │    │
-│  │    tenant_id       UUID                                              │    │
-│  │    event_type      VARCHAR (CREATED, UPDATED, PUBLISHED, ARCHIVED)   │    │
-│  │    event_version   INT                                               │    │
-│  │    payload         JSONB                                             │    │
-│  │    metadata        JSONB (user_id, correlation_id, causation_id)     │    │
-│  │    created_at      TIMESTAMPTZ                                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                    │                                         │
-│                                    │ (projected from events)                 │
-│                                    ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                     pipelines (Read Model)                           │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id              UUID                                              │    │
-│  │    tenant_id       UUID                                              │    │
-│  │    project_id      UUID                                              │    │
-│  │    name            VARCHAR                                           │    │
-│  │    description     TEXT                                              │    │
-│  │    current_version INT                                               │    │
-│  │    status          VARCHAR (draft, active, archived)                 │    │
-│  │    created_at      TIMESTAMPTZ                                       │    │
-│  │    updated_at      TIMESTAMPTZ                                       │    │
-│  │    created_by      UUID                                              │    │
-│  └────────────────────────────┬────────────────────────────────────────┘    │
-│                               │                                              │
-│              ┌────────────────┴────────────────┐                            │
-│              ▼                                 ▼                            │
-│  ┌─────────────────────┐          ┌─────────────────────┐                  │
-│  │  pipeline_versions  │          │   pipeline_tags     │                  │
-│  ├─────────────────────┤          ├─────────────────────┤                  │
-│  │ PK id               │          │ FK pipeline_id      │                  │
-│  │ FK pipeline_id      │          │ FK tag_id           │                  │
-│  │    version          │          └─────────────────────┘                  │
-│  │    definition       │ (JSONB)           │                               │
-│  │    published_at     │                   │                               │
-│  │    published_by     │          ┌────────┴────────┐                      │
-│  └─────────────────────┘          │      tags       │                      │
-│                                   ├─────────────────┤                      │
-│                                   │ PK id           │                      │
-│                                   │    tenant_id    │                      │
-│                                   │    name         │                      │
-│                                   │    color        │                      │
-│                                   └─────────────────┘                      │
-│                                                                              │
-│  ┌─────────────────────┐          ┌─────────────────────┐                  │
-│  │  pipeline_secrets   │          │     connections     │                  │
-│  ├─────────────────────┤          ├─────────────────────┤                  │
-│  │ PK id               │          │ PK id               │                  │
-│  │ FK pipeline_id      │          │    tenant_id        │                  │
-│  │    name             │          │    name             │                  │
-│  │    vault_path       │          │    type             │ (snowflake, etc) │
-│  └─────────────────────┘          │    config           │ (JSONB, encrypted)│
-│                                   │    vault_secret_path│                  │
-│  ┌─────────────────────┐          │    created_by       │                  │
-│  │       outbox        │          └─────────────────────┘                  │
-│  ├─────────────────────┤                                                    │
-│  │ PK id               │                                                    │
-│  │    aggregate_type   │                                                    │
-│  │    aggregate_id     │                                                    │
-│  │    event_type       │                                                    │
-│  │    payload          │                                                    │
-│  │    created_at       │                                                    │
-│  │    published_at     │                                                    │
-│  └─────────────────────┘                                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    pipeline_events ||--o| pipelines : "projected to"
+    pipelines ||--o{ pipeline_versions : has
+    pipelines ||--o{ pipeline_tags : tagged_with
+    pipelines ||--o{ pipeline_secrets : uses
+    tags ||--o{ pipeline_tags : applied_to
+    connections ||--o{ pipelines : "used by"
+    outbox ||--o| pipeline_events : "publishes"
+
+    pipeline_events {
+        uuid event_id PK
+        uuid pipeline_id
+        uuid tenant_id
+        varchar event_type
+        int event_version
+        jsonb payload
+        jsonb metadata
+        timestamptz created_at
+    }
+    
+    pipelines {
+        uuid id PK
+        uuid tenant_id
+        uuid project_id
+        varchar name
+        text description
+        int current_version
+        varchar status
+        timestamptz created_at
+        timestamptz updated_at
+        uuid created_by
+    }
+    
+    pipeline_versions {
+        uuid id PK
+        uuid pipeline_id FK
+        int version
+        jsonb definition
+        timestamptz published_at
+        uuid published_by
+    }
+    
+    tags {
+        uuid id PK
+        uuid tenant_id
+        varchar name
+        varchar color
+    }
+    
+    pipeline_tags {
+        uuid pipeline_id PK,FK
+        uuid tag_id PK,FK
+    }
+    
+    connections {
+        uuid id PK
+        uuid tenant_id
+        varchar name
+        varchar type
+        jsonb config
+        varchar vault_secret_path
+        uuid created_by
+        timestamptz created_at
+    }
+    
+    pipeline_secrets {
+        uuid id PK
+        uuid pipeline_id FK
+        varchar name
+        varchar vault_path
+    }
+    
+    outbox {
+        uuid id PK
+        varchar aggregate_type
+        uuid aggregate_id
+        varchar event_type
+        jsonb payload
+        timestamptz created_at
+        timestamptz published_at
+    }
 ```
 
 ### Table Definitions
@@ -525,83 +579,78 @@ CREATE POLICY tenant_isolation_connections ON connections
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             execution_db                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          executions                                  │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    pipeline_id      UUID                                             │    │
-│  │    pipeline_version INT                                              │    │
-│  │    status           VARCHAR (pending, running, succeeded, failed,    │    │
-│  │                              cancelled, retrying)                    │    │
-│  │    trigger_type     VARCHAR (manual, scheduled, event, api)          │    │
-│  │    triggered_by     UUID (user_id or NULL for system)                │    │
-│  │    parameters       JSONB                                            │    │
-│  │    started_at       TIMESTAMPTZ                                      │    │
-│  │    completed_at     TIMESTAMPTZ                                      │    │
-│  │    error_message    TEXT                                             │    │
-│  │    error_category   VARCHAR (infra, code, data, timeout)             │    │
-│  │    retry_of         UUID (parent execution if this is a retry)       │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  └────────────────────────────┬────────────────────────────────────────┘    │
-│                               │                                              │
-│                               │ 1:N                                          │
-│                               ▼                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                            jobs                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │ FK execution_id     UUID                                             │    │
-│  │    stage_id         VARCHAR (from pipeline definition)               │    │
-│  │    stage_name       VARCHAR                                          │    │
-│  │    status           VARCHAR (pending, queued, running, succeeded,    │    │
-│  │                              failed, cancelled, skipped)             │    │
-│  │    runner_id        UUID                                             │    │
-│  │    attempt          INT (1-based, for retries)                       │    │
-│  │    queued_at        TIMESTAMPTZ                                      │    │
-│  │    started_at       TIMESTAMPTZ                                      │    │
-│  │    completed_at     TIMESTAMPTZ                                      │    │
-│  │    exit_code        INT                                              │    │
-│  │    error_message    TEXT                                             │    │
-│  │    output           JSONB (small outputs, < 1MB)                     │    │
-│  │    artifacts        JSONB (references to S3 for large outputs)       │    │
-│  │    metrics          JSONB (cpu, memory, duration)                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          job_logs                                    │    │
-│  │                    (Partitioned by date)                             │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │ FK job_id           UUID                                             │    │
-│  │    log_time         TIMESTAMPTZ                                      │    │
-│  │    level            VARCHAR (DEBUG, INFO, WARN, ERROR)               │    │
-│  │    message          TEXT                                             │    │
-│  │    attributes       JSONB                                            │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       checkpoints                                    │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK execution_id     UUID                                             │    │
-│  │    stage_id         VARCHAR                                          │    │
-│  │    state            JSONB                                            │    │
-│  │    updated_at       TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────┐          ┌─────────────────────┐                  │
-│  │  processed_events   │          │       outbox        │                  │
-│  │   (idempotency)     │          │                     │                  │
-│  ├─────────────────────┤          ├─────────────────────┤                  │
-│  │ PK event_id         │          │ (same as pipeline)  │                  │
-│  │    processed_at     │          └─────────────────────┘                  │
-│  └─────────────────────┘                                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    executions ||--o{ jobs : contains
+    executions ||--o{ checkpoints : has
+    jobs ||--o{ job_logs : generates
+    processed_events ||--o| executions : "tracks idempotency"
+
+    executions {
+        uuid id PK
+        uuid tenant_id
+        uuid pipeline_id
+        int pipeline_version
+        varchar status
+        varchar trigger_type
+        uuid triggered_by
+        jsonb parameters
+        timestamptz started_at
+        timestamptz completed_at
+        text error_message
+        varchar error_category
+        uuid retry_of FK
+        timestamptz created_at
+    }
+    
+    jobs {
+        uuid id PK
+        uuid execution_id FK
+        varchar stage_id
+        varchar stage_name
+        varchar status
+        uuid runner_id
+        int attempt
+        timestamptz queued_at
+        timestamptz started_at
+        timestamptz completed_at
+        int exit_code
+        text error_message
+        jsonb output
+        jsonb artifacts
+        jsonb metrics
+    }
+    
+    job_logs {
+        uuid id PK
+        uuid job_id FK
+        timestamptz log_time
+        varchar level
+        text message
+        jsonb attributes
+    }
+    
+    checkpoints {
+        uuid execution_id PK,FK
+        varchar stage_id PK
+        jsonb state
+        timestamptz updated_at
+    }
+    
+    processed_events {
+        uuid event_id PK
+        timestamptz processed_at
+    }
+    
+    outbox {
+        uuid id PK
+        varchar aggregate_type
+        uuid aggregate_id
+        varchar event_type
+        jsonb payload
+        timestamptz created_at
+        timestamptz published_at
+    }
 ```
 
 ### Table Definitions
@@ -713,74 +762,61 @@ CREATE POLICY tenant_isolation_executions ON executions
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             scheduler_db                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          schedules                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    pipeline_id      UUID                                             │    │
-│  │    name             VARCHAR                                          │    │
-│  │    cron_expression  VARCHAR                                          │    │
-│  │    timezone         VARCHAR                                          │    │
-│  │    parameters       JSONB (override params)                          │    │
-│  │    is_active        BOOLEAN                                          │    │
-│  │    catchup_policy   VARCHAR (skip, run_all, coalesce)                │    │
-│  │    next_run_at      TIMESTAMPTZ                                      │    │
-│  │    last_run_at      TIMESTAMPTZ                                      │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  │    created_by       UUID                                             │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       event_triggers                                 │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    pipeline_id      UUID                                             │    │
-│  │    trigger_type     VARCHAR (kafka, webhook, file_sensor)            │    │
-│  │    config           JSONB                                            │    │
-│  │    is_active        BOOLEAN                                          │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        webhooks                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    pipeline_id      UUID                                             │    │
-│  │    token_hash       VARCHAR (for authentication)                     │    │
-│  │    is_active        BOOLEAN                                          │    │
-│  │    last_triggered   TIMESTAMPTZ                                      │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                     schedule_history                                 │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │ FK schedule_id      UUID                                             │    │
-│  │    scheduled_time   TIMESTAMPTZ                                      │    │
-│  │    execution_id     UUID (NULL if skipped)                           │    │
-│  │    status           VARCHAR (triggered, skipped, failed_to_trigger)  │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    scheduler_locks                                   │    │
-│  │                  (Leader Election)                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK lock_name        VARCHAR                                          │    │
-│  │    holder_id        VARCHAR                                          │    │
-│  │    acquired_at      TIMESTAMPTZ                                      │    │
-│  │    expires_at       TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    schedules ||--o{ schedule_history : logs
+    
+    schedules {
+        uuid id PK
+        uuid tenant_id
+        uuid pipeline_id
+        varchar name
+        varchar cron_expression
+        varchar timezone
+        jsonb parameters
+        boolean is_active
+        varchar catchup_policy
+        timestamptz next_run_at
+        timestamptz last_run_at
+        timestamptz created_at
+        uuid created_by
+    }
+    
+    event_triggers {
+        uuid id PK
+        uuid tenant_id
+        uuid pipeline_id
+        varchar trigger_type
+        jsonb config
+        boolean is_active
+        timestamptz created_at
+    }
+    
+    webhooks {
+        uuid id PK
+        uuid tenant_id
+        uuid pipeline_id
+        varchar token_hash UK
+        boolean is_active
+        timestamptz last_triggered
+        timestamptz created_at
+    }
+    
+    schedule_history {
+        uuid id PK
+        uuid schedule_id FK
+        timestamptz scheduled_time
+        uuid execution_id
+        varchar status
+        timestamptz created_at
+    }
+    
+    scheduler_locks {
+        varchar lock_name PK
+        varchar holder_id
+        timestamptz acquired_at
+        timestamptz expires_at
+    }
 ```
 
 ### Table Definitions
@@ -864,57 +900,46 @@ CREATE POLICY tenant_isolation_schedules ON schedules
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              runner_db                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          runners                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    hostname         VARCHAR                                          │    │
-│  │    version          VARCHAR                                          │    │
-│  │    status           VARCHAR (available, busy, suspect, dead,         │    │
-│  │                              draining, deregistered)                 │    │
-│  │    capacity         INT (max concurrent jobs)                        │    │
-│  │    active_jobs      INT                                              │    │
-│  │    labels           JSONB (["gpu", "region:us-east-1"])              │    │
-│  │    last_heartbeat   TIMESTAMPTZ                                      │    │
-│  │    registered_at    TIMESTAMPTZ                                      │    │
-│  │    certificate_id   UUID                                             │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    runner_certificates                               │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    serial_number    VARCHAR                                          │    │
-│  │    subject_cn       VARCHAR                                          │    │
-│  │    issued_at        TIMESTAMPTZ                                      │    │
-│  │    expires_at       TIMESTAMPTZ                                      │    │
-│  │    revoked_at       TIMESTAMPTZ                                      │    │
-│  │    revocation_reason VARCHAR                                         │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    runner_assignments                                │    │
-│  │              (Current job assignments)                               │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │ FK runner_id        UUID                                             │    │
-│  │    job_id           UUID                                             │    │
-│  │    assigned_at      TIMESTAMPTZ                                      │    │
-│  │    acknowledged_at  TIMESTAMPTZ                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    runners ||--o| runner_certificates : has
+    runners ||--o{ runner_assignments : assigned
 
-Note: Runner heartbeats and real-time capacity are stored in Redis (30s TTL)
-      for performance. The database stores persistent state only.
+    runners {
+        uuid id PK
+        uuid tenant_id
+        varchar hostname
+        varchar version
+        varchar status
+        int capacity
+        int active_jobs
+        jsonb labels
+        timestamptz last_heartbeat
+        timestamptz registered_at
+        uuid certificate_id FK
+    }
+    
+    runner_certificates {
+        uuid id PK
+        uuid tenant_id
+        varchar serial_number
+        varchar subject_cn
+        timestamptz issued_at
+        timestamptz expires_at
+        timestamptz revoked_at
+        varchar revocation_reason
+    }
+    
+    runner_assignments {
+        uuid id PK
+        uuid runner_id FK
+        uuid job_id
+        timestamptz assigned_at
+        timestamptz acknowledged_at
+    }
 ```
+
+**Note:** Runner heartbeats and real-time capacity are stored in Redis (30s TTL) for performance. The database stores persistent state only.
 
 ---
 
@@ -922,67 +947,138 @@ Note: Runner heartbeats and real-time capacity are stored in Redis (30s TTL)
 
 ### ERD
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             metadata_db                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          datasets                                    │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ PK id               UUID                                             │    │
-│  │    tenant_id        UUID                                             │    │
-│  │    name             VARCHAR                                          │    │
-│  │    type             VARCHAR (table, view, file, stream)              │    │
-│  │    source_system    VARCHAR (snowflake, bigquery, s3, kafka)         │    │
-│  │    location         VARCHAR (fully qualified name)                   │    │
-│  │    description      TEXT                                             │    │
-│  │    owner_id         UUID                                             │    │
-│  │    classification   VARCHAR (public, internal, confidential, pii)    │    │
-│  │    last_refreshed   TIMESTAMPTZ                                      │    │
-│  │    row_count        BIGINT                                           │    │
-│  │    size_bytes       BIGINT                                           │    │
-│  │    created_at       TIMESTAMPTZ                                      │    │
-│  └────────────────────────────┬────────────────────────────────────────┘    │
-│                               │                                              │
-│              ┌────────────────┼────────────────┐                            │
-│              ▼                ▼                ▼                            │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐         │
-│  │ dataset_columns │  │ dataset_schemas │  │    lineage_edges    │         │
-│  ├─────────────────┤  │   (history)     │  ├─────────────────────┤         │
-│  │ FK dataset_id   │  ├─────────────────┤  │ PK id               │         │
-│  │    name         │  │ FK dataset_id   │  │    source_dataset   │         │
-│  │    data_type    │  │    version      │  │    target_dataset   │         │
-│  │    description  │  │    schema       │  │    source_column    │         │
-│  │    is_nullable  │  │    captured_at  │  │    target_column    │         │
-│  │    is_pii       │  └─────────────────┘  │    transformation   │         │
-│  │    pii_type     │                       │    pipeline_id      │         │
-│  │    statistics   │                       │    job_id           │         │
-│  └─────────────────┘                       │    captured_at      │         │
-│                                            └─────────────────────┘         │
-│                                                                              │
-│  ┌─────────────────────┐      ┌─────────────────────┐                      │
-│  │  glossary_terms     │      │  dataset_quality    │                      │
-│  ├─────────────────────┤      ├─────────────────────┤                      │
-│  │ PK id               │      │ FK dataset_id       │                      │
-│  │    tenant_id        │      │    score            │ (0-100)              │
-│  │    term             │      │    completeness     │                      │
-│  │    definition       │      │    freshness        │                      │
-│  │    parent_id        │      │    accuracy         │                      │
-│  └─────────────────────┘      │    calculated_at    │                      │
-│                               └─────────────────────┘                      │
-│  ┌─────────────────────┐                                                    │
-│  │ column_term_mapping │                                                    │
-│  ├─────────────────────┤                                                    │
-│  │ FK column_id        │                                                    │
-│  │ FK term_id          │                                                    │
-│  └─────────────────────┘                                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    datasets ||--o{ dataset_columns : has
+    datasets ||--o{ dataset_schemas : "version history"
+    datasets ||--o| dataset_quality : measured_by
+    datasets ||--o{ lineage_edges : "source or target"
+    
+    glossary_terms ||--o{ column_term_mapping : applied_to
+    dataset_columns ||--o{ column_term_mapping : has
+
+    datasets {
+        uuid id PK
+        uuid tenant_id
+        varchar name
+        varchar type
+        varchar source_system
+        varchar location
+        text description
+        uuid owner_id
+        varchar classification
+        timestamptz last_refreshed
+        bigint row_count
+        bigint size_bytes
+        timestamptz created_at
+    }
+    
+    dataset_columns {
+        uuid id PK
+        uuid dataset_id FK
+        varchar name
+        varchar data_type
+        text description
+        boolean is_nullable
+        boolean is_pii
+        varchar pii_type
+        jsonb statistics
+    }
+    
+    dataset_schemas {
+        uuid id PK
+        uuid dataset_id FK
+        int version
+        jsonb schema
+        timestamptz captured_at
+    }
+    
+    lineage_edges {
+        uuid id PK
+        uuid source_dataset FK
+        uuid target_dataset FK
+        varchar source_column
+        varchar target_column
+        text transformation
+        uuid pipeline_id
+        uuid job_id
+        timestamptz captured_at
+    }
+    
+    dataset_quality {
+        uuid dataset_id PK,FK
+        int score
+        decimal completeness
+        decimal freshness
+        decimal accuracy
+        timestamptz calculated_at
+    }
+    
+    glossary_terms {
+        uuid id PK
+        uuid tenant_id
+        varchar term
+        text definition
+        uuid parent_id FK
+    }
+    
+    column_term_mapping {
+        uuid column_id PK,FK
+        uuid term_id PK,FK
+    }
 ```
 
 ---
 
 ## 7. Notification Database (notification_db)
+
+### ERD
+
+```mermaid
+erDiagram
+    alert_rules ||--o{ alerts : triggers
+    alerts ||--o{ notification_deliveries : "delivered via"
+
+    alert_rules {
+        uuid id PK
+        uuid tenant_id
+        uuid pipeline_id
+        varchar name
+        jsonb condition
+        varchar severity
+        jsonb channels
+        boolean is_active
+        timestamptz created_at
+    }
+    
+    alerts {
+        uuid id PK
+        uuid tenant_id
+        uuid rule_id FK
+        uuid execution_id
+        varchar severity
+        text title
+        text message
+        varchar status
+        timestamptz snoozed_until
+        timestamptz created_at
+        timestamptz resolved_at
+    }
+    
+    notification_deliveries {
+        uuid id PK
+        uuid alert_id FK
+        varchar channel_type
+        jsonb channel_config
+        varchar status
+        int attempts
+        timestamptz last_attempt_at
+        text error_message
+        timestamptz sent_at
+    }
+```
+
+### Table Definitions
 
 ```sql
 -- Alert rules
@@ -1030,6 +1126,49 @@ CREATE TABLE notification_deliveries (
 ---
 
 ## 8. Agent Database (agent_db)
+
+### ERD
+
+```mermaid
+erDiagram
+    agent_observations ||--o{ healing_actions : proposes
+    
+    agent_observations {
+        uuid id PK
+        uuid tenant_id
+        uuid execution_id
+        jsonb observation
+        text root_cause
+        decimal confidence
+        timestamptz created_at
+    }
+    
+    healing_actions {
+        uuid id PK
+        uuid observation_id FK
+        varchar action_type
+        text description
+        jsonb proposed_change
+        varchar status
+        uuid applied_by
+        timestamptz applied_at
+        jsonb result
+        timestamptz created_at
+    }
+    
+    schema_drift_events {
+        uuid id PK
+        uuid tenant_id
+        uuid dataset_id
+        jsonb previous_schema
+        jsonb current_schema
+        varchar drift_type
+        timestamptz detected_at
+        jsonb affected_pipelines
+    }
+```
+
+### Table Definitions
 
 ```sql
 -- Agent observations (AI diagnosis attempts)
@@ -1177,3 +1316,4 @@ CREATE INDEX idx_outbox_pending ON outbox(created_at)
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-05-13 | Engineering | Initial schema |
+| 1.1 | 2026-05-13 | Engineering | Updated to Mermaid diagrams |

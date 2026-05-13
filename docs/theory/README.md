@@ -2,7 +2,7 @@
 
 > A complete engineering curriculum covering every concept needed to build and reason about a production-grade distributed pipeline platform.
 
-Each chapter is a standalone reference document. You can read sequentially or jump to any topic. Every chapter connects concepts directly to Pravah's design, includes ASCII architecture diagrams, concrete code examples, and FAANG interview angles.
+Each chapter is a standalone reference document. You can read sequentially or jump to any topic. Every chapter connects concepts directly to Pravah's design, includes architecture diagrams, concrete code examples, and system design interview angles.
 
 ---
 
@@ -47,7 +47,7 @@ Total: 75 chapters complete
 2. Internals         How does it work — with ASCII diagrams and code
 3. Pravah Context    Exactly where and how Pravah uses this
 4. Trade-offs        What you give up; alternatives considered
-5. Interview Angles  How FAANG interviewers probe this topic
+5. Interview Angles  How Senior-level interviewers probe this topic
 6. Key Takeaways     Summary + link to the next chapter
 ```
 

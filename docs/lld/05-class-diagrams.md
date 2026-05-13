@@ -23,80 +23,97 @@ This document contains class diagrams for each service's domain model. These sho
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          PIPELINE SERVICE DOMAIN                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    <<Aggregate Root>>                                │    │
-│  │                       Pipeline                                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: PipelineId                                                     │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - projectId: ProjectId                                               │    │
-│  │ - name: String                                                       │    │
-│  │ - description: String                                                │    │
-│  │ - status: PipelineStatus                                             │    │
-│  │ - currentVersion: int                                                │    │
-│  │ - definition: PipelineDefinition                                     │    │
-│  │ - createdAt: Instant                                                 │    │
-│  │ - createdBy: UserId                                                  │    │
-│  │ - uncommittedEvents: List<PipelineEvent>                             │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + publish(): void                                                    │    │
-│  │ + updateDefinition(def: PipelineDefinition): void                    │    │
-│  │ + archive(): void                                                    │    │
-│  │ + restore(): void                                                    │    │
-│  │ + validate(): ValidationResult                                       │    │
-│  │ # apply(event: PipelineEvent): void                                  │    │
-│  │ + getUncommittedEvents(): List<PipelineEvent>                        │    │
-│  │ + markEventsAsCommitted(): void                                      │    │
-│  └───────────────────────────┬─────────────────────────────────────────┘    │
-│                              │                                               │
-│              ┌───────────────┼───────────────┐                              │
-│              │               │               │                              │
-│              ▼               ▼               ▼                              │
-│  ┌───────────────────┐ ┌───────────────┐ ┌───────────────────────┐         │
-│  │ PipelineDefinition│ │PipelineVersion│ │    PipelineEvent      │         │
-│  ├───────────────────┤ ├───────────────┤ ├───────────────────────┤         │
-│  │ - stages: List    │ │ - id: UUID    │ │ <<sealed>>            │         │
-│  │ - variables: Map  │ │ - version: int│ │                       │         │
-│  │ - retry: Retry    │ │ - definition  │ │ + Created             │         │
-│  │ - timeout: Duration│ │ - publishedAt │ │ + Updated             │         │
-│  ├───────────────────┤ │ - publishedBy │ │ + Published           │         │
-│  │ + validate()      │ └───────────────┘ │ + Archived            │         │
-│  │ + getStage(id)    │                   │ + Restored            │         │
-│  │ + buildDag()      │                   └───────────────────────┘         │
-│  └─────────┬─────────┘                                                      │
-│            │                                                                 │
-│            ▼                                                                 │
-│  ┌───────────────────────────────────────────────────────────────────┐     │
-│  │                           Stage                                    │     │
-│  ├───────────────────────────────────────────────────────────────────┤     │
-│  │ - id: String                                                       │     │
-│  │ - name: String                                                     │     │
-│  │ - type: StageType                                                  │     │
-│  │ - config: StageConfig                                              │     │
-│  │ - dependsOn: List<String>                                          │     │
-│  │ - retryPolicy: RetryPolicy                                         │     │
-│  │ - timeout: Duration                                                │     │
-│  │ - resources: ResourceRequirements                                  │     │
-│  │ - condition: String (optional skip condition)                      │     │
-│  └───────────────────────────────────────────────────────────────────┘     │
-│                                                                              │
-│  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │
-│  │   <<enum>>         │  │   <<enum>>         │  │  <<value object>>  │    │
-│  │   StageType        │  │  PipelineStatus    │  │     PipelineId     │    │
-│  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤    │
-│  │ SQL               │  │ DRAFT              │  │ - value: UUID      │    │
-│  │ PYTHON            │  │ ACTIVE             │  ├────────────────────┤    │
-│  │ DBT               │  │ ARCHIVED           │  │ + generate(): Id   │    │
-│  │ SPARK             │  └────────────────────┘  │ + of(String): Id   │    │
-│  │ CONTAINER         │                          └────────────────────┘    │
-│  └────────────────────┘                                                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Pipeline {
+        <<Aggregate Root>>
+        -PipelineId id
+        -TenantId tenantId
+        -ProjectId projectId
+        -String name
+        -String description
+        -PipelineStatus status
+        -int currentVersion
+        -PipelineDefinition definition
+        -Instant createdAt
+        -UserId createdBy
+        -List~PipelineEvent~ uncommittedEvents
+        +publish() void
+        +updateDefinition(PipelineDefinition) void
+        +archive() void
+        +restore() void
+        +validate() ValidationResult
+        #apply(PipelineEvent) void
+        +getUncommittedEvents() List~PipelineEvent~
+        +markEventsAsCommitted() void
+    }
+    
+    class PipelineDefinition {
+        -List~Stage~ stages
+        -Map~String,String~ variables
+        -RetryPolicy retry
+        -Duration timeout
+        +validate() ValidationResult
+        +getStage(String) Stage
+        +buildDag() DAG
+    }
+    
+    class PipelineVersion {
+        -UUID id
+        -int version
+        -PipelineDefinition definition
+        -Instant publishedAt
+        -UserId publishedBy
+    }
+    
+    class PipelineEvent {
+        <<sealed interface>>
+        +pipelineId() PipelineId
+        +occurredAt() Instant
+    }
+    
+    class Stage {
+        -String id
+        -String name
+        -StageType type
+        -StageConfig config
+        -List~String~ dependsOn
+        -RetryPolicy retryPolicy
+        -Duration timeout
+        -ResourceRequirements resources
+        -String condition
+    }
+    
+    class PipelineId {
+        <<Value Object>>
+        -UUID value
+        +generate() PipelineId
+        +of(String) PipelineId
+    }
+    
+    class PipelineStatus {
+        <<enumeration>>
+        DRAFT
+        ACTIVE
+        ARCHIVED
+    }
+    
+    class StageType {
+        <<enumeration>>
+        SQL
+        PYTHON
+        DBT
+        SPARK
+        CONTAINER
+    }
+    
+    Pipeline "1" *-- "1" PipelineDefinition
+    Pipeline "1" *-- "*" PipelineVersion
+    Pipeline "1" *-- "*" PipelineEvent
+    PipelineDefinition "1" *-- "*" Stage
+    Pipeline --> PipelineId
+    Pipeline --> PipelineStatus
+    Stage --> StageType
 ```
 
 ### Java Implementation
@@ -105,7 +122,7 @@ This document contains class diagrams for each service's domain model. These sho
 // Aggregate Root with Event Sourcing
 public class Pipeline {
     private final PipelineId id;
-    private final TenantId tenantId;
+    private TenantId tenantId; // Initialized in apply for Created event
     private String name;
     private PipelineStatus status;
     private int currentVersion;
@@ -200,87 +217,95 @@ public record PipelineId(UUID value) {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         EXECUTION SERVICE DOMAIN                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    <<Aggregate Root>>                                │    │
-│  │                       Execution                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: ExecutionId                                                    │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - pipelineId: PipelineId                                             │    │
-│  │ - pipelineVersion: int                                               │    │
-│  │ - status: ExecutionStatus                                            │    │
-│  │ - triggerType: TriggerType                                           │    │
-│  │ - triggeredBy: UserId (nullable)                                     │    │
-│  │ - parameters: Map<String, Object>                                    │    │
-│  │ - jobs: List<Job>                                                    │    │
-│  │ - startedAt: Instant                                                 │    │
-│  │ - completedAt: Instant                                               │    │
-│  │ - errorMessage: String                                               │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + start(): void                                                      │    │
-│  │ + cancel(): void                                                     │    │
-│  │ + onJobCompleted(jobId: JobId, success: boolean): void               │    │
-│  │ + retry(): Execution                                                 │    │
-│  │ + getReadyJobs(): List<Job>                                          │    │
-│  │ + isComplete(): boolean                                              │    │
-│  └───────────────────────────┬─────────────────────────────────────────┘    │
-│                              │                                               │
-│                              │ 1:N                                           │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                            Job                                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: JobId                                                          │    │
-│  │ - stageId: String                                                    │    │
-│  │ - stageName: String                                                  │    │
-│  │ - status: JobStatus                                                  │    │
-│  │ - runnerId: RunnerId (nullable)                                      │    │
-│  │ - attempt: int                                                       │    │
-│  │ - maxAttempts: int                                                   │    │
-│  │ - queuedAt: Instant                                                  │    │
-│  │ - startedAt: Instant                                                 │    │
-│  │ - completedAt: Instant                                               │    │
-│  │ - output: JobOutput                                                  │    │
-│  │ - errorMessage: String                                               │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + queue(): void                                                      │    │
-│  │ + assignTo(runnerId: RunnerId): void                                 │    │
-│  │ + start(): void                                                      │    │
-│  │ + complete(output: JobOutput): void                                  │    │
-│  │ + fail(error: String): void                                          │    │
-│  │ + retry(): boolean                                                   │    │
-│  │ + skip(): void                                                       │    │
-│  │ + canRetry(): boolean                                                │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │
-│  │   <<enum>>         │  │   <<enum>>         │  │   <<enum>>         │    │
-│  │ ExecutionStatus    │  │    JobStatus       │  │   TriggerType      │    │
-│  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤    │
-│  │ PENDING            │  │ PENDING            │  │ MANUAL             │    │
-│  │ RUNNING            │  │ QUEUED             │  │ SCHEDULED          │    │
-│  │ SUCCEEDED          │  │ RUNNING            │  │ EVENT              │    │
-│  │ FAILED             │  │ SUCCEEDED          │  │ API                │    │
-│  │ CANCELLED          │  │ FAILED             │  │ WEBHOOK            │    │
-│  │ RETRYING           │  │ CANCELLED          │  └────────────────────┘    │
-│  └────────────────────┘  │ SKIPPED            │                            │
-│                          └────────────────────┘                            │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                         Checkpoint                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - executionId: ExecutionId                                           │    │
-│  │ - stageId: String                                                    │    │
-│  │ - state: Map<String, Object>                                         │    │
-│  │ - updatedAt: Instant                                                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Execution {
+        <<Aggregate Root>>
+        -ExecutionId id
+        -TenantId tenantId
+        -PipelineId pipelineId
+        -int pipelineVersion
+        -ExecutionStatus status
+        -TriggerType triggerType
+        -UserId triggeredBy
+        -Map~String,Object~ parameters
+        -List~Job~ jobs
+        -Instant startedAt
+        -Instant completedAt
+        -String errorMessage
+        +start() void
+        +cancel() void
+        +onJobCompleted(JobId, boolean) void
+        +retry() Execution
+        +getReadyJobs() List~Job~
+        +isComplete() boolean
+    }
+    
+    class Job {
+        -JobId id
+        -String stageId
+        -String stageName
+        -JobStatus status
+        -RunnerId runnerId
+        -int attempt
+        -int maxAttempts
+        -Instant queuedAt
+        -Instant startedAt
+        -Instant completedAt
+        -JobOutput output
+        -String errorMessage
+        +queue() void
+        +assignTo(RunnerId) void
+        +start() void
+        +complete(JobOutput) void
+        +fail(String) void
+        +retry() boolean
+        +skip() void
+        +canRetry() boolean
+    }
+    
+    class Checkpoint {
+        -ExecutionId executionId
+        -String stageId
+        -Map~String,Object~ state
+        -Instant updatedAt
+    }
+    
+    class ExecutionStatus {
+        <<enumeration>>
+        PENDING
+        RUNNING
+        SUCCEEDED
+        FAILED
+        CANCELLED
+        RETRYING
+    }
+    
+    class JobStatus {
+        <<enumeration>>
+        PENDING
+        QUEUED
+        RUNNING
+        SUCCEEDED
+        FAILED
+        CANCELLED
+        SKIPPED
+    }
+    
+    class TriggerType {
+        <<enumeration>>
+        MANUAL
+        SCHEDULED
+        EVENT
+        API
+        WEBHOOK
+    }
+    
+    Execution "1" *-- "*" Job
+    Execution "1" *-- "*" Checkpoint
+    Execution --> ExecutionStatus
+    Execution --> TriggerType
+    Job --> JobStatus
 ```
 
 ### Java Implementation
@@ -373,64 +398,70 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         SCHEDULER SERVICE DOMAIN                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                         Schedule                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: ScheduleId                                                     │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - pipelineId: PipelineId                                             │    │
-│  │ - name: String                                                       │    │
-│  │ - cronExpression: CronExpression                                     │    │
-│  │ - timezone: ZoneId                                                   │    │
-│  │ - parameters: Map<String, Object>                                    │    │
-│  │ - isActive: boolean                                                  │    │
-│  │ - catchupPolicy: CatchupPolicy                                       │    │
-│  │ - nextRunAt: Instant                                                 │    │
-│  │ - lastRunAt: Instant                                                 │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + pause(): void                                                      │    │
-│  │ + resume(): void                                                     │    │
-│  │ + computeNextRun(from: Instant): Instant                             │    │
-│  │ + isDue(now: Instant): boolean                                       │    │
-│  │ + getMissedRuns(now: Instant): List<Instant>                         │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      <<interface>>                                   │    │
-│  │                         Trigger                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + shouldFire(context: TriggerContext): boolean                       │    │
-│  │ + getParameters(): Map<String, Object>                               │    │
-│  └───────────────────────────┬─────────────────────────────────────────┘    │
-│                              │                                               │
-│              ┌───────────────┼───────────────┐                              │
-│              │               │               │                              │
-│              ▼               ▼               ▼                              │
-│  ┌───────────────────┐ ┌───────────────┐ ┌───────────────────┐             │
-│  │  KafkaTrigger     │ │ WebhookTrigger│ │   FileSensor      │             │
-│  ├───────────────────┤ ├───────────────┤ ├───────────────────┤             │
-│  │ - topic: String   │ │ - token: String│ │ - bucket: String │             │
-│  │ - filter: Predicate│ │ - rateLimit   │ │ - prefix: String │             │
-│  │ - batchSize: int  │ └───────────────┘ │ - pattern: String │             │
-│  └───────────────────┘                   └───────────────────┘             │
-│                                                                              │
-│  ┌────────────────────┐  ┌────────────────────┐                            │
-│  │ <<value object>>   │  │   <<enum>>         │                            │
-│  │  CronExpression    │  │  CatchupPolicy     │                            │
-│  ├────────────────────┤  ├────────────────────┤                            │
-│  │ - expression: String│  │ SKIP              │                            │
-│  ├────────────────────┤  │ RUN_ALL            │                            │
-│  │ + isValid(): bool  │  │ COALESCE           │                            │
-│  │ + next(Instant): Instant                   │                            │
-│  │ + describe(): String                       │                            │
-│  └────────────────────┘  └────────────────────┘                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Schedule {
+        -ScheduleId id
+        -TenantId tenantId
+        -PipelineId pipelineId
+        -String name
+        -CronExpression cronExpression
+        -ZoneId timezone
+        -Map~String,Object~ parameters
+        -boolean isActive
+        -CatchupPolicy catchupPolicy
+        -Instant nextRunAt
+        -Instant lastRunAt
+        +pause() void
+        +resume() void
+        +computeNextRun(Instant) Instant
+        +isDue(Instant) boolean
+        +getMissedRuns(Instant) List~Instant~
+    }
+    
+    class Trigger {
+        <<interface>>
+        +shouldFire(TriggerContext) boolean
+        +getParameters() Map~String,Object~
+    }
+    
+    class KafkaTrigger {
+        -String topic
+        -Predicate filter
+        -int batchSize
+    }
+    
+    class WebhookTrigger {
+        -String token
+        -RateLimit rateLimit
+    }
+    
+    class FileSensor {
+        -String bucket
+        -String prefix
+        -String pattern
+    }
+    
+    class CronExpression {
+        <<Value Object>>
+        -String expression
+        +isValid() boolean
+        +next(Instant) Instant
+        +describe() String
+    }
+    
+    class CatchupPolicy {
+        <<enumeration>>
+        SKIP
+        RUN_ALL
+        COALESCE
+    }
+    
+    Trigger <|.. KafkaTrigger
+    Trigger <|.. WebhookTrigger
+    Trigger <|.. FileSensor
+    Schedule --> CronExpression
+    Schedule --> CatchupPolicy
 ```
 
 ---
@@ -439,77 +470,68 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          RUNNER SERVICE DOMAIN                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          Runner                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: RunnerId                                                       │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - hostname: String                                                   │    │
-│  │ - version: String                                                    │    │
-│  │ - status: RunnerStatus                                               │    │
-│  │ - capacity: int                                                      │    │
-│  │ - activeJobs: int                                                    │    │
-│  │ - labels: Set<String>                                                │    │
-│  │ - lastHeartbeat: Instant                                             │    │
-│  │ - certificate: RunnerCertificate                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + hasCapacity(): boolean                                             │    │
-│  │ + matchesLabels(required: Set<String>): boolean                      │    │
-│  │ + assignJob(job: JobAssignment): void                                │    │
-│  │ + completeJob(jobId: JobId): void                                    │    │
-│  │ + drain(): void                                                      │    │
-│  │ + resume(): void                                                     │    │
-│  │ + heartbeat(): void                                                  │    │
-│  │ + markSuspect(): void                                                │    │
-│  │ + markDead(): void                                                   │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      JobAssignment                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: AssignmentId                                                   │    │
-│  │ - runnerId: RunnerId                                                 │    │
-│  │ - jobId: JobId                                                       │    │
-│  │ - assignedAt: Instant                                                │    │
-│  │ - acknowledgedAt: Instant                                            │    │
-│  │ - stageConfig: StageConfig                                           │    │
-│  │ - secrets: List<SecretRef>                                           │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    RunnerCertificate                                 │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: UUID                                                           │    │
-│  │ - serialNumber: String                                               │    │
-│  │ - subjectCN: String                                                  │    │
-│  │ - issuedAt: Instant                                                  │    │
-│  │ - expiresAt: Instant                                                 │    │
-│  │ - revokedAt: Instant (nullable)                                      │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + isValid(): boolean                                                 │    │
-│  │ + isExpired(): boolean                                               │    │
-│  │ + revoke(reason: String): void                                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌────────────────────┐                                                     │
-│  │   <<enum>>         │                                                     │
-│  │  RunnerStatus      │                                                     │
-│  ├────────────────────┤                                                     │
-│  │ AVAILABLE          │  ◀── Can accept jobs                               │
-│  │ BUSY               │  ◀── At max capacity                               │
-│  │ DRAINING           │  ◀── Admin requested drain                         │
-│  │ DRAINED            │  ◀── Drain complete                                │
-│  │ SUSPECT            │  ◀── Missed 1-2 heartbeats                         │
-│  │ DEAD               │  ◀── Missed 3+ heartbeats                          │
-│  │ DEREGISTERED       │  ◀── Explicitly removed                            │
-│  └────────────────────┘                                                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Runner {
+        -RunnerId id
+        -TenantId tenantId
+        -String hostname
+        -String version
+        -RunnerStatus status
+        -int capacity
+        -int activeJobs
+        -Set~String~ labels
+        -Instant lastHeartbeat
+        -RunnerCertificate certificate
+        +hasCapacity() boolean
+        +matchesLabels(Set~String~) boolean
+        +assignJob(JobAssignment) void
+        +completeJob(JobId) void
+        +drain() void
+        +resume() void
+        +heartbeat() void
+        +markSuspect() void
+        +markDead() void
+    }
+    
+    class JobAssignment {
+        -AssignmentId id
+        -RunnerId runnerId
+        -JobId jobId
+        -Instant assignedAt
+        -Instant acknowledgedAt
+        -StageConfig stageConfig
+        -List~SecretRef~ secrets
+    }
+    
+    class RunnerCertificate {
+        -UUID id
+        -String serialNumber
+        -String subjectCN
+        -Instant issuedAt
+        -Instant expiresAt
+        -Instant revokedAt
+        +isValid() boolean
+        +isExpired() boolean
+        +revoke(String) void
+    }
+    
+    class RunnerStatus {
+        <<enumeration>>
+        AVAILABLE
+        BUSY
+        DRAINING
+        DRAINED
+        SUSPECT
+        DEAD
+        DEREGISTERED
+    }
+    
+    Runner "1" *-- "1" RunnerCertificate
+    Runner "1" o-- "*" JobAssignment
+    Runner --> RunnerStatus
+    
+    note for RunnerStatus "AVAILABLE: Can accept jobs\nBUSY: At max capacity\nDRAINING: Admin requested drain\nDRAINED: Drain complete\nSUSPECT: Missed 1-2 heartbeats\nDEAD: Missed 3+ heartbeats"
 ```
 
 ---
@@ -518,80 +540,84 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TENANT SERVICE DOMAIN                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│                           Organization                                       │
-│                               │                                              │
-│                               │ 1:N                                          │
-│                ┌──────────────┼──────────────┐                              │
-│                ▼              ▼              ▼                              │
-│             Team           User           Role                              │
-│               │              │              │                              │
-│               │ 1:N          │              │                              │
-│               ▼              │              │                              │
-│           Project            │              │                              │
-│                              │              │                              │
-│                              └──────┬───────┘                              │
-│                                     │                                       │
-│                                     ▼                                       │
-│                              TeamMember                                     │
-│                           (User + Team + Role)                              │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       Organization                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: OrgId                                                          │    │
-│  │ - name: String                                                       │    │
-│  │ - slug: String                                                       │    │
-│  │ - tier: Tier (FREE, TEAM, ENTERPRISE)                                │    │
-│  │ - settings: OrgSettings                                              │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                           User                                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: UserId                                                         │    │
-│  │ - orgId: OrgId                                                       │    │
-│  │ - email: Email                                                       │    │
-│  │ - name: String                                                       │    │
-│  │ - passwordHash: String                                               │    │
-│  │ - mfaSecret: String (encrypted)                                      │    │
-│  │ - status: UserStatus                                                 │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + authenticate(password: String): boolean                            │    │
-│  │ + verifyMfa(code: String): boolean                                   │    │
-│  │ + hasPermission(permission: Permission): boolean                     │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                           Role                                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: RoleId                                                         │    │
-│  │ - orgId: OrgId (null for system roles)                               │    │
-│  │ - name: String                                                       │    │
-│  │ - permissions: Set<Permission>                                       │    │
-│  │ - isSystem: boolean                                                  │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + hasPermission(p: Permission): boolean                              │    │
-│  │ + grant(p: Permission): void                                         │    │
-│  │ + revoke(p: Permission): void                                        │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌────────────────────┐                                                     │
-│  │ <<value object>>   │                                                     │
-│  │    Permission      │                                                     │
-│  ├────────────────────┤                                                     │
-│  │ - resource: String │  e.g., "pipelines", "executions"                   │
-│  │ - action: String   │  e.g., "read", "write", "delete", "*"              │
-│  ├────────────────────┤                                                     │
-│  │ + matches(required): boolean                                             │
-│  │ + toString(): "pipelines:read"                                           │
-│  └────────────────────┘                                                     │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Organization {
+        -OrgId id
+        -String name
+        -String slug
+        -Tier tier
+        -OrgSettings settings
+    }
+    
+    class Team {
+        -TeamId id
+        -OrgId orgId
+        -String name
+        -TeamSettings settings
+    }
+    
+    class Project {
+        -ProjectId id
+        -TeamId teamId
+        -String name
+        -String description
+    }
+    
+    class User {
+        -UserId id
+        -OrgId orgId
+        -Email email
+        -String name
+        -String passwordHash
+        -String mfaSecret
+        -UserStatus status
+        +authenticate(String) boolean
+        +verifyMfa(String) boolean
+        +hasPermission(Permission) boolean
+    }
+    
+    class Role {
+        -RoleId id
+        -OrgId orgId
+        -String name
+        -Set~Permission~ permissions
+        -boolean isSystem
+        +hasPermission(Permission) boolean
+        +grant(Permission) void
+        +revoke(Permission) void
+    }
+    
+    class TeamMember {
+        -UserId userId
+        -TeamId teamId
+        -RoleId roleId
+    }
+    
+    class Permission {
+        <<Value Object>>
+        -String resource
+        -String action
+        +matches(Permission) boolean
+        +toString() String
+    }
+    
+    class Tier {
+        <<enumeration>>
+        FREE
+        TEAM
+        ENTERPRISE
+    }
+    
+    Organization "1" *-- "*" Team
+    Organization "1" *-- "*" User
+    Organization "1" *-- "*" Role
+    Team "1" *-- "*" Project
+    Team "1" *-- "*" TeamMember
+    TeamMember --> User
+    TeamMember --> Role
+    Organization --> Tier
+    Role "1" *-- "*" Permission
 ```
 
 ---
@@ -600,69 +626,70 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         METADATA SERVICE DOMAIN                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          Dataset                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: DatasetId                                                      │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - name: String                                                       │    │
-│  │ - type: DatasetType (TABLE, VIEW, FILE, STREAM)                      │    │
-│  │ - sourceSystem: String                                               │    │
-│  │ - location: String (fully qualified name)                            │    │
-│  │ - description: String                                                │    │
-│  │ - owner: UserId                                                      │    │
-│  │ - classification: Classification                                     │    │
-│  │ - columns: List<Column>                                              │    │
-│  │ - statistics: DatasetStatistics                                      │    │
-│  │ - qualityScore: QualityScore                                         │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                           Column                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: ColumnId                                                       │    │
-│  │ - name: String                                                       │    │
-│  │ - dataType: String                                                   │    │
-│  │ - description: String                                                │    │
-│  │ - isNullable: boolean                                                │    │
-│  │ - isPii: boolean                                                     │    │
-│  │ - piiType: PiiType                                                   │    │
-│  │ - statistics: ColumnStatistics                                       │    │
-│  │ - glossaryTerms: List<GlossaryTerm>                                  │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       LineageEdge                                    │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: LineageEdgeId                                                  │    │
-│  │ - sourceDataset: DatasetId                                           │    │
-│  │ - targetDataset: DatasetId                                           │    │
-│  │ - sourceColumn: String (nullable, for column-level)                  │    │
-│  │ - targetColumn: String (nullable)                                    │    │
-│  │ - transformation: String                                             │    │
-│  │ - pipelineId: PipelineId                                             │    │
-│  │ - jobId: JobId                                                       │    │
-│  │ - capturedAt: Instant                                                │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       LineageGraph                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - datasets: Map<DatasetId, Dataset>                                  │    │
-│  │ - edges: List<LineageEdge>                                           │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + getUpstream(dataset: DatasetId, depth: int): Set<Dataset>          │    │
-│  │ + getDownstream(dataset: DatasetId, depth: int): Set<Dataset>        │    │
-│  │ + getPath(from: DatasetId, to: DatasetId): List<LineageEdge>         │    │
-│  │ + getImpact(dataset: DatasetId): ImpactAnalysis                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Dataset {
+        -DatasetId id
+        -TenantId tenantId
+        -String name
+        -DatasetType type
+        -String sourceSystem
+        -String location
+        -String description
+        -UserId owner
+        -Classification classification
+        -List~Column~ columns
+        -DatasetStatistics statistics
+        -QualityScore qualityScore
+    }
+    
+    class Column {
+        -ColumnId id
+        -String name
+        -String dataType
+        -String description
+        -boolean isNullable
+        -boolean isPii
+        -PiiType piiType
+        -ColumnStatistics statistics
+        -List~GlossaryTerm~ glossaryTerms
+    }
+    
+    class LineageEdge {
+        -LineageEdgeId id
+        -DatasetId sourceDataset
+        -DatasetId targetDataset
+        -String sourceColumn
+        -String targetColumn
+        -String transformation
+        -PipelineId pipelineId
+        -JobId jobId
+        -Instant capturedAt
+    }
+    
+    class LineageGraph {
+        -Map~DatasetId,Dataset~ datasets
+        -List~LineageEdge~ edges
+        +getUpstream(DatasetId, int) Set~Dataset~
+        +getDownstream(DatasetId, int) Set~Dataset~
+        +getPath(DatasetId, DatasetId) List~LineageEdge~
+        +getImpact(DatasetId) ImpactAnalysis
+    }
+    
+    class DatasetType {
+        <<enumeration>>
+        TABLE
+        VIEW
+        FILE
+        STREAM
+    }
+    
+    Dataset "1" *-- "*" Column
+    LineageEdge --> Dataset : source
+    LineageEdge --> Dataset : target
+    LineageGraph "1" *-- "*" Dataset
+    LineageGraph "1" *-- "*" LineageEdge
+    Dataset --> DatasetType
 ```
 
 ---
@@ -671,64 +698,81 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       NOTIFICATION SERVICE DOMAIN                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        AlertRule                                     │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: AlertRuleId                                                    │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - pipelineId: PipelineId (nullable for global)                       │    │
-│  │ - name: String                                                       │    │
-│  │ - condition: AlertCondition                                          │    │
-│  │ - severity: Severity                                                 │    │
-│  │ - channels: List<NotificationChannel>                                │    │
-│  │ - isActive: boolean                                                  │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + evaluate(event: ExecutionEvent): boolean                           │    │
-│  │ + fire(event: ExecutionEvent): Alert                                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                          Alert                                       │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: AlertId                                                        │    │
-│  │ - ruleId: AlertRuleId                                                │    │
-│  │ - executionId: ExecutionId                                           │    │
-│  │ - severity: Severity                                                 │    │
-│  │ - title: String                                                      │    │
-│  │ - message: String                                                    │    │
-│  │ - status: AlertStatus                                                │    │
-│  │ - snoozedUntil: Instant                                              │    │
-│  │ - createdAt: Instant                                                 │    │
-│  │ - resolvedAt: Instant                                                │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + acknowledge(): void                                                │    │
-│  │ + snooze(duration: Duration): void                                   │    │
-│  │ + resolve(): void                                                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                  <<interface>>                                       │    │
-│  │               NotificationChannel                                    │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + send(alert: Alert): DeliveryResult                                 │    │
-│  │ + getType(): ChannelType                                             │    │
-│  └───────────────────────────┬─────────────────────────────────────────┘    │
-│                              │                                               │
-│        ┌─────────────────────┼─────────────────────┐                        │
-│        ▼                     ▼                     ▼                        │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐                │
-│  │ SlackChannel │     │ EmailChannel │     │PagerDutyChannel│              │
-│  ├──────────────┤     ├──────────────┤     ├──────────────┤                │
-│  │ - webhookUrl │     │ - recipients │     │ - routingKey │                │
-│  │ - channel    │     │ - template   │     │ - severity   │                │
-│  └──────────────┘     └──────────────┘     └──────────────┘                │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class AlertRule {
+        -AlertRuleId id
+        -TenantId tenantId
+        -PipelineId pipelineId
+        -String name
+        -AlertCondition condition
+        -Severity severity
+        -List~NotificationChannel~ channels
+        -boolean isActive
+        +evaluate(ExecutionEvent) boolean
+        +fire(ExecutionEvent) Alert
+    }
+    
+    class Alert {
+        -AlertId id
+        -AlertRuleId ruleId
+        -ExecutionId executionId
+        -Severity severity
+        -String title
+        -String message
+        -AlertStatus status
+        -Instant snoozedUntil
+        -Instant createdAt
+        -Instant resolvedAt
+        +acknowledge() void
+        +snooze(Duration) void
+        +resolve() void
+    }
+    
+    class NotificationChannel {
+        <<interface>>
+        +send(Alert) DeliveryResult
+        +getType() ChannelType
+    }
+    
+    class SlackChannel {
+        -String webhookUrl
+        -String channel
+    }
+    
+    class EmailChannel {
+        -List~String~ recipients
+        -String template
+    }
+    
+    class PagerDutyChannel {
+        -String routingKey
+        -Severity severity
+    }
+    
+    class Severity {
+        <<enumeration>>
+        INFO
+        WARNING
+        ERROR
+        CRITICAL
+    }
+    
+    class AlertStatus {
+        <<enumeration>>
+        ACTIVE
+        ACKNOWLEDGED
+        SNOOZED
+        RESOLVED
+    }
+    
+    AlertRule "1" *-- "*" NotificationChannel
+    AlertRule "1" o-- "*" Alert
+    NotificationChannel <|.. SlackChannel
+    NotificationChannel <|.. EmailChannel
+    NotificationChannel <|.. PagerDutyChannel
+    AlertRule --> Severity
+    Alert --> AlertStatus
 ```
 
 ---
@@ -737,70 +781,73 @@ public class Job {
 
 ### Domain Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          AGENT SERVICE DOMAIN                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                       Observation                                    │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: ObservationId                                                  │    │
-│  │ - tenantId: TenantId                                                 │    │
-│  │ - executionId: ExecutionId                                           │    │
-│  │ - reasoningChain: List<ReasoningStep>                                │    │
-│  │ - rootCause: String                                                  │    │
-│  │ - confidence: BigDecimal (0.0 - 1.0)                                 │    │
-│  │ - createdAt: Instant                                                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      ReasoningStep                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - thought: String                                                    │    │
-│  │ - action: ToolCall                                                   │    │
-│  │ - observation: String                                                │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      HealingAction                                   │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ - id: HealingActionId                                                │    │
-│  │ - observationId: ObservationId                                       │    │
-│  │ - actionType: ActionType                                             │    │
-│  │ - description: String                                                │    │
-│  │ - proposedChange: JsonNode                                           │    │
-│  │ - status: ActionStatus (PROPOSED, APPROVED, APPLIED, REJECTED)       │    │
-│  │ - appliedBy: UserId                                                  │    │
-│  │ - appliedAt: Instant                                                 │    │
-│  │ - result: ActionResult                                               │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                  <<interface>>                                       │    │
-│  │                    AgentTool                                         │    │
-│  ├─────────────────────────────────────────────────────────────────────┤    │
-│  │ + getName(): String                                                  │    │
-│  │ + getDescription(): String                                           │    │
-│  │ + getParameters(): JsonSchema                                        │    │
-│  │ + execute(params: Map<String, Object>): ToolResult                   │    │
-│  └───────────────────────────┬─────────────────────────────────────────┘    │
-│                              │                                               │
-│        ┌─────────────────────┼─────────────────────┐                        │
-│        ▼                     ▼                     ▼                        │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐            │
-│  │GetExecutionLogs  │ │  CheckSchema     │ │  ProposeFix      │            │
-│  │                  │ │                  │ │                  │            │
-│  │ params:          │ │ params:          │ │ params:          │            │
-│  │ - executionId    │ │ - datasetId      │ │ - description    │            │
-│  │ - stageId        │ │                  │ │ - change         │            │
-│  │ - lastNLines     │ │ returns:         │ │                  │            │
-│  │                  │ │ - columns        │ │ returns:         │            │
-│  │ returns:         │ │ - history        │ │ - actionId       │            │
-│  │ - log lines      │ └──────────────────┘ └──────────────────┘            │
-│  └──────────────────┘                                                       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class Observation {
+        -ObservationId id
+        -TenantId tenantId
+        -ExecutionId executionId
+        -List~ReasoningStep~ reasoningChain
+        -String rootCause
+        -BigDecimal confidence
+        -Instant createdAt
+    }
+    
+    class ReasoningStep {
+        -String thought
+        -ToolCall action
+        -String observation
+    }
+    
+    class HealingAction {
+        -HealingActionId id
+        -ObservationId observationId
+        -ActionType actionType
+        -String description
+        -JsonNode proposedChange
+        -ActionStatus status
+        -UserId appliedBy
+        -Instant appliedAt
+        -ActionResult result
+    }
+    
+    class AgentTool {
+        <<interface>>
+        +getName() String
+        +getDescription() String
+        +getParameters() JsonSchema
+        +execute(Map~String,Object~) ToolResult
+    }
+    
+    class GetExecutionLogs {
+        +executionId: String
+        +stageId: String
+        +lastNLines: int
+    }
+    
+    class CheckSchema {
+        +datasetId: String
+    }
+    
+    class ProposeFix {
+        +description: String
+        +change: JsonNode
+    }
+    
+    class ActionStatus {
+        <<enumeration>>
+        PROPOSED
+        APPROVED
+        APPLIED
+        REJECTED
+    }
+    
+    Observation "1" *-- "*" ReasoningStep
+    Observation "1" o-- "*" HealingAction
+    AgentTool <|.. GetExecutionLogs
+    AgentTool <|.. CheckSchema
+    AgentTool <|.. ProposeFix
+    HealingAction --> ActionStatus
 ```
 
 ---
@@ -870,3 +917,4 @@ public class ExecutionDomainService {
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-05-13 | Engineering | Initial class diagrams |
+| 1.1 | 2026-05-13 | Engineering | Updated to Mermaid diagrams |
