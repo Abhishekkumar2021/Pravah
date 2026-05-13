@@ -137,9 +137,16 @@ jobs:
         run: |
           ADDITIONS=$(gh pr view ${{ github.event.pull_request.number }} --json additions -q '.additions')
           DELETIONS=$(gh pr view ${{ github.event.pull_request.number }} --json deletions -q '.deletions')
+          TITLE=$(gh pr view ${{ github.event.pull_request.number }} --json title -q '.title')
           TOTAL=$((ADDITIONS + DELETIONS))
           
           echo "PR has $ADDITIONS additions and $DELETIONS deletions ($TOTAL total)"
+          
+          # Skip size check for CI/infrastructure PRs (they're naturally larger)
+          if [[ "$TITLE" =~ ^ci: ]] || [[ "$TITLE" =~ ^build: ]] || [[ "$TITLE" =~ ^chore: ]]; then
+            echo "::notice::Skipping size check for infrastructure PR"
+            exit 0
+          fi
           
           if [ $TOTAL -gt 1000 ]; then
             echo "::warning::Large PR detected ($TOTAL lines). Consider breaking into smaller PRs."
