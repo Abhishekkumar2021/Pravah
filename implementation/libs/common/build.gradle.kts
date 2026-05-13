@@ -22,7 +22,7 @@ dependencies {
     api("jakarta.validation:jakarta.validation-api:3.0.2")
 
     // Guava for collections and utilities
-    implementation("com.google.guava:guava:33.1.0-jre")
+    implementation("com.google.guava:guava:33.6.0-jre")
 
     // Commons Lang for string utilities
     implementation("org.apache.commons:commons-lang3:3.14.0")
