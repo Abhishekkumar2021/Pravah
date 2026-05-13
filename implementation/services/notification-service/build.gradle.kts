@@ -1,6 +1,6 @@
 /**
  * services:notification-service
- * 
+ *
  * Notification Service - Multi-channel notifications.
  *
  * @see docs/architecture/high-level-architecture.md
@@ -17,16 +17,16 @@ description = "Pravah Notification Service - Multi-channel notifications"
 
 dependencies {
     implementation(project(":libs:common"))
-    
+
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-    
+
     // Email
     implementation("org.springframework.boot:spring-boot-starter-mail")
-    
+
     // Template engine for notifications
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
-    
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

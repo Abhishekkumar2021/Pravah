@@ -1,0 +1,153 @@
+version: '3.9'
+
+services:
+  # ============================================================================
+  # PostgreSQL - Primary database
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: pravah-postgres
+    environment:
+      POSTGRES_USER: pravah
+      POSTGRES_PASSWORD: pravah
+      POSTGRES_DB: pravah
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pravah"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # Kafka (KRaft mode - no Zookeeper)
+  # ============================================================================
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: pravah-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: "pravah-kafka-cluster-001"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # Kafka UI - Web interface for Kafka
+  # ============================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: pravah-kafka-ui
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pravah
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8090:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # Redis - Caching, rate limiting, distributed locks
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: pravah-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # Jaeger - Distributed tracing
+  # ============================================================================
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    container_name: pravah-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # MinIO - S3-compatible object storage (for artifacts)
+  # ============================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: pravah-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pravah
+      MINIO_ROOT_PASSWORD: pravah123
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pravah-network
+
+  # ============================================================================
+  # Mailhog - Local email testing
+  # ============================================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pravah-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    networks:
+      - pravah-network
+
+volumes:
+  postgres_data:
+  kafka_data:
+  redis_data:
+  minio_data:
+
+networks:
+  pravah-network:
+    driver: bridge

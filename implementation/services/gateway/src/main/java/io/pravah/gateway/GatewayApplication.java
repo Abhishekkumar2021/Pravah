@@ -5,14 +5,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * API Gateway Application Entry Point.
- * <p>
- * Serves as the single entry point for all external API requests.
- * Responsibilities:
+ *
+ * <p>Serves as the single entry point for all external API requests. Responsibilities:
+ *
  * <ul>
- *   <li>Authentication and authorization</li>
- *   <li>Rate limiting per tenant</li>
- *   <li>Request routing to backend services</li>
- *   <li>Request/response transformation</li>
+ *   <li>Authentication and authorization
+ *   <li>Rate limiting per tenant
+ *   <li>Request routing to backend services
+ *   <li>Request/response transformation
  * </ul>
  *
  * @see <a href="../../../docs/architecture/high-level-architecture.md">High-Level Architecture</a>
@@ -20,7 +20,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class GatewayApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(GatewayApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(GatewayApplication.class, args);
+  }
 }

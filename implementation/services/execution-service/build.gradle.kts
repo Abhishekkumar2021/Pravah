@@ -1,6 +1,6 @@
 /**
  * services:execution-service
- * 
+ *
  * Execution Service - Pipeline run orchestration and job management.
  *
  * @see docs/architecture/high-level-architecture.md
@@ -20,10 +20,10 @@ description = "Pravah Execution Service - Pipeline run orchestration"
 dependencies {
     implementation(project(":libs:common"))
     implementation(project(":libs:proto"))
-    
+
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-    
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

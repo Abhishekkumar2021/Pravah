@@ -1,6 +1,5 @@
 package io.pravah.playground.graphql.controller;
 
-import io.pravah.playground.graphql.dataloader.DataLoaderConfig;
 import io.pravah.playground.graphql.model.*;
 import io.pravah.playground.graphql.service.MockDataService;
 import org.dataloader.DataLoader;
@@ -9,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
-import org.springframework.graphql.execution.BatchLoaderRegistry;
 import org.springframework.stereotype.Controller;
 
 import java.util.Base64;

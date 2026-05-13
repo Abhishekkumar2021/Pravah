@@ -1,0 +1,100 @@
+name: Bug Report
+description: Report a bug in Pravah
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug!
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Affected Service
+      description: Which service is affected?
+      options:
+        - API Gateway
+        - GraphQL Service
+        - Tenant Service
+        - Pipeline Service
+        - Execution Service
+        - Scheduler Service
+        - Runner Service
+        - Metadata Service
+        - Notification Service
+        - Agent Service
+        - Connect Service
+        - Runner (Standalone)
+        - Multiple Services
+        - Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of Pravah are you running?
+      placeholder: "e.g., 0.1.0 or commit SHA"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please copy and paste any relevant log output
+      render: shell
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Please provide environment details:
+        - OS: [e.g., Ubuntu 22.04]
+        - Java version: [e.g., 21.0.2]
+        - Docker version: [e.g., 24.0.7]
+      placeholder: |
+        - OS: 
+        - Java version: 
+        - Docker version:
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
