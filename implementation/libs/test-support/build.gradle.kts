@@ -22,9 +22,9 @@ dependencies {
     }
 
     // Testcontainers - use explicit versions since BOM resolution is inconsistent in library modules
-    api("org.testcontainers:junit-jupiter:1.19.8")
-    api("org.testcontainers:postgresql:1.19.8")
-    api("org.testcontainers:kafka:1.19.8")
+    api("org.testcontainers:junit-jupiter:1.21.4")
+    api("org.testcontainers:postgresql:1.21.4")
+    api("org.testcontainers:kafka:1.21.4")
 
     // Awaitility for async testing
     api("org.awaitility:awaitility:4.2.1")
