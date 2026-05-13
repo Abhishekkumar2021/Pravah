@@ -1,0 +1,152 @@
+# Pravah GraphQL Schema (subset for playground)
+# Demonstrates: queries, nested types, DataLoader batching, field-level auth
+
+type Query {
+    # Get a single pipeline by ID
+    pipeline(id: ID!): Pipeline
+
+    # List pipelines for a tenant (with pagination)
+    pipelines(tenantId: ID!, first: Int, after: String): PipelineConnection!
+
+    # Get a single execution by ID
+    execution(id: ID!): Execution
+}
+
+# Pipeline - the core entity
+type Pipeline {
+    id: ID!
+    name: String!
+    description: String
+    version: Int!
+    tenantId: ID!
+
+    # Steps in this pipeline (resolved from same service)
+    steps: [PipelineStep!]!
+
+    # Latest execution - requires DataLoader batching to avoid N+1
+    latestExecution: Execution
+
+    createdAt: String!
+    updatedAt: String!
+}
+
+# A step within a pipeline
+type PipelineStep {
+    id: ID!
+    name: String!
+    stepType: StepType!
+    dependsOn: [String!]!
+
+    # Latest job status for this step - requires DataLoader
+    latestJobStatus: JobStatus
+}
+
+# Execution of a pipeline
+type Execution {
+    id: ID!
+    pipelineId: ID!
+    status: ExecutionStatus!
+    triggeredBy: TriggerType!
+    startedAt: String
+    completedAt: String
+
+    # Jobs within this execution
+    jobs: [Job!]!
+
+    # The runner handling this execution - requires DataLoader
+    runner: Runner
+}
+
+# A job is one step's execution
+type Job {
+    id: ID!
+    stepId: ID!
+    status: JobStatus!
+    startedAt: String
+    completedAt: String
+    errorMessage: String
+}
+
+# Runner that executes jobs
+type Runner {
+    id: ID!
+    hostname: String!
+    region: String!
+    status: RunnerStatus!
+
+    # Internal metrics - requires ADMIN role to view (field-level auth)
+    internalMetrics: RunnerMetrics @auth(requires: ADMIN)
+}
+
+# Runner internal metrics (admin-only)
+type RunnerMetrics {
+    cpuPercent: Float!
+    memoryPercent: Float!
+    activeJobs: Int!
+    queuedJobs: Int!
+}
+
+# Pagination wrapper
+type PipelineConnection {
+    edges: [PipelineEdge!]!
+    pageInfo: PageInfo!
+    totalCount: Int!
+}
+
+type PipelineEdge {
+    node: Pipeline!
+    cursor: String!
+}
+
+type PageInfo {
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+# Enums
+enum StepType {
+    SQL_TRANSFORM
+    PYTHON_SCRIPT
+    SPARK_JOB
+    DBT_MODEL
+}
+
+enum ExecutionStatus {
+    PENDING
+    RUNNING
+    COMPLETED
+    FAILED
+    CANCELLED
+}
+
+enum JobStatus {
+    PENDING
+    RUNNING
+    SUCCEEDED
+    FAILED
+    SKIPPED
+}
+
+enum TriggerType {
+    MANUAL
+    SCHEDULED
+    EVENT
+    API
+}
+
+enum RunnerStatus {
+    IDLE
+    BUSY
+    DRAINING
+    OFFLINE
+}
+
+enum Role {
+    USER
+    ADMIN
+}
+
+# Custom directive for field-level authorization
+directive @auth(requires: Role!) on FIELD_DEFINITION

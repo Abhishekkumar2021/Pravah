@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: graphql-playground
+  graphql:
+    graphiql:
+      enabled: false
+    schema:
+      printer:
+        enabled: true
+    path: /graphql
+
+logging:
+  level:
+    io.pravah.playground.graphql: DEBUG
+    org.springframework.graphql: DEBUG
