@@ -36,31 +36,49 @@ CREATE INDEX idx_pipelines_tenant_id ON pipelines(tenant_id);
 CREATE INDEX idx_pipelines_status ON pipelines(status) WHERE status = 'ACTIVE';
 
 -- RLS Policy - MANDATORY for all tenant-scoped tables
+-- Per ADR-013: FORCE ensures RLS applies even to table owners
 ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pipelines FORCE ROW LEVEL SECURITY;
 
+-- Per ADR-013: current_setting(..., TRUE) returns NULL if not set
+-- NULL = NULL evaluates to FALSE, returning zero rows (safe failure mode)
 CREATE POLICY tenant_isolation ON pipelines
-    USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::uuid)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::uuid);
 ```
 
 ## Row-Level Security (RLS)
 
+Per ADR-013, RLS context is set via an `@Aspect` at the start of each `@Transactional` method:
+
 ```java
-// ✅ Always set tenant context before queries
+// ✅ RlsAspect automatically sets tenant context (per ADR-013)
+@Aspect
 @Component
-public class TenantContextSetter {
-    private final JdbcTemplate jdbc;
+public class RlsAspect {
+    @PersistenceContext
+    private EntityManager entityManager;
     
-    @Transactional
-    public void setTenantContext(UUID tenantId) {
-        jdbc.execute("SET LOCAL app.current_tenant_id = '" + tenantId + "'");
+    @Before("@annotation(org.springframework.transaction.annotation.Transactional)")
+    public void setTenantContext() {
+        UUID tenantId = TenantContext.getCurrentTenantId();
+        if (tenantId == null) {
+            // Per ADR-013: queries will return zero rows (safe failure mode)
+            return;
+        }
+        
+        // SET LOCAL is transaction-scoped, safe with PgBouncer
+        entityManager.createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId")
+            .setParameter("tenantId", tenantId.toString())
+            .executeUpdate();
     }
 }
 
-// In service layer
+// TenantContext is populated from JWT by TenantFilter (runs before controllers)
+// Service methods just use @Transactional - RLS is automatic
 @Transactional
-public List<Pipeline> getPipelines(TenantId tenantId) {
-    tenantContextSetter.setTenantContext(tenantId.value());
-    return repository.findAll();  // RLS automatically filters
+public List<Pipeline> getPipelines() {
+    return repository.findAll();  // RLS automatically filters by tenant
 }
 ```
 

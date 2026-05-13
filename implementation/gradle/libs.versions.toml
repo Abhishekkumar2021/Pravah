@@ -5,12 +5,12 @@ java = "21"
 # Spring
 spring-boot = "3.2.5"
 spring-cloud = "2023.0.1"
-spring-dependency-management = "1.1.4"
+spring-dependency-management = "1.1.7"
 
 # gRPC & Protobuf
-grpc = "1.62.2"
-protobuf = "3.25.3"
-protobuf-plugin = "0.9.4"
+grpc = "1.81.0"
+protobuf = "4.34.1"
+protobuf-plugin = "0.10.0"
 
 # Database
 postgresql = "42.7.3"
@@ -43,13 +43,13 @@ hibernate-validator = "8.0.1.Final"
 
 # Testing
 junit = "5.10.2"
-assertj = "3.25.3"
-mockito = "5.11.0"
-testcontainers = "1.19.7"
+assertj = "3.27.7"
+mockito = "5.23.0"
+testcontainers = "1.19.8"
 awaitility = "4.2.1"
 
 # Utilities
-guava = "33.1.0-jre"
+guava = "33.6.0-jre"
 commons-lang3 = "3.14.0"
 mapstruct = "1.5.5.Final"
 lombok = "1.18.32"

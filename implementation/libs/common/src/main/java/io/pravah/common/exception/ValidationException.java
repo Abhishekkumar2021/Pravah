@@ -21,6 +21,14 @@ public class ValidationException extends PravahException {
     this.fieldErrors = Collections.unmodifiableList(fieldErrors);
   }
 
+  public static ValidationException of(String field, String message) {
+    return new ValidationException(List.of(new FieldError(field, message)));
+  }
+
+  public static ValidationException of(String field, String message, Object rejectedValue) {
+    return new ValidationException(List.of(new FieldError(field, message, rejectedValue)));
+  }
+
   public List<FieldError> getFieldErrors() {
     return fieldErrors;
   }
