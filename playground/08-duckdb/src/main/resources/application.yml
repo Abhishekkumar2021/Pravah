@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: duckdb-playground
+
+duckdb:
+  memory-limit: 512MB
+  temp-directory: /tmp/duckdb-spill
+
+logging:
+  level:
+    io.pravah.playground.duckdb: DEBUG

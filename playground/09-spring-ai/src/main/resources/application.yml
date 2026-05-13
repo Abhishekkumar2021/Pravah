@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: spring-ai-playground
+  ai:
+    openai:
+      api-key: ${GEMINI_API_KEY:your-api-key-here}
+      base-url: https://generativelanguage.googleapis.com/v1beta/openai
+      chat:
+        options:
+          model: gemini-1.5-flash
+          temperature: 0.3
+
+logging:
+  level:
+    io.pravah.playground.ai: DEBUG
+    org.springframework.ai: DEBUG

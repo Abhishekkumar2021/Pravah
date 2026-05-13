@@ -25,8 +25,8 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 | [05](05-vault/) | Vault — Dynamic DB Credentials + PKI | HashiCorp Vault, Kubernetes Auth | ADR-007, ADR-008 | Ready |
 | [06](06-outbox-pattern/) | Outbox Pattern — Atomic publish with crash recovery | PostgreSQL, Kafka | ADR-004 | Ready |
 | [07](07-saga/) | Saga — Choreography with compensation | Kafka, Spring Boot | ADR-011 | Ready |
-| [08](08-duckdb/) | DuckDB — In-process SQL transforms on real data | DuckDB, Parquet | ADR-023 | Scaffold |
-| [09](09-spring-ai/) | Spring AI — ReAct agent with real tools | Spring AI, Claude API | ADR-020 | Scaffold |
+| [08](08-duckdb/) | DuckDB — In-process SQL transforms on real data | DuckDB, Parquet | ADR-023 | Ready |
+| [09](09-spring-ai/) | Spring AI — ReAct agent with real tools | Spring AI, Gemini API | ADR-020 | Ready (needs API quota) |
 | [10](10-kubernetes/) | Kubernetes — KEDA autoscaling on Kafka lag | Kubernetes, KEDA, Helm | ADR-010, ADR-015 | Scaffold |
 | [11](11-opentelemetry/) | OpenTelemetry — Distributed trace across 2 services | OTel, Jaeger | ADR-014 | Scaffold |
 | [12](12-graphql/) | GraphQL — DataLoader batching + field-level auth | Spring for GraphQL | ADR-033 | Scaffold |
