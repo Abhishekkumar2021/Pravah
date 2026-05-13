@@ -43,6 +43,42 @@ main (protected)
 - Requires passing CI (Build & Test)
 - Force pushes disabled
 
+**Important:** The bullets above are **policy**. GitHub will only block direct pushes after a **repository administrator** configures rules below. Docs alone do not enforce anything.
+
+### Enforcing PR-only workflow (repository administrators)
+
+Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **rulesets** (Settings → Rules → Rulesets); they supersede classic branch protection where both exist.
+
+#### Option A — Branch rulesets (recommended)
+
+1. Open the repo on GitHub → **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**.
+2. **Ruleset name:** e.g. `Protect main and develop`.
+3. **Enforcement status:** Active.
+4. **Target branches:** Add targets → **Include by pattern** → enter `main` → add another pattern → `develop`.
+5. Enable at least:
+   - **Require a pull request before merging** (set minimum number of approvals and “dismiss stale reviews” as you prefer).
+   - **Require status checks to pass** → add the checks from `.github/workflows/` (e.g. build/test jobs from `ci.yml` / `pr-checks.yml`).
+   - **Block force pushes**.
+6. **Bypass list:** Leave empty, or only add automation accounts that truly must merge without PRs. **Do not** add humans here if you want no direct pushes for anyone.
+7. In the ruleset, avoid granting **bypass** to “Repository admin” unless you explicitly want admins to push around the rules (that is how direct pushes slipped through before).
+
+Save the ruleset. After this, `git push origin develop` from a laptop should be **rejected** unless the push is a merge from a merged PR (depending on how you merge) or you use a bypass-capable actor.
+
+#### Option B — Classic branch protection
+
+1. **Settings** → **Branches** → **Add branch protection rule** (or edit existing).
+2. **Branch name pattern:** `main` (repeat for a second rule on `develop`).
+3. Enable:
+   - **Require a pull request before merging**
+   - **Require approvals** (e.g. 1) where you want review
+   - **Require status checks to pass before merging** (select the same CI checks as in Option A)
+   - **Do not allow bypassing the above settings** (so administrators cannot push directly either—use this if you want strict PR-only).
+4. Enable **Block force pushes**.
+
+#### Day-to-day for contributors
+
+- Never commit to `develop` or `main` directly. Always: `git checkout -b feature/...` (or `fix/...`) from up-to-date `develop`, push the **topic branch**, open a PR into `develop` (or `main` for hotfix/release per your process).
+
 ## Development Workflow
 
 ### 1. Create a Feature Branch
