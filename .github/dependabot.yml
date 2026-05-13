@@ -20,15 +20,15 @@ updates:
     ignore:
       # Stay on Spring Boot 3.x - don't upgrade to 4.x yet
       - dependency-name: "org.springframework.boot"
-        versions: ["4.*"]
+        update-types: ["version-update:semver-major"]
       - dependency-name: "org.springframework.cloud:spring-cloud-starter-gateway"
-        versions: ["4.3.*", "5.*"]
+        update-types: ["version-update:semver-major"]
       # Stay on HikariCP 5.x
       - dependency-name: "com.zaxxer:HikariCP"
-        versions: ["6.*", "7.*"]
+        update-types: ["version-update:semver-major"]
       # Stay on OkHttp 4.x
       - dependency-name: "com.squareup.okhttp3:okhttp"
-        versions: ["5.*"]
+        update-types: ["version-update:semver-major"]
     groups:
       spring:
         patterns:
@@ -83,4 +83,4 @@ updates:
     ignore:
       # Stay on Java 21 - don't upgrade to newer JDK versions
       - dependency-name: "eclipse-temurin"
-        versions: ["22-*", "23-*", "24-*", "25-*"]
+        update-types: ["version-update:semver-major"]
