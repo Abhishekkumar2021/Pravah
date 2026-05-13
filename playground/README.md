@@ -2,7 +2,7 @@
 
 > Hands-on exercises to solidify understanding of every tool and concept used in Pravah — before touching the real implementation.
 >
-> Each exercise is a **self-contained mini-project**: its own Docker Compose, its own Spring Boot application, and a clear set of things to prove. The README for each exercise links to the exact ADRs it validates.
+> Each exercise is a **self-contained mini-project**: its own Docker Compose, its own Spring Boot application, and a clear set of things to prove.
 
 ---
 
@@ -18,18 +18,20 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 
 | # | Exercise | Tools | Pravah ADRs | Status |
 |---|----------|-------|-------------|--------|
-| [01](01-kafka/) | Kafka — Producer, Consumer, Exactly-Once, DLQ | Kafka, Schema Registry, Avro | ADR-002, ADR-006 | Complete |
-| [02](02-grpc/) | gRPC — Bidirectional Streaming + mTLS | gRPC, Protobuf, cert-manager | ADR-005, ADR-008 | Ready |
-| [03](03-postgres-advanced/) | PostgreSQL — Partitioning, RLS, PgBouncer | PostgreSQL, PgBouncer | ADR-003, ADR-013, ADR-022 | Complete |
-| [04](04-redis/) | Redis — Distributed Lock + Token Bucket Rate Limiter | Redis, Lua | ADR-012 | Ready |
-| [05](05-vault/) | Vault — Dynamic DB Credentials + PKI | HashiCorp Vault, Kubernetes Auth | ADR-007, ADR-008 | Ready |
-| [06](06-outbox-pattern/) | Outbox Pattern — Atomic publish with crash recovery | PostgreSQL, Kafka | ADR-004 | Ready |
-| [07](07-saga/) | Saga — Choreography with compensation | Kafka, Spring Boot | ADR-011 | Ready |
-| [08](08-duckdb/) | DuckDB — In-process SQL transforms on real data | DuckDB, Parquet | ADR-023 | Ready |
-| [09](09-spring-ai/) | Spring AI — ReAct agent with real tools | Spring AI, Gemini API | ADR-020 | Ready (needs API quota) |
-| [10](10-kubernetes/) | Kubernetes — KEDA autoscaling on Kafka lag | Kubernetes, KEDA, Kind | ADR-010, ADR-015 | Ready |
-| [11](11-opentelemetry/) | OpenTelemetry — Distributed trace across 2 services | OTel, Jaeger | ADR-014 | Ready |
-| [12](12-graphql/) | GraphQL — DataLoader batching + field-level auth | Spring for GraphQL | ADR-033 | Ready |
+| [01](01-kafka/) | **Kafka** — Producer, Consumer, Exactly-Once, DLQ | Kafka, Spring Kafka, Testcontainers | ADR-002, ADR-006 | ✅ Complete |
+| [02](02-grpc/) | **gRPC** — Bidirectional Streaming + Reflection | gRPC, Protobuf, Netty | ADR-005, ADR-008 | ✅ Complete |
+| [03](03-postgres-advanced/) | **PostgreSQL** — Partitioning, RLS, PgBouncer | PostgreSQL 16, PgBouncer, Flyway | ADR-003, ADR-013, ADR-022 | ✅ Complete |
+| [04](04-redis/) | **Redis** — Distributed Lock + Token Bucket Rate Limiter | Redis 7, Lua Scripts, Spring Data Redis | ADR-012 | ✅ Complete |
+| [05](05-vault/) | **Vault** — Dynamic DB Credentials + PKI | HashiCorp Vault, Spring Vault | ADR-007, ADR-008 | ✅ Complete |
+| [06](06-outbox-pattern/) | **Outbox Pattern** — Atomic publish with crash recovery | PostgreSQL, Kafka, JPA | ADR-004 | ✅ Complete |
+| [07](07-saga/) | **Saga** — Choreography with compensation | Kafka, Event-Driven, Idempotency | ADR-011 | ✅ Complete |
+| [08](08-duckdb/) | **DuckDB** — In-process SQL transforms | DuckDB, JDBC, Parquet | ADR-023 | ✅ Complete |
+| [09](09-spring-ai/) | **Spring AI** — ReAct agent with tools | Spring AI, Gemini API | ADR-020 | ✅ Complete |
+| [10](10-kubernetes/) | **Kubernetes** — KEDA autoscaling on Kafka lag | Kind, KEDA, Apache Kafka | ADR-010, ADR-015 | ✅ Complete |
+| [11](11-opentelemetry/) | **OpenTelemetry** — Distributed tracing | OTel, Jaeger, OTLP | ADR-014 | ✅ Complete |
+| [12](12-graphql/) | **GraphQL** — DataLoader batching + pagination | Spring GraphQL, N+1 Prevention | ADR-033 | ✅ Complete |
+
+**All 12 exercises complete!**
 
 ---
 
@@ -37,16 +39,17 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 
 ```
 playground/NN-name/
-├── README.md           ← what to build, what to prove, step-by-step tasks
-├── docker-compose.yml  ← infrastructure only (Kafka, PG, Redis, etc.)
-├── build.gradle.kts    ← Gradle build for the exercise app
+├── README.md           ← What to build, what to prove, step-by-step guide
+├── docker-compose.yml  ← Infrastructure (Kafka, PostgreSQL, Redis, etc.)
+├── build.gradle.kts    ← Gradle build for the exercise
 ├── settings.gradle.kts
 └── src/
-    ├── main/java/      ← skeleton code with TODOs to fill in
-    └── test/java/      ← integration tests that prove correctness
+    ├── main/java/      ← Implementation code
+    ├── main/resources/ ← Configuration, SQL, Lua scripts
+    └── test/java/      ← Integration tests that prove correctness
 ```
 
-**The README tells you what to build. The code skeleton tells you where. The tests tell you if you got it right.**
+**Each README tells you what to build. The code shows how. The tests prove it works.**
 
 ---
 
@@ -56,7 +59,7 @@ All exercises require:
 
 ```bash
 # Java 21
-java -version  # should say 21
+java -version  # should show 21
 
 # Docker + Docker Compose
 docker --version
@@ -70,23 +73,81 @@ Individual exercises may need additional tools — each README lists them.
 
 ---
 
-## Sequence
+## Learning Sequence
 
 Work through the exercises in order. Each one builds on the previous:
 
 ```
-01 Kafka        → understand the async backbone before everything else
-02 gRPC         → understand how runners talk to the cloud
-03 PostgreSQL   → understand the data layer and tenant isolation
-04 Redis        → understand the ephemeral state and rate limiting layer
-05 Vault        → understand secrets and dynamic credentials
-06 Outbox       → combine 01 + 03: reliable Kafka publish from PostgreSQL
-07 Saga         → combine 01 + 06: multi-step coordination with compensation
-08 DuckDB       → understand how runners process data without a DB
-09 Spring AI    → understand the agent intelligence layer
-10 Kubernetes   → understand how the platform scales in production
-11 OpenTelemetry→ understand how to observe a distributed system
-12 GraphQL      → understand the UI query API
+01 Kafka        → The async backbone — understand before everything else
+02 gRPC         → How runners talk to the cloud
+03 PostgreSQL   → The data layer and tenant isolation (RLS)
+04 Redis        → Ephemeral state, distributed locks, rate limiting
+05 Vault        → Secrets and dynamic credentials
+06 Outbox       → Combine Kafka + PostgreSQL: reliable event publishing
+07 Saga         → Combine Kafka + Outbox: multi-step coordination
+08 DuckDB       → How runners process data without a central DB
+09 Spring AI    → The agent intelligence layer
+10 Kubernetes   → How the platform scales in production
+11 OpenTelemetry→ How to observe a distributed system
+12 GraphQL      → The UI query API with N+1 prevention
 ```
 
-After completing all 12, you have hands-on experience with every component in Pravah's architecture. Implementation begins at that point.
+---
+
+## Running an Exercise
+
+```bash
+# Navigate to an exercise
+cd playground/01-kafka
+
+# Start the infrastructure
+docker compose up -d
+
+# Run the tests
+./gradlew test
+
+# Stop the infrastructure
+docker compose down
+```
+
+---
+
+## Key Concepts Covered
+
+| Concept | Exercise |
+|---------|----------|
+| Exactly-once semantics | 01-kafka, 06-outbox |
+| Consumer groups & rebalancing | 01-kafka |
+| Bidirectional streaming | 02-grpc |
+| Row-Level Security (RLS) | 03-postgresql |
+| Connection pooling | 03-postgresql |
+| Distributed locking | 04-redis |
+| Rate limiting (token bucket) | 04-redis |
+| Dynamic secrets | 05-vault |
+| PKI certificate issuance | 05-vault |
+| Transactional outbox | 06-outbox |
+| Saga choreography | 07-saga |
+| Compensating transactions | 07-saga |
+| Columnar analytics | 08-duckdb |
+| ReAct pattern | 09-spring-ai |
+| KEDA auto-scaling | 10-kubernetes |
+| Distributed tracing | 11-opentelemetry |
+| DataLoader batching | 12-graphql |
+| Cursor pagination | 12-graphql |
+
+---
+
+## What's Next
+
+After completing all 12 exercises, you have hands-on experience with every component in Pravah's architecture.
+
+**Next step**: Begin the actual implementation in the `implementation/` directory.
+
+---
+
+## Related Documentation
+
+- [Theory Curriculum](../docs/theory/README.md) — Deep-dive into each concept
+- [Architecture Decision Records](../docs/adr/README.md) — Why we chose these technologies
+- [High-Level Architecture](../docs/architecture/high-level-architecture.md) — How it all fits together
+- [Low-Level Design](../docs/lld/README.md) — Patterns, state machines, sequences

@@ -276,7 +276,7 @@ Each playground is a standalone Spring Boot project demonstrating a core concept
 
 ```bash
 # Clone the repo
-git clone https://github.com/AbhishekKr-Jha/Pravah.git
+git clone https://github.com/Abhishekkumar2021/Pravah.git
 cd Pravah
 
 # Start with the theory curriculum
