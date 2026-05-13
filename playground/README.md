@@ -23,7 +23,7 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 | [03](03-postgres-advanced/) | PostgreSQL — Partitioning, RLS, PgBouncer | PostgreSQL, PgBouncer | ADR-003, ADR-013, ADR-022 | Complete |
 | [04](04-redis/) | Redis — Distributed Lock + Token Bucket Rate Limiter | Redis, Lua | ADR-012 | Ready |
 | [05](05-vault/) | Vault — Dynamic DB Credentials + PKI | HashiCorp Vault, Kubernetes Auth | ADR-007, ADR-008 | Ready |
-| [06](06-outbox-pattern/) | Outbox Pattern — Atomic publish with crash recovery | PostgreSQL, Kafka | ADR-004 | Scaffold |
+| [06](06-outbox-pattern/) | Outbox Pattern — Atomic publish with crash recovery | PostgreSQL, Kafka | ADR-004 | Ready |
 | [07](07-saga/) | Saga — Choreography with compensation | Kafka, Spring Boot | ADR-011 | Scaffold |
 | [08](08-duckdb/) | DuckDB — In-process SQL transforms on real data | DuckDB, Parquet | ADR-023 | Scaffold |
 | [09](09-spring-ai/) | Spring AI — ReAct agent with real tools | Spring AI, Claude API | ADR-020 | Scaffold |
