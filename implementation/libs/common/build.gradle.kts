@@ -25,5 +25,5 @@ dependencies {
     implementation("com.google.guava:guava:33.1.0-jre")
 
     // Commons Lang for string utilities
-    implementation("org.apache.commons:commons-lang3:3.14.0")
+    implementation("org.apache.commons:commons-lang3:3.20.0")
 }

@@ -50,7 +50,7 @@ awaitility = "4.2.1"
 
 # Utilities
 guava = "33.1.0-jre"
-commons-lang3 = "3.14.0"
+commons-lang3 = "3.20.0"
 mapstruct = "1.5.5.Final"
 lombok = "1.18.32"
 
