@@ -1,0 +1,25 @@
+# One-shot Job to produce test messages (triggers KEDA scaling)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: message-producer
+  namespace: pravah-demo
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: producer
+          image: apache/kafka:3.7.0
+          imagePullPolicy: Never
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Producing 100 messages to pravah.jobs..."
+              for i in $(seq 1 100); do
+                echo "{\"jobId\": \"job-$i\", \"payload\": \"test-data-$i\"}" | \
+                  /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka.pravah-demo.svc.cluster.local:9092 --topic pravah.jobs
+              done
+              echo "Done producing messages"

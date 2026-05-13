@@ -1,0 +1,34 @@
+# Kafka Consumer Service - KEDA will scale this based on consumer lag
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-consumer
+  namespace: pravah-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: job-consumer
+  template:
+    metadata:
+      labels:
+        app: job-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: pravah-job-consumer:latest
+          imagePullPolicy: Never  # Use local image in Kind
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka.pravah-demo.svc.cluster.local:9092"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "job-consumer-group"
+            - name: KAFKA_TOPIC
+              value: "pravah.jobs"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

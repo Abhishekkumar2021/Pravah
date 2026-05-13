@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: job-consumer
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:job-consumer-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+app:
+  topic: ${KAFKA_TOPIC:pravah.jobs}
+  processing-delay-ms: 500  # Simulate job processing time
+
+logging:
+  level:
+    io.pravah.playground.keda: INFO

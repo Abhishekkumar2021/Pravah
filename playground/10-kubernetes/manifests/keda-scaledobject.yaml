@@ -1,0 +1,22 @@
+# KEDA ScaledObject - scales job-consumer based on Kafka lag
+# This is the heart of ADR-015: event-driven autoscaling
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: job-consumer-scaler
+  namespace: pravah-demo
+spec:
+  scaleTargetRef:
+    name: job-consumer                    # Deployment to scale
+  pollingInterval: 15                     # Check Kafka lag every 15s
+  cooldownPeriod: 30                      # Wait 30s before scaling down
+  minReplicaCount: 1                      # Minimum pods (never scale to zero)
+  maxReplicaCount: 10                     # Maximum pods
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.pravah-demo.svc.cluster.local:9092
+        consumerGroup: job-consumer-group
+        topic: pravah.jobs
+        lagThreshold: "5"                 # Scale up when lag > 5 per pod
+        offsetResetPolicy: earliest
