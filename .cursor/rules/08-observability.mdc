@@ -12,7 +12,59 @@ alwaysApply: false
 - `docs/adr/ADR-014-tail-based-sampling.md`
 - `playground/11-opentelemetry/`
 
-## Structured Logging
+## Structured Logging Setup
+
+Every service MUST have:
+
+1. **logback-spring.xml** - Profile-aware logging config
+2. **MdcLoggingFilter** - Populates MDC with tenant_id, user_id, request_id
+3. **logstash-logback-encoder** dependency for JSON logs in production
+
+### logback-spring.xml Template
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <springProperty scope="context" name="appName" source="spring.application.name"/>
+
+    <!-- Human-readable for local dev -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern></encoder>
+    </appender>
+
+    <!-- JSON for production (includes MDC fields automatically) -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>tenant_id</includeMdcKeyName>
+            <includeMdcKeyName>user_id</includeMdcKeyName>
+            <includeMdcKeyName>request_id</includeMdcKeyName>
+            <customFields>{"service":"${appName}"}</customFields>
+        </encoder>
+    </appender>
+
+    <springProfile name="local,default">
+        <root level="INFO"><appender-ref ref="CONSOLE"/></root>
+    </springProfile>
+    <springProfile name="prod,production,k8s">
+        <root level="INFO"><appender-ref ref="JSON"/></root>
+    </springProfile>
+</configuration>
+```
+
+### MDC Keys (automatically included in every log line)
+
+| Key | Source | Purpose |
+|-----|--------|---------|
+| `tenant_id` | TenantContext (from JWT) | Multi-tenant log filtering |
+| `user_id` | TenantContext (from JWT) | User activity correlation |
+| `request_id` | X-Request-Id header or generated | Request-level correlation |
+| `trace_id` | OpenTelemetry auto-instrumentation | Distributed trace correlation |
+| `span_id` | OpenTelemetry auto-instrumentation | Span-level correlation |
+
+## Structured Logging in Code
 
 ```java
 // ✅ Use key-value pairs for structured logging
@@ -21,17 +73,16 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 private static final Logger log = LoggerFactory.getLogger(ExecutionService.class);
 
 public void startExecution(ExecutionId executionId) {
-    log.info("Starting execution", 
-        kv("executionId", executionId),
-        kv("tenantId", TenantContext.current()));
+    // MDC already has tenant_id, user_id from MdcLoggingFilter
+    log.info("Starting execution", kv("executionId", executionId));
     
     try {
         // ...
-        log.info("Execution started successfully",
+        log.info("Execution completed", 
             kv("executionId", executionId),
             kv("durationMs", timer.elapsed()));
     } catch (Exception e) {
-        log.error("Failed to start execution",
+        log.error("Execution failed",
             kv("executionId", executionId),
             kv("error", e.getMessage()),
             e);  // Include exception for stack trace

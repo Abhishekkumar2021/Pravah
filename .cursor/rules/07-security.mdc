@@ -69,27 +69,47 @@ public class PravahPermissionEvaluator implements PermissionEvaluator {
 }
 ```
 
-## Multi-Tenancy Security
+## Multi-Tenancy Security (ADR-013)
 
 ```java
-// ✅ Tenant context MUST be set before any data access
+// ✅ TenantFilter sets context from JWT (runs before controllers)
+@Component
+public class TenantFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, ...) {
+        // Extract tenant from JWT (NEVER from request params)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthentication jwt) {
+            TenantContext.setCurrentTenantId(jwt.getTenantId());
+            TenantContext.setCurrentUserId(jwt.getUserId());
+        }
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();  // Always clean up
+        }
+    }
+}
+
+// ✅ RlsAspect automatically sets PostgreSQL context (per ADR-013)
 @Aspect
 @Component
-public class TenantContextAspect {
-    @Before("@annotation(Transactional)")
+public class RlsAspect {
+    @PersistenceContext
+    private EntityManager entityManager;
+    
+    @Before("@annotation(org.springframework.transaction.annotation.Transactional)")
     public void setTenantContext() {
-        TenantId tenantId = SecurityContextHolder.getContext()
-            .getAuthentication()
-            .getTenantId();
-        
+        UUID tenantId = TenantContext.getCurrentTenantId();
         if (tenantId == null) {
-            throw new SecurityException("Tenant context required");
+            // Per ADR-013: RLS returns zero rows (safe failure mode)
+            return;
         }
         
-        // Set for RLS
-        jdbcTemplate.execute(
-            "SET LOCAL app.current_tenant_id = '" + tenantId.value() + "'"
-        );
+        // SET LOCAL is transaction-scoped, safe with PgBouncer
+        entityManager.createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId")
+            .setParameter("tenantId", tenantId.toString())
+            .executeUpdate();
     }
 }
 

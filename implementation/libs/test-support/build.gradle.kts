@@ -21,11 +21,10 @@ dependencies {
         exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
     }
 
-    // Testcontainers
-    api(platform("org.testcontainers:testcontainers-bom:2.0.5"))
-    api("org.testcontainers:junit-jupiter")
-    api("org.testcontainers:postgresql")
-    api("org.testcontainers:kafka")
+    // Testcontainers - use explicit versions since BOM resolution is inconsistent in library modules
+    api("org.testcontainers:junit-jupiter:1.19.8")
+    api("org.testcontainers:postgresql:1.19.8")
+    api("org.testcontainers:kafka:1.19.8")
 
     // Awaitility for async testing
     api("org.awaitility:awaitility:4.2.1")

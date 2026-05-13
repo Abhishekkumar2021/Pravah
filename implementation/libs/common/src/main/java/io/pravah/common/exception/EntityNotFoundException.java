@@ -1,5 +1,7 @@
 package io.pravah.common.exception;
 
+import java.util.UUID;
+
 /** Thrown when a requested entity does not exist. */
 public class EntityNotFoundException extends PravahException {
 
@@ -14,6 +16,16 @@ public class EntityNotFoundException extends PravahException {
         String.format("%s with ID '%s' not found", entityType, entityId));
     this.entityType = entityType;
     this.entityId = entityId;
+  }
+
+  public EntityNotFoundException(String entityType, UUID entityId) {
+    this(entityType, entityId.toString());
+  }
+
+  public EntityNotFoundException(String message) {
+    super("ENTITY_NOT_FOUND", message);
+    this.entityType = "Unknown";
+    this.entityId = null;
   }
 
   public String getEntityType() {

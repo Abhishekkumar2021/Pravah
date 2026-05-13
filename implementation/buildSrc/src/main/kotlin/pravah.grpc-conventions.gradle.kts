@@ -40,7 +40,24 @@ sourceSets {
                 "build/generated/source/proto/main/grpc",
             )
         }
+        resources {
+            // Exclude proto files from resources - they're handled by protobuf plugin
+            exclude("**/*.proto")
+        }
     }
+}
+
+// Handle duplicate proto resources for ALL Sync-based tasks (including ProtoSyncTask)
+tasks.withType<Sync>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType<Copy>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.withType<ProcessResources>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {

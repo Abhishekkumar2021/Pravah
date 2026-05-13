@@ -118,10 +118,57 @@ If you can't write a test for the behavior, you don't understand the requirement
 
 ---
 
-## Commit Guidelines
+## Pre-Commit Workflow (MANDATORY)
+
+**CRITICAL**: Execute ALL steps in order before EVERY commit. No exceptions.
+
+### Quick Commands
+
+```bash
+# Run all checks (do this before every commit)
+cd implementation && \
+  ./gradlew spotlessApply --no-daemon && \
+  ./gradlew compileJava compileTestJava --no-daemon && \
+  ./gradlew test --no-daemon && \
+  echo "✅ All checks passed"
+```
+
+### Step-by-Step
+
+| Step | Command | Verify |
+|------|---------|--------|
+| 1. Format | `./gradlew spotlessApply` | BUILD SUCCESSFUL |
+| 2. Compile | `./gradlew compileJava compileTestJava` | No errors/warnings |
+| 3. Test | `./gradlew test` | All tests pass |
+| 4. Lint | Use ReadLints tool | No new errors |
+| 5. Review | `git diff` | No debug/secrets |
+| 6. Self-review | Checklist below | All items checked |
+
+### Self-Review Checklist
+
+- [ ] Code matches design in `docs/lld/`
+- [ ] Error cases handled properly
+- [ ] Test coverage for new code
+- [ ] No TODOs without issue links
+- [ ] No hardcoded values or secrets
+- [ ] Would I understand this in 6 months?
+
+### DO NOT COMMIT IF:
+
+- ❌ Any check above fails
+- ❌ Tests are failing
+- ❌ You don't understand why the code works
+- ❌ There are unresolved TODOs
+
+---
+
+## Commit Message Format
 
 ```
 type(scope): subject
+
+- Bullet explaining the change
+- Another bullet if needed
 
 Refs: US-XX.YY or #issue
 ```
@@ -134,7 +181,8 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 Before any PR:
 
-- [ ] All tests pass
+- [ ] Pre-commit workflow completed
+- [ ] All tests pass locally
 - [ ] No compiler warnings
 - [ ] Documentation updated if design changed
 - [ ] Follows patterns from LLD docs

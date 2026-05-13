@@ -27,8 +27,15 @@ sourceSets {
     }
 }
 
-tasks.named<ProcessResources>("processResources") {
+// Disable proto resource copying - we only need generated Java code, not proto files in resources
+// This avoids duplicate issues from extractProto and src/main/proto
+tasks.matching { it.name.contains("processProtoResources") || it.name.contains("processTestProtoResources") || it.name.contains("processIntegrationTestProtoResources") }.configureEach {
+    enabled = false
+}
+
+tasks.withType<ProcessResources>().configureEach {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude("**/*.proto")
 }
 
 dependencies {

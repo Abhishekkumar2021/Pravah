@@ -12,7 +12,7 @@ This document contains class diagrams for each service's domain model. These sho
 | [Execution Service](#2-execution-service) | Execution, Job, Checkpoint | State Machine |
 | [Scheduler Service](#3-scheduler-service) | Schedule, Trigger, EventTrigger | Strategy |
 | [Runner Service](#4-runner-service) | Runner, Assignment, Certificate | State Machine |
-| [Tenant Service](#5-tenant-service) | Org, Team, User, Role | Hierarchical |
+| [Tenant Service](#5-tenant-service) | Tenant, Team, User, Role | Hierarchical |
 | [Metadata Service](#6-metadata-service) | Dataset, Column, LineageEdge | Graph |
 | [Notification Service](#7-notification-service) | AlertRule, Alert, Channel | Observer |
 | [Agent Service](#8-agent-service) | Observation, HealingAction | ReAct Agent |
@@ -541,23 +541,31 @@ classDiagram
 
 ```mermaid
 classDiagram
-    class Organization {
-        -OrgId id
+    class Tenant {
+        <<Aggregate Root>>
+        -TenantId id
         -String name
         -String slug
         -Tier tier
-        -OrgSettings settings
+        -TenantSettings settings
+        -Instant createdAt
+        -Instant updatedAt
+        +updateName(String) void
+        +updateTier(Tier) void
+        +updateSettings(String) void
     }
     
     class Team {
         -TeamId id
-        -OrgId orgId
+        -TenantId tenantId
         -String name
+        -String description
         -TeamSettings settings
     }
     
     class Project {
         -ProjectId id
+        -TenantId tenantId
         -TeamId teamId
         -String name
         -String description
@@ -565,32 +573,50 @@ classDiagram
     
     class User {
         -UserId id
-        -OrgId orgId
+        -TenantId tenantId
         -Email email
         -String name
         -String passwordHash
         -String mfaSecret
         -UserStatus status
+        -int failedLoginAttempts
+        -Instant lockedUntil
+        -Instant lastLoginAt
         +authenticate(String) boolean
         +verifyMfa(String) boolean
         +hasPermission(Permission) boolean
+        +isAccountLocked() boolean
+        +recordLogin() void
+        +recordFailedLogin(int, Duration) void
+        +unlockAccount() void
     }
     
     class Role {
         -RoleId id
-        -OrgId orgId
+        -TenantId tenantId
         -String name
-        -Set~Permission~ permissions
+        -String description
+        -String permissions
         -boolean isSystem
         +hasPermission(Permission) boolean
-        +grant(Permission) void
-        +revoke(Permission) void
+        +isOwner() boolean
+        +isAdmin() boolean
+    }
+    
+    class TenantMember {
+        -TenantId tenantId
+        -UserId userId
+        -RoleId roleId
+        -Instant joinedAt
+        +isOwner() boolean
+        +changeRole(RoleId) void
     }
     
     class TeamMember {
-        -UserId userId
         -TeamId teamId
+        -UserId userId
         -RoleId roleId
+        -Instant joinedAt
     }
     
     class Permission {
@@ -608,14 +634,26 @@ classDiagram
         ENTERPRISE
     }
     
-    Organization "1" *-- "*" Team
-    Organization "1" *-- "*" User
-    Organization "1" *-- "*" Role
+    class UserStatus {
+        <<enumeration>>
+        PENDING
+        ACTIVE
+        INACTIVE
+        LOCKED
+    }
+    
+    Tenant "1" *-- "*" Team
+    Tenant "1" *-- "*" User
+    Tenant "1" *-- "*" Role
+    Tenant "1" *-- "*" TenantMember
     Team "1" *-- "*" Project
     Team "1" *-- "*" TeamMember
+    TenantMember --> User
+    TenantMember --> Role
     TeamMember --> User
     TeamMember --> Role
-    Organization --> Tier
+    Tenant --> Tier
+    User --> UserStatus
     Role "1" *-- "*" Permission
 ```
 

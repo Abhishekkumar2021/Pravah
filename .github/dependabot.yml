@@ -17,6 +17,18 @@ updates:
       - "java"
     commit-message:
       prefix: "deps(gradle)"
+    ignore:
+      # Stay on Spring Boot 3.x - don't upgrade to 4.x yet
+      - dependency-name: "org.springframework.boot"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.cloud:spring-cloud-starter-gateway"
+        update-types: ["version-update:semver-major"]
+      # Stay on HikariCP 5.x
+      - dependency-name: "com.zaxxer:HikariCP"
+        update-types: ["version-update:semver-major"]
+      # Stay on OkHttp 4.x
+      - dependency-name: "com.squareup.okhttp3:okhttp"
+        update-types: ["version-update:semver-major"]
     groups:
       spring:
         patterns:
@@ -68,3 +80,7 @@ updates:
       - "docker"
     commit-message:
       prefix: "deps(docker)"
+    ignore:
+      # Stay on Java 21 - don't upgrade to newer JDK versions
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
