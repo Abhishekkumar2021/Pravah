@@ -18,7 +18,7 @@ dependencies {
     implementation(project(":libs:common"))
 
     // Spring Cloud Gateway
-    implementation("org.springframework.cloud:spring-cloud-starter-gateway:4.1.3")
+    implementation("org.springframework.cloud:spring-cloud-starter-gateway:4.3.4")
 
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
