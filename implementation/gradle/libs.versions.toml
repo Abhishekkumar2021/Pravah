@@ -1,66 +1,72 @@
 [versions]
-# Java
+# Java (LTS)
 java = "21"
 
-# Spring
-spring-boot = "3.2.5"
-spring-cloud = "2023.0.1"
+# Spring — Boot 3.4.x + Cloud 2024.0.x is the supported combination for current open-source support
+spring-boot = "3.4.5"
+spring-cloud = "2024.0.2"
 spring-dependency-management = "1.1.7"
 
-# gRPC & Protobuf
-grpc = "1.81.0"
-protobuf = "4.34.1"
+# gRPC & Protobuf (aligned for generated code)
+grpc = "1.69.0"
+protobuf = "4.29.3"
 protobuf-plugin = "0.10.0"
 
 # Database
-postgresql = "42.7.3"
-flyway = "10.10.0"
-hikari = "5.1.0"
+postgresql = "42.7.5"
+flyway = "10.21.0"
 
-# Kafka
-kafka = "3.7.0"
-spring-kafka = "3.1.4"
+# Kafka (broker pin for docs / non-BOM uses; Spring Kafka version comes from Spring Boot BOM)
+kafka = "3.9.0"
 
 # Redis
-lettuce = "6.3.2.RELEASE"
+lettuce = "6.4.2.RELEASE"
 
 # Observability
-micrometer = "1.12.5"
-opentelemetry = "1.36.0"
-opentelemetry-instrumentation = "2.2.0"
+micrometer = "1.14.5"
+opentelemetry = "1.49.0"
+opentelemetry-instrumentation = "2.14.0"
 logstash-logback = "7.4"
 
 # Security
-jwt = "0.12.5"
-bouncycastle = "1.77"
+jwt = "0.12.6"
+bouncycastle = "1.79"
 
-# Serialization
-jackson = "2.17.0"
+# Serialization (align with Spring Boot 3.4 managed Jackson where possible)
+jackson = "2.18.3"
 
 # Validation
-jakarta-validation = "3.0.2"
-hibernate-validator = "8.0.1.Final"
+jakarta-validation = "3.1.1"
+hibernate-validator = "8.0.2.Final"
 
 # Testing
-junit = "5.10.2"
+junit = "5.11.4"
 assertj = "3.27.7"
-mockito = "5.23.0"
-testcontainers = "1.19.8"
-awaitility = "4.2.1"
+mockito = "5.14.2"
+testcontainers = "1.20.6"
+awaitility = "4.2.2"
 
 # Utilities
 guava = "33.6.0-jre"
-commons-lang3 = "3.14.0"
-mapstruct = "1.5.5.Final"
-lombok = "1.18.32"
+commons-lang3 = "3.17.0"
+mapstruct = "1.6.3"
+lombok = "1.18.36"
+slf4j = "2.0.16"
+
+# Test data
+datafaker = "2.5.4"
 
 # Build
 spotless = "6.25.0"
+owasp-dependencycheck = "9.0.10"
 
 # ============================================================================
-# Libraries
+# Libraries — single source of truth for dependency coordinates
 # ============================================================================
 [libraries]
+# Spring Boot BOM (import in Gradle or use with platform())
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+
 # Spring Boot Starters
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "spring-boot" }
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "spring-boot" }
@@ -77,9 +83,9 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "spring-cloud" }
 spring-cloud-starter-gateway = { module = "org.springframework.cloud:spring-cloud-starter-gateway" }
 
-# Spring Kafka
-spring-kafka = { module = "org.springframework.kafka:spring-kafka", version.ref = "spring-kafka" }
-spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test", version.ref = "spring-kafka" }
+# Spring Kafka (versions from Spring Boot BOM when used with spring-boot-dependencies platform)
+spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
+spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
 
 # gRPC
 grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
@@ -96,7 +102,6 @@ protobuf-java-util = { module = "com.google.protobuf:protobuf-java-util", versio
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
-hikaricp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 
 # Observability
 micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
@@ -124,6 +129,9 @@ jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-
 jakarta-validation-api = { module = "jakarta.validation:jakarta.validation-api", version.ref = "jakarta-validation" }
 hibernate-validator = { module = "org.hibernate.validator:hibernate-validator", version.ref = "hibernate-validator" }
 
+# Logging (non-Spring modules)
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+
 # Testing
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
@@ -148,6 +156,14 @@ lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 # Annotation processing
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version = "1.3.2" }
 
+# Test data
+datafaker = { module = "net.datafaker:datafaker", version.ref = "datafaker" }
+
+# buildSrc — Gradle plugin classpath (same versions as [plugins] below)
+spring-boot-gradle-plugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "spring-boot" }
+spring-dependency-management-gradle-plugin = { module = "io.spring.gradle:dependency-management-plugin", version.ref = "spring-dependency-management" }
+protobuf-gradle-plugin = { module = "com.google.protobuf:protobuf-gradle-plugin", version.ref = "protobuf-plugin" }
+
 # ============================================================================
 # Bundles
 # ============================================================================
@@ -168,3 +184,4 @@ spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+owasp-dependencycheck = { id = "org.owasp.dependencycheck", version.ref = "owasp-dependencycheck" }
