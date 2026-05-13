@@ -1,0 +1,35 @@
+# OpenTelemetry playground: two services + Jaeger for visualization
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+
+  # Service A calls Service B - trace should propagate
+  service-a:
+    build: ./service-a
+    ports:
+      - "8080:8080"
+    environment:
+      OTEL_SERVICE_NAME: service-a
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED: "true"
+      SERVICE_B_URL: http://service-b:8081
+    depends_on:
+      - jaeger
+      - service-b
+
+  service-b:
+    build: ./service-b
+    ports:
+      - "8081:8081"
+    environment:
+      OTEL_SERVICE_NAME: service-b
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_JAVA_GLOBAL_AUTOCONFIGURE_ENABLED: "true"
+    depends_on:
+      - jaeger

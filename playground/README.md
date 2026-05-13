@@ -28,7 +28,7 @@ Each exercise simulates a real scenario from Pravah — not a toy example. When 
 | [08](08-duckdb/) | DuckDB — In-process SQL transforms on real data | DuckDB, Parquet | ADR-023 | Ready |
 | [09](09-spring-ai/) | Spring AI — ReAct agent with real tools | Spring AI, Gemini API | ADR-020 | Ready (needs API quota) |
 | [10](10-kubernetes/) | Kubernetes — KEDA autoscaling on Kafka lag | Kubernetes, KEDA, Kind | ADR-010, ADR-015 | Ready |
-| [11](11-opentelemetry/) | OpenTelemetry — Distributed trace across 2 services | OTel, Jaeger | ADR-014 | Scaffold |
+| [11](11-opentelemetry/) | OpenTelemetry — Distributed trace across 2 services | OTel, Jaeger | ADR-014 | Ready |
 | [12](12-graphql/) | GraphQL — DataLoader batching + field-level auth | Spring for GraphQL | ADR-033 | Scaffold |
 
 ---
