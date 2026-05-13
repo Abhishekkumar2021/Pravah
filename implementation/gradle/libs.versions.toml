@@ -5,7 +5,7 @@ java = "21"
 # Spring
 spring-boot = "3.2.5"
 spring-cloud = "2023.0.1"
-spring-dependency-management = "1.1.4"
+spring-dependency-management = "1.1.7"
 
 # gRPC & Protobuf
 grpc = "1.62.2"
