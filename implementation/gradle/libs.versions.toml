@@ -14,7 +14,7 @@ protobuf-plugin = "0.10.0"
 
 # Database
 postgresql = "42.7.3"
-flyway = "10.10.0"
+flyway = "12.6.1"
 hikari = "5.1.0"
 
 # Kafka
