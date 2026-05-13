@@ -1,6 +1,6 @@
 /**
  * Pravah gRPC Conventions Plugin
- * 
+ *
  * Applies to modules that use gRPC for inter-service communication.
  * Configures Protobuf compilation and gRPC code generation.
  */
@@ -37,7 +37,7 @@ sourceSets {
         java {
             srcDirs(
                 "build/generated/source/proto/main/java",
-                "build/generated/source/proto/main/grpc"
+                "build/generated/source/proto/main/grpc",
             )
         }
     }
@@ -49,14 +49,14 @@ dependencies {
     implementation("io.grpc:grpc-protobuf:1.62.2")
     implementation("io.grpc:grpc-stub:1.62.2")
     implementation("io.grpc:grpc-services:1.62.2")
-    
+
     // Protobuf
     implementation("com.google.protobuf:protobuf-java:3.25.3")
     implementation("com.google.protobuf:protobuf-java-util:3.25.3")
-    
+
     // Required for gRPC generated code
     compileOnly("javax.annotation:javax.annotation-api:1.3.2")
-    
+
     // Testing
     testImplementation("io.grpc:grpc-testing:1.62.2")
 }

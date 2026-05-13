@@ -1,6 +1,6 @@
 /**
  * services:runner-service
- * 
+ *
  * Runner Service - Runner management and job assignment.
  *
  * @see docs/architecture/high-level-architecture.md
@@ -20,13 +20,13 @@ description = "Pravah Runner Service - Runner management and job dispatch"
 dependencies {
     implementation(project(":libs:common"))
     implementation(project(":libs:proto"))
-    
+
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-    
+
     // Redis for distributed locking
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

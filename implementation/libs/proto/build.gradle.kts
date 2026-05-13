@@ -1,6 +1,6 @@
 /**
  * libs:proto
- * 
+ *
  * Protobuf definitions and generated gRPC stubs.
  * This module is the single source of truth for all gRPC service definitions.
  *

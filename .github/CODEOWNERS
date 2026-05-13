@@ -1,0 +1,30 @@
+# ============================================================================
+# Pravah Code Owners
+# ============================================================================
+# These owners will be requested for review when someone opens a pull request
+# that modifies code that they own.
+#
+# Order is important; the last matching pattern takes the most precedence.
+# ============================================================================
+
+# Default owners for everything in the repo
+*       @Abhishekkumar2021
+
+# Architecture and design decisions
+/docs/adr/                  @Abhishekkumar2021
+/docs/architecture/         @Abhishekkumar2021
+/docs/lld/                  @Abhishekkumar2021
+
+# CI/CD and infrastructure
+/.github/                   @Abhishekkumar2021
+/implementation/docker/     @Abhishekkumar2021
+
+# Build configuration
+/implementation/buildSrc/   @Abhishekkumar2021
+/implementation/*.gradle*   @Abhishekkumar2021
+
+# Core libraries
+/implementation/libs/       @Abhishekkumar2021
+
+# Services
+/implementation/services/   @Abhishekkumar2021

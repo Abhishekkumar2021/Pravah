@@ -1,6 +1,6 @@
 /**
  * services:pipeline-service
- * 
+ *
  * Pipeline Service - Pipeline CRUD, versioning, and YAML validation.
  *
  * @see docs/architecture/high-level-architecture.md
@@ -18,13 +18,13 @@ description = "Pravah Pipeline Service - Pipeline definition management"
 
 dependencies {
     implementation(project(":libs:common"))
-    
+
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-    
+
     // YAML parsing
     implementation("org.yaml:snakeyaml:2.2")
-    
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1
+
+# ============================================================================
+# Pravah Service Dockerfile
+# Multi-stage build for Spring Boot services
+# ============================================================================
+
+ARG SERVICE_NAME
+
+# ----------------------------------------------------------------------------
+# Stage 1: Build context extractor
+# ----------------------------------------------------------------------------
+FROM eclipse-temurin:21-jre-alpine AS builder
+
+ARG SERVICE_NAME
+WORKDIR /app
+
+# Copy the built JAR
+COPY services/${SERVICE_NAME}/build/libs/*.jar app.jar
+
+# Extract layers for better caching
+RUN java -Djarmode=layertools -jar app.jar extract
+
+# ----------------------------------------------------------------------------
+# Stage 2: Runtime
+# ----------------------------------------------------------------------------
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+# Security: Run as non-root user
+RUN addgroup -g 1000 pravah && \
+    adduser -u 1000 -G pravah -D pravah
+
+WORKDIR /app
+
+# Copy layers in order of change frequency (least to most)
+COPY --from=builder /app/dependencies/ ./
+COPY --from=builder /app/spring-boot-loader/ ./
+COPY --from=builder /app/snapshot-dependencies/ ./
+COPY --from=builder /app/application/ ./
+
+# Set ownership
+RUN chown -R pravah:pravah /app
+
+USER pravah
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+
+# JVM configuration
+ENV JAVA_OPTS="-XX:+UseG1GC \
+    -XX:MaxRAMPercentage=75.0 \
+    -XX:+UseStringDeduplication \
+    -Djava.security.egd=file:/dev/./urandom"
+
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]
