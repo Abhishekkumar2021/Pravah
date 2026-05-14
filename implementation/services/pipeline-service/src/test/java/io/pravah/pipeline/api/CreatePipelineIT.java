@@ -1,6 +1,7 @@
 package io.pravah.pipeline.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
 import io.pravah.spring.multitenancy.TenantContext;
+import java.io.IOException;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,10 +67,29 @@ class CreatePipelineIT {
   @Autowired private OutboxRepository outboxRepository;
 
   @BeforeEach
-  void cleanDatabase() {
-    outboxRepository.deleteAll();
-    pipelineEventRepository.deleteAll();
-    pipelineRepository.deleteAll();
+  void cleanDatabase() throws IOException, InterruptedException {
+    // RLS hides all rows when tenant context is unset, so JPA deleteAll() would not clean anything.
+    // Truncate as the container superuser (POSTGRES_USER) so each test starts from an empty schema.
+    var result =
+        POSTGRES.execInContainer(
+            "env",
+            "PGPASSWORD=" + POSTGRES.getPassword(),
+            "psql",
+            "-U",
+            POSTGRES.getUsername(),
+            "-d",
+            POSTGRES.getDatabaseName(),
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            "TRUNCATE TABLE outbox, pipeline_versions, pipeline_events, pipelines CASCADE;");
+    if (result.getExitCode() != 0) {
+      throw new IllegalStateException(
+          "Failed to truncate pipeline tables: stdout="
+              + result.getStdout()
+              + " stderr="
+              + result.getStderr());
+    }
   }
 
   @Test
@@ -266,19 +287,27 @@ class CreatePipelineIT {
                 .content(objectMapper.writeValueAsString(bodyA)))
         .andExpect(status().isCreated());
 
-    TenantContext.setCurrentTenantId(tenantA);
-    try {
-      assertThat(pipelineRepository.findAll()).hasSize(1);
-    } finally {
-      TenantContext.clear();
-    }
+    mockMvc
+        .perform(
+            get("/api/v1/pipelines")
+                .param("projectId", projectId.toString())
+                .param("page", "0")
+                .param("size", "20")
+                .header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(1))
+        .andExpect(jsonPath("$.totalElements").value(1));
 
-    TenantContext.setCurrentTenantId(tenantB);
-    try {
-      assertThat(pipelineRepository.findAll()).isEmpty();
-    } finally {
-      TenantContext.clear();
-    }
+    mockMvc
+        .perform(
+            get("/api/v1/pipelines")
+                .param("projectId", projectId.toString())
+                .param("page", "0")
+                .param("size", "20")
+                .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(0))
+        .andExpect(jsonPath("$.totalElements").value(0));
   }
 
   @Test

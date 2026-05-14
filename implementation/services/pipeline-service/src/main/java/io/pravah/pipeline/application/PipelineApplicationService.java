@@ -23,16 +23,21 @@ import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -59,18 +64,21 @@ public class PipelineApplicationService {
   private final PipelineVersionRepository pipelineVersionRepository;
   private final OutboxRepository outboxRepository;
   private final ObjectMapper objectMapper;
+  private final EntityManager entityManager;
 
   public PipelineApplicationService(
       PipelineRepository pipelineRepository,
       PipelineEventRepository pipelineEventRepository,
       PipelineVersionRepository pipelineVersionRepository,
       OutboxRepository outboxRepository,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      EntityManager entityManager) {
     this.pipelineRepository = pipelineRepository;
     this.pipelineEventRepository = pipelineEventRepository;
     this.pipelineVersionRepository = pipelineVersionRepository;
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
+    this.entityManager = entityManager;
   }
 
   @Transactional
@@ -95,16 +103,22 @@ public class PipelineApplicationService {
             userId);
 
     try {
+      List<Pipeline.DomainEventData> pendingEvents = pipeline.collectDomainEvents();
       pipeline = pipelineRepository.save(pipeline);
-      persistDomainEvents(pipeline);
+      entityManager.flush();
+      persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      log.warn(
-          "Duplicate pipeline name",
-          kv("tenant_id", tenantId),
-          kv("project_id", request.projectId()),
-          kv("pipeline_name", request.name()));
-      throw new DuplicatePipelineNameException(
-          "A pipeline with this name already exists in the project", e);
+      throw duplicatePipelineName(request.projectId(), request.name(), e);
+    } catch (JpaSystemException e) {
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(request.projectId(), request.name(), e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(request.projectId(), request.name(), e);
+      }
+      throw e;
     }
 
     log.info(
@@ -147,16 +161,17 @@ public class PipelineApplicationService {
 
   @Transactional(readOnly = true)
   public PipelineListResponse listPipelines(UUID projectId, String status, int page, int size) {
-    requireTenantId();
+    UUID tenantId = requireTenantId();
 
     PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
     ProjectId projId = ProjectId.of(projectId);
 
     Page<Pipeline> pipelinePage;
     if (status != null && !status.isBlank()) {
-      pipelinePage = pipelineRepository.findByProjectIdAndStatus(projId, status, pageRequest);
+      pipelinePage =
+          pipelineRepository.findByProjectIdAndStatus(projId, status, tenantId, pageRequest);
     } else {
-      pipelinePage = pipelineRepository.findActiveByProjectId(projId, pageRequest);
+      pipelinePage = pipelineRepository.findActiveByProjectId(projId, tenantId, pageRequest);
     }
 
     List<PipelineResponse> content =
@@ -198,11 +213,22 @@ public class PipelineApplicationService {
     }
 
     try {
+      List<Pipeline.DomainEventData> pendingEvents = pipeline.collectDomainEvents();
       pipeline = pipelineRepository.save(pipeline);
-      persistDomainEvents(pipeline);
+      entityManager.flush();
+      persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      throw new DuplicatePipelineNameException(
-          "A pipeline with this name already exists in the project", e);
+      throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+    } catch (JpaSystemException e) {
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      }
+      throw e;
     }
 
     log.info("Pipeline updated", kv("tenant_id", tenantId), kv("pipeline_id", pipelineId));
@@ -221,13 +247,15 @@ public class PipelineApplicationService {
 
     int newVersion = pipeline.publish(userId);
 
+    List<Pipeline.DomainEventData> pendingEvents = pipeline.collectDomainEvents();
+
     PipelineVersionEntity version =
         new PipelineVersionEntity(
             pipelineId, newVersion, definition, pipeline.getUpdatedAt(), userId.value());
 
-    pipelineRepository.save(pipeline);
+    pipeline = pipelineRepository.save(pipeline);
     pipelineVersionRepository.save(version);
-    persistDomainEvents(pipeline);
+    persistDomainEvents(pipeline, pendingEvents);
 
     log.info(
         "Pipeline published",
@@ -247,8 +275,9 @@ public class PipelineApplicationService {
 
     pipeline.archive(userId);
 
-    pipelineRepository.save(pipeline);
-    persistDomainEvents(pipeline);
+    List<Pipeline.DomainEventData> pendingEvents = pipeline.collectDomainEvents();
+    pipeline = pipelineRepository.save(pipeline);
+    persistDomainEvents(pipeline, pendingEvents);
 
     log.info("Pipeline archived", kv("tenant_id", tenantId), kv("pipeline_id", pipelineId));
 
@@ -264,8 +293,9 @@ public class PipelineApplicationService {
 
     pipeline.restore(userId);
 
-    pipelineRepository.save(pipeline);
-    persistDomainEvents(pipeline);
+    List<Pipeline.DomainEventData> pendingEvents = pipeline.collectDomainEvents();
+    pipeline = pipelineRepository.save(pipeline);
+    persistDomainEvents(pipeline, pendingEvents);
 
     log.info("Pipeline restored", kv("tenant_id", tenantId), kv("pipeline_id", pipelineId));
 
@@ -273,15 +303,15 @@ public class PipelineApplicationService {
   }
 
   private Pipeline findPipelineOrThrow(PipelineId pipelineId) {
+    UUID tenantId = requireTenantId();
     return pipelineRepository
-        .findById(pipelineId)
+        .findByIdAndTenantId(pipelineId, tenantId)
         .orElseThrow(() -> new EntityNotFoundException("Pipeline", pipelineId.value()));
   }
 
-  private void persistDomainEvents(Pipeline pipeline) {
-    List<Pipeline.DomainEventData> events = pipeline.collectDomainEvents();
-
-    for (Pipeline.DomainEventData eventData : events) {
+  private void persistDomainEvents(
+      Pipeline pipeline, List<Pipeline.DomainEventData> pendingEvents) {
+    for (Pipeline.DomainEventData eventData : pendingEvents) {
       int nextEventVersion = pipelineEventRepository.countByPipelineId(eventData.pipelineId()) + 1;
 
       Map<String, Object> payload = buildEventPayload(eventData, pipeline);
@@ -364,6 +394,29 @@ public class PipelineApplicationService {
         pipeline.getState().asDatabaseValue(),
         pipeline.getCreatedAt(),
         pipeline.getUpdatedAt());
+  }
+
+  private DuplicatePipelineNameException duplicatePipelineName(
+      UUID projectId, String pipelineName, Throwable cause) {
+    log.warn(
+        "Duplicate pipeline name",
+        kv("tenant_id", TenantContext.getCurrentTenantId()),
+        kv("project_id", projectId),
+        kv("pipeline_name", pipelineName));
+    return new DuplicatePipelineNameException(
+        "A pipeline with this name already exists in the project", cause);
+  }
+
+  private static boolean isPipelineProjectNameUniqueViolation(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ConstraintViolationException) {
+        return true;
+      }
+      if (t instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private Map<String, Object> parseYamlDefinition(String yamlText) {

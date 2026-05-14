@@ -18,6 +18,7 @@ import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
+import jakarta.persistence.EntityManager;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,7 @@ class PipelineApplicationServiceTest {
   @Mock private PipelineEventRepository pipelineEventRepository;
   @Mock private PipelineVersionRepository pipelineVersionRepository;
   @Mock private OutboxRepository outboxRepository;
+  @Mock private EntityManager entityManager;
 
   private PipelineApplicationService service;
   private ObjectMapper objectMapper;
@@ -52,7 +54,8 @@ class PipelineApplicationServiceTest {
             pipelineEventRepository,
             pipelineVersionRepository,
             outboxRepository,
-            objectMapper);
+            objectMapper,
+            entityManager);
 
     tenantId = UUID.randomUUID();
     userId = UUID.randomUUID();
@@ -88,6 +91,7 @@ class PipelineApplicationServiceTest {
 
     ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
     verify(pipelineRepository).save(pipelineCaptor.capture());
+    verify(entityManager).flush();
     Pipeline savedPipeline = pipelineCaptor.getValue();
     assertThat(savedPipeline.getTenantId()).isEqualTo(tenantId);
     assertThat(savedPipeline.getCreatedBy().value()).isEqualTo(userId);

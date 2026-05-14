@@ -32,11 +32,6 @@ public class JpaPipelineRepositoryAdapter implements PipelineRepository {
   }
 
   @Override
-  public Optional<Pipeline> findById(PipelineId id) {
-    return jpaRepository.findById(id.value()).map(this::toDomain);
-  }
-
-  @Override
   public Optional<Pipeline> findByIdAndTenantId(PipelineId id, UUID tenantId) {
     return jpaRepository.findByIdAndTenantId(id.value(), tenantId).map(this::toDomain);
   }
@@ -49,21 +44,24 @@ public class JpaPipelineRepositoryAdapter implements PipelineRepository {
   }
 
   @Override
-  public Page<Pipeline> findActiveByProjectId(ProjectId projectId, Pageable pageable) {
-    return jpaRepository.findActiveByProjectId(projectId.value(), pageable).map(this::toDomain);
-  }
-
-  @Override
-  public Page<Pipeline> findByProjectIdAndStatus(
-      ProjectId projectId, String status, Pageable pageable) {
+  public Page<Pipeline> findActiveByProjectId(
+      ProjectId projectId, UUID tenantId, Pageable pageable) {
     return jpaRepository
-        .findByProjectIdAndStatus(projectId.value(), status, pageable)
+        .findActiveByProjectId(projectId.value(), tenantId, pageable)
         .map(this::toDomain);
   }
 
   @Override
-  public boolean existsByProjectIdAndName(ProjectId projectId, String name) {
-    return jpaRepository.existsByProjectIdAndName(projectId.value(), name);
+  public Page<Pipeline> findByProjectIdAndStatus(
+      ProjectId projectId, String status, UUID tenantId, Pageable pageable) {
+    return jpaRepository
+        .findByProjectIdAndStatus(projectId.value(), status, tenantId, pageable)
+        .map(this::toDomain);
+  }
+
+  @Override
+  public boolean existsByProjectIdAndName(ProjectId projectId, String name, UUID tenantId) {
+    return jpaRepository.existsByProjectIdAndName(projectId.value(), name, tenantId);
   }
 
   @Override

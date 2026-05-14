@@ -20,14 +20,6 @@ import org.springframework.data.domain.Pageable;
 public interface PipelineRepository {
 
   /**
-   * Finds a pipeline by ID within the current tenant context.
-   *
-   * @param id the pipeline ID
-   * @return optional pipeline if found
-   */
-  Optional<Pipeline> findById(PipelineId id);
-
-  /**
    * Finds a pipeline by ID and tenant ID.
    *
    * @param id the pipeline ID
@@ -45,32 +37,36 @@ public interface PipelineRepository {
   Pipeline save(Pipeline pipeline);
 
   /**
-   * Finds all pipelines in a project, excluding archived.
+   * Finds all pipelines in a project for the given tenant, excluding archived.
    *
    * @param projectId the project ID
+   * @param tenantId tenant scope (must match authenticated tenant; never from client input alone)
    * @param pageable pagination parameters
    * @return page of pipelines
    */
-  Page<Pipeline> findActiveByProjectId(ProjectId projectId, Pageable pageable);
+  Page<Pipeline> findActiveByProjectId(ProjectId projectId, UUID tenantId, Pageable pageable);
 
   /**
-   * Finds all pipelines in a project with a specific status.
+   * Finds all pipelines in a project with a specific status for the given tenant.
    *
    * @param projectId the project ID
    * @param status the status to filter by
+   * @param tenantId tenant scope (must match authenticated tenant; never from client input alone)
    * @param pageable pagination parameters
    * @return page of pipelines
    */
-  Page<Pipeline> findByProjectIdAndStatus(ProjectId projectId, String status, Pageable pageable);
+  Page<Pipeline> findByProjectIdAndStatus(
+      ProjectId projectId, String status, UUID tenantId, Pageable pageable);
 
   /**
-   * Checks if a pipeline with the given name exists in the project.
+   * Checks if a pipeline with the given name exists in the project for the given tenant.
    *
    * @param projectId the project ID
    * @param name the pipeline name
+   * @param tenantId tenant scope (must match authenticated tenant; never from client input alone)
    * @return true if exists
    */
-  boolean existsByProjectIdAndName(ProjectId projectId, String name);
+  boolean existsByProjectIdAndName(ProjectId projectId, String name, UUID tenantId);
 
   /**
    * Deletes a pipeline (hard delete).
