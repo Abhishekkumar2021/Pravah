@@ -1,8 +1,8 @@
 plugins {
     id("java")
     id("idea")
-    id("com.diffplug.spotless") version "6.25.0"
-    id("org.owasp.dependencycheck") version "9.0.10" apply false
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.owasp.dependencycheck) apply false
 }
 
 group = "io.pravah"

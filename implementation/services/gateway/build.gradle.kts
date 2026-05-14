@@ -17,22 +17,13 @@ description = "Pravah API Gateway - External API entry point"
 dependencies {
     implementation(project(":libs:common"))
 
-    // Spring Cloud Gateway
-    implementation("org.springframework.cloud:spring-cloud-starter-gateway:4.1.3")
+    implementation(platform(libs.spring.cloud.dependencies))
+    implementation(libs.spring.cloud.starter.gateway)
 
-    // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-    // Redis for rate limiting and session
     implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
 
-    // Test support
     testImplementation(project(":libs:test-support"))
-}
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2023.0.1")
-    }
 }

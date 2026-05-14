@@ -17,18 +17,16 @@ description = "Pravah Tenant Service - Multi-tenancy and user management"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
-    // AOP (for RlsAspect per ADR-013)
-    implementation("org.springframework.boot:spring-boot-starter-aop")
-
-    // Security
+    // Security (JWT per ADR-009)
+    // - JwtTokenVerifier from :libs:spring-support for token verification
+    // - JwtTokenIssuer locally for RS256 token issuance (holds private key)
     implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("io.jsonwebtoken:jjwt-api:0.12.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
+    implementation(libs.nimbus.jose.jwt)
 
     // Structured logging (JSON format for production)
     implementation(libs.logstash.logback.encoder)
