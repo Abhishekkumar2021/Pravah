@@ -24,7 +24,6 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 // ============================================================================
 include(":libs:common")
 include(":libs:proto")
-include(":libs:spring-support")
 include(":libs:test-support")
 
 // ============================================================================

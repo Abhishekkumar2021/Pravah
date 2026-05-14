@@ -37,8 +37,9 @@ server:
 pravah:
   security:
     jwt:
-      issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
-      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
+      secret: ${JWT_SECRET:pravah-local-dev-secret-key-minimum-256-bits-for-hs256}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
 management:
   endpoints:

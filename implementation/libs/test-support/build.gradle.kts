@@ -13,26 +13,22 @@ plugins {
 description = "Pravah Test Support - Shared test utilities and fixtures"
 
 dependencies {
+    // Common module
     api(project(":libs:common"))
-    api(project(":libs:spring-support"))
 
-    // Propagate Spring Boot + Testcontainers BOMs to consumers (e.g. :runner) so api() deps keep versions.
-    // Spring Boot BOM pins Testcontainers 1.20.x; enforced Testcontainers BOM aligns with libs.versions.toml
-    // (Docker Engine 29+ API). Spring Boot services also set testcontainers.version via conventions.
-    api(platform(libs.spring.boot.dependencies))
-    api(enforcedPlatform(libs.testcontainers.bom))
-
-    api("org.springframework.boot:spring-boot-starter-test") {
+    // Spring Boot Test
+    api("org.springframework.boot:spring-boot-starter-test:3.2.5") {
         exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
     }
 
-    api(libs.testcontainers.junit.jupiter)
-    api(libs.testcontainers.postgresql)
-    api(libs.testcontainers.kafka)
+    // Testcontainers - use explicit versions since BOM resolution is inconsistent in library modules
+    api("org.testcontainers:junit-jupiter:1.19.8")
+    api("org.testcontainers:postgresql:1.19.8")
+    api("org.testcontainers:kafka:1.19.8")
 
-    api(libs.awaitility)
-    api(libs.datafaker)
+    // Awaitility for async testing
+    api("org.awaitility:awaitility:4.2.1")
 
-    // RS256 JWT token generation for integration tests (ADR-009)
-    api(libs.nimbus.jose.jwt)
+    // Faker for test data generation
+    api("net.datafaker:datafaker:2.5.4")
 }

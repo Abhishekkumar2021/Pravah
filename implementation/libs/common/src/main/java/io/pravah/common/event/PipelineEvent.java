@@ -59,13 +59,4 @@ public sealed interface PipelineEvent extends DomainEvent {
       return "pipeline.archived";
     }
   }
-
-  record PipelineRestored(
-      UUID eventId, Instant occurredAt, TenantId tenantId, UUID pipelineId, String restoredBy)
-      implements PipelineEvent {
-    @Override
-    public String eventType() {
-      return "pipeline.restored";
-    }
-  }
 }
