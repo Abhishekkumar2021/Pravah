@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
+import io.pravah.execution.domain.ExecutionEventTypes;
+import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.test.security.TestJwtIssuer;
 import io.pravah.test.security.TestSecurityConfiguration;
 import java.util.List;
@@ -46,6 +48,8 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
   @Autowired private TestJwtIssuer testJwtIssuer;
 
   @Autowired private PipelineCatalog pipelineCatalog;
+
+  @Autowired private OutboxRepository outboxRepository;
 
   @BeforeEach
   void resetPipelineCatalogMock() {
@@ -88,6 +92,17 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
     UUID executionId =
         UUID.fromString(
             objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+    assertThat(outboxRepository.findAll())
+        .singleElement()
+        .satisfies(
+            row -> {
+              assertThat(row.getEventType()).isEqualTo(ExecutionEventTypes.EXECUTION_CREATED);
+              assertThat(row.getAggregateId()).isEqualTo(executionId);
+              assertThat(row.getTopic()).isEqualTo("pravah.execution.execution.events");
+              assertThat(row.getPartitionKey()).isEqualTo(executionId.toString());
+              assertThat(row.getPublishedAt()).isNull();
+            });
 
     mockMvc
         .perform(

@@ -29,6 +29,19 @@ spring:
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: execution-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.LinkedHashMap
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
 server:
   port: 8084
@@ -39,6 +52,16 @@ pravah:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
   pipeline-service:
     base-url: ${PIPELINE_SERVICE_BASE_URL:http://localhost:8083}
+  outbox:
+    relay:
+      enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
+      fixed-delay-ms: ${PRAVAH_OUTBOX_RELAY_FIXED_DELAY_MS:2000}
+      batch-size: ${PRAVAH_OUTBOX_RELAY_BATCH_SIZE:50}
+    topic:
+      execution-events: pravah.execution.execution.events
+      job-created: pravah.job.created
+  kafka:
+    execution-created-listener-enabled: ${PRAVAH_EXECUTION_CREATED_LISTENER_ENABLED:true}
 
 management:
   endpoints:
