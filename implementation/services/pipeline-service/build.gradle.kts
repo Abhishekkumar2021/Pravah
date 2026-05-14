@@ -18,12 +18,10 @@ description = "Pravah Pipeline Service - Pipeline definition management"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-
-    // AOP (RLS aspect per ADR-013)
-    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // Security (JWT per ADR-009)
     implementation("org.springframework.boot:spring-boot-starter-security")

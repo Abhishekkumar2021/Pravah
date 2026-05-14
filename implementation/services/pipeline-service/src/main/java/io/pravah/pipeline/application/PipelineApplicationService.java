@@ -22,7 +22,7 @@ import io.pravah.pipeline.infrastructure.persistence.entity.PipelineVersionEntit
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
-import io.pravah.pipeline.infrastructure.security.TenantContext;
+import io.pravah.spring.multitenancy.TenantContext;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

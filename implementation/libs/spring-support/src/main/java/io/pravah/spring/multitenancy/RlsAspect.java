@@ -1,8 +1,7 @@
-package io.pravah.tenant.infrastructure.persistence;
+package io.pravah.spring.multitenancy;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
-import io.pravah.tenant.infrastructure.security.TenantContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.UUID;
@@ -10,6 +9,7 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -28,11 +28,15 @@ import org.springframework.stereotype.Component;
  *   <li>If tenant context is not set, queries return zero rows (safe failure mode)
  * </ul>
  *
+ * <p><strong>Ordering:</strong> This aspect runs at {@link Ordered#LOWEST_PRECEDENCE} so that the
+ * transaction (started by {@link RlsTransactionConfig}) is already active when {@code SET LOCAL}
+ * executes.
+ *
  * @see <a href="docs/adr/ADR-013-postgresql-rls-tenant-isolation.md">ADR-013: PostgreSQL RLS</a>
  */
 @Aspect
 @Component
-@Order(1)
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class RlsAspect {
 
   private static final Logger log = LoggerFactory.getLogger(RlsAspect.class);

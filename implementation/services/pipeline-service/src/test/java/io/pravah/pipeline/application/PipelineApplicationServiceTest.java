@@ -17,7 +17,7 @@ import io.pravah.pipeline.infrastructure.persistence.entity.PipelineEventEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
-import io.pravah.pipeline.infrastructure.security.TenantContext;
+import io.pravah.spring.multitenancy.TenantContext;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,4 +1,4 @@
-package io.pravah.pipeline.infrastructure.persistence;
+package io.pravah.spring.multitenancy;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.pravah.pipeline.infrastructure.security.TenantContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.util.UUID;
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,10 +80,9 @@ class RlsAspectTest {
     rlsAspect.setTenantContextBeforeTransaction();
     rlsAspect.setTenantContextBeforeTransaction();
 
-    verify(entityManager, org.mockito.Mockito.times(2))
+    verify(entityManager, Mockito.times(2))
         .createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId");
-    verify(nativeQuery, org.mockito.Mockito.times(2))
-        .setParameter(eq("tenantId"), eq(tenantId.toString()));
+    verify(nativeQuery, Mockito.times(2)).setParameter(eq("tenantId"), eq(tenantId.toString()));
   }
 
   @Test

@@ -11,7 +11,7 @@ import io.pravah.pipeline.infrastructure.persistence.repository.JpaPipelineRepos
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
-import io.pravah.pipeline.infrastructure.security.TenantContext;
+import io.pravah.spring.multitenancy.TenantContext;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

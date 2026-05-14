@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.ValidationException;
+import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.CreateUserRequest;
 import io.pravah.tenant.application.dto.UserResponse;
 import io.pravah.tenant.domain.model.Role;
@@ -11,7 +12,6 @@ import io.pravah.tenant.domain.model.TenantMember;
 import io.pravah.tenant.domain.model.User;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
-import io.pravah.tenant.infrastructure.security.TenantContext;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
