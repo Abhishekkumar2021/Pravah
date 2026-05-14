@@ -8,18 +8,24 @@ import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
+import io.pravah.execution.domain.ExecutionEventTypes;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
+import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
+import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,20 +45,28 @@ public class ExecutionApplicationService {
 
   public static final String TRIGGER_MANUAL = "manual";
 
+  private static final String AGGREGATE_EXECUTION = "execution";
+
   private final PipelineCatalog pipelineCatalog;
   private final ExecutionEntityRepository executionEntityRepository;
   private final JobEntityRepository jobEntityRepository;
+  private final OutboxRepository outboxRepository;
   private final EntityManager entityManager;
+  private final String executionEventsTopic;
 
   public ExecutionApplicationService(
       PipelineCatalog pipelineCatalog,
       ExecutionEntityRepository executionEntityRepository,
       JobEntityRepository jobEntityRepository,
-      EntityManager entityManager) {
+      OutboxRepository outboxRepository,
+      EntityManager entityManager,
+      @Value("${pravah.outbox.topic.execution-events}") String executionEventsTopic) {
     this.pipelineCatalog = pipelineCatalog;
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
+    this.outboxRepository = outboxRepository;
     this.entityManager = entityManager;
+    this.executionEventsTopic = executionEventsTopic;
   }
 
   /**
@@ -114,13 +128,41 @@ public class ExecutionApplicationService {
               job.getStatus().asDatabaseValue()));
     }
 
+    List<String> rootStageIds = StagePlanner.rootStageIds(snapshot.definition());
+    if (rootStageIds.isEmpty()) {
+      throw new IllegalStateException("Pipeline has no root stages for scheduling");
+    }
+
+    UUID eventId = UUID.randomUUID();
+    Instant occurredAt = Instant.now();
+    Map<String, Object> outboxPayload =
+        buildExecutionCreatedPayload(
+            eventId,
+            occurredAt,
+            tenantId,
+            execution,
+            snapshot.pipelineId(),
+            snapshot.pipelineVersion(),
+            rootStageIds);
+
+    outboxRepository.save(
+        new OutboxEntity(
+            AGGREGATE_EXECUTION,
+            execution.getId(),
+            ExecutionEventTypes.EXECUTION_CREATED,
+            executionEventsTopic,
+            execution.getId().toString(),
+            outboxPayload,
+            occurredAt));
+
     log.info(
         "Manual execution created",
         kv("tenant_id", tenantId),
         kv("execution_id", execution.getId()),
         kv("pipeline_id", execution.getPipelineId()),
         kv("pipeline_version", execution.getPipelineVersion()),
-        kv("job_count", jobResponses.size()));
+        kv("job_count", jobResponses.size()),
+        kv("event_id", eventId));
 
     return new CreateExecutionResponse(
         execution.getId(),
@@ -128,6 +170,32 @@ public class ExecutionApplicationService {
         execution.getPipelineVersion(),
         execution.getStatus().asDatabaseValue(),
         jobResponses);
+  }
+
+  private static Map<String, Object> buildExecutionCreatedPayload(
+      UUID eventId,
+      Instant occurredAt,
+      UUID tenantId,
+      ExecutionEntity execution,
+      UUID pipelineId,
+      int pipelineVersion,
+      List<String> rootStageIds) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("eventId", eventId.toString());
+    m.put("eventType", ExecutionEventTypes.EXECUTION_CREATED);
+    m.put("occurredAt", occurredAt.toString());
+    m.put("aggregateType", AGGREGATE_EXECUTION);
+    m.put("aggregateId", execution.getId().toString());
+    m.put("tenantId", tenantId.toString());
+    m.put("executionId", execution.getId().toString());
+    m.put("pipelineId", pipelineId.toString());
+    m.put("pipelineVersion", pipelineVersion);
+    m.put("triggerType", execution.getTriggerType());
+    if (execution.getTriggeredBy() != null) {
+      m.put("triggeredBy", execution.getTriggeredBy().toString());
+    }
+    m.put("rootStageIds", rootStageIds);
+    return m;
   }
 
   /**

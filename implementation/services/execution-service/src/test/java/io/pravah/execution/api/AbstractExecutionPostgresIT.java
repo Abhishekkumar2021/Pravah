@@ -20,7 +20,9 @@ import org.springframework.test.context.TestPropertySource;
 @ExtendWith(PostgresContainerExtension.class)
 @TestPropertySource(
     properties = {
-      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+      "pravah.outbox.relay.enabled=false",
+      "pravah.kafka.execution-created-listener-enabled=false"
     })
 public abstract class AbstractExecutionPostgresIT {
 
@@ -37,7 +39,8 @@ public abstract class AbstractExecutionPostgresIT {
   void truncateExecutionTables() throws SQLException {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
-      statement.execute("TRUNCATE TABLE executions CASCADE;");
+      statement.execute(
+          "TRUNCATE TABLE processed_events; TRUNCATE TABLE outbox; TRUNCATE TABLE executions CASCADE;");
     }
   }
 }
