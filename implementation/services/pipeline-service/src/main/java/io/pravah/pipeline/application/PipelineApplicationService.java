@@ -13,6 +13,8 @@ import io.pravah.pipeline.api.dto.PipelineDetailResponse;
 import io.pravah.pipeline.api.dto.PipelineListResponse;
 import io.pravah.pipeline.api.dto.PipelineResponse;
 import io.pravah.pipeline.api.dto.UpdatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
 import io.pravah.pipeline.domain.Pipeline;
 import io.pravah.pipeline.domain.PipelineEventTypes;
 import io.pravah.pipeline.domain.repository.PipelineRepository;
@@ -108,7 +110,10 @@ public class PipelineApplicationService {
       entityManager.flush();
       persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      throw duplicatePipelineName(request.projectId(), request.name(), e);
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(request.projectId(), request.name(), e);
+      }
+      throw e;
     } catch (JpaSystemException e) {
       if (isPipelineProjectNameUniqueViolation(e)) {
         throw duplicatePipelineName(request.projectId(), request.name(), e);
@@ -125,6 +130,20 @@ public class PipelineApplicationService {
         "Pipeline created", kv("tenant_id", tenantId), kv("pipeline_id", pipeline.getId().value()));
 
     return toResponse(pipeline);
+  }
+
+  /**
+   * Validates a pipeline definition YAML without persisting. Uses the same structural checks as
+   * create/update/publish (root must be a non-empty mapping; JSON-compatible after parse).
+   */
+  public ValidatePipelineResponse validatePipelineDefinition(ValidatePipelineRequest request) {
+    UUID tenantId = requireTenantId();
+    requireUserId();
+
+    log.debug("Validating pipeline definition", kv("tenant_id", tenantId));
+
+    parseYamlDefinition(request.definitionYaml());
+    return new ValidatePipelineResponse(true);
   }
 
   @Transactional(readOnly = true)
@@ -218,7 +237,10 @@ public class PipelineApplicationService {
       entityManager.flush();
       persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      }
+      throw e;
     } catch (JpaSystemException e) {
       if (isPipelineProjectNameUniqueViolation(e)) {
         throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);

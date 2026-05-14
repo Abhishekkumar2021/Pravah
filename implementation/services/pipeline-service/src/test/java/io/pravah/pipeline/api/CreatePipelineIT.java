@@ -8,51 +8,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.infrastructure.persistence.repository.JpaPipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
 import io.pravah.spring.multitenancy.TenantContext;
-import java.io.IOException;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
-@TestPropertySource(
-    properties = {
-      "pravah.outbox.relay.enabled=false",
-      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
-    })
-class CreatePipelineIT {
-
-  @Container
-  private static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
-          .withDatabaseName("pravah_test")
-          .withUsername("test")
-          .withPassword("test");
-
-  @DynamicPropertySource
-  static void registerDatasource(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-  }
+class CreatePipelineIT extends AbstractPipelinePostgresIT {
 
   @Autowired private MockMvc mockMvc;
 
@@ -65,32 +37,6 @@ class CreatePipelineIT {
   @Autowired private PipelineEventRepository pipelineEventRepository;
 
   @Autowired private OutboxRepository outboxRepository;
-
-  @BeforeEach
-  void cleanDatabase() throws IOException, InterruptedException {
-    // RLS hides all rows when tenant context is unset, so JPA deleteAll() would not clean anything.
-    // Truncate as the container superuser (POSTGRES_USER) so each test starts from an empty schema.
-    var result =
-        POSTGRES.execInContainer(
-            "env",
-            "PGPASSWORD=" + POSTGRES.getPassword(),
-            "psql",
-            "-U",
-            POSTGRES.getUsername(),
-            "-d",
-            POSTGRES.getDatabaseName(),
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            "TRUNCATE TABLE outbox, pipeline_versions, pipeline_events, pipelines CASCADE;");
-    if (result.getExitCode() != 0) {
-      throw new IllegalStateException(
-          "Failed to truncate pipeline tables: stdout="
-              + result.getStdout()
-              + " stderr="
-              + result.getStderr());
-    }
-  }
 
   @Test
   void createPipelinePersistsEventAndOutbox() throws Exception {
@@ -365,5 +311,87 @@ class CreatePipelineIT {
         .andExpect(jsonPath("$.status").value("draft"))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.updatedAt").exists());
+  }
+
+  @Test
+  void validateDefinition_validYaml_returns200() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body =
+        new ValidatePipelineRequest("stages:\n  - id: extract\n    type: sql\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.valid").value(true));
+  }
+
+  @Test
+  void validateDefinition_invalidYaml_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest(":\ninvalid");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void validateDefinition_notMappingRoot_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest("- a\n- b\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void validateDefinition_missingAuth_returns401() throws Exception {
+    ValidatePipelineRequest body = new ValidatePipelineRequest("key: value\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void validateDefinition_blankYaml_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest("");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
   }
 }

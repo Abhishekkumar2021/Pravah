@@ -6,6 +6,8 @@ import io.pravah.pipeline.api.dto.PipelineListResponse;
 import io.pravah.pipeline.api.dto.PipelineResponse;
 import io.pravah.pipeline.api.dto.PublishPipelineRequest;
 import io.pravah.pipeline.api.dto.UpdatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
 import io.pravah.pipeline.application.PipelineApplicationService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -34,6 +36,11 @@ public class PipelineController {
   @ResponseStatus(HttpStatus.CREATED)
   public PipelineResponse create(@Valid @RequestBody CreatePipelineRequest request) {
     return pipelineApplicationService.createPipeline(request);
+  }
+
+  @PostMapping("/validate")
+  public ValidatePipelineResponse validate(@Valid @RequestBody ValidatePipelineRequest request) {
+    return pipelineApplicationService.validatePipelineDefinition(request);
   }
 
   @GetMapping("/{id}")
