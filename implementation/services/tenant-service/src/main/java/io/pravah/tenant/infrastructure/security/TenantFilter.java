@@ -2,6 +2,7 @@ package io.pravah.tenant.infrastructure.security;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

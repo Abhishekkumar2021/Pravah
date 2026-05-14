@@ -1,12 +1,13 @@
-package io.pravah.tenant.infrastructure.security;
+package io.pravah.spring.multitenancy;
 
 import java.util.UUID;
 
 /**
- * Thread-local holder for the current tenant context.
+ * Thread-local holder for the current tenant and user context.
  *
- * <p>This is set by the TenantFilter/Interceptor at the start of each request. The RLS aspect uses
- * this to set the PostgreSQL session variable for Row-Level Security.
+ * <p>This is set by filters/interceptors at the start of each request from the authenticated JWT
+ * token. The {@link RlsAspect} uses this to set the PostgreSQL session variable for Row-Level
+ * Security.
  *
  * <p>The tenant ID comes from the authenticated JWT token, never from client-provided request
  * parameters.
@@ -57,12 +58,6 @@ public final class TenantContext {
     return CURRENT_USER_ID.get();
   }
 
-  /** Clears all context. Call this at the end of each request. */
-  public static void clear() {
-    CURRENT_TENANT_ID.remove();
-    CURRENT_USER_ID.remove();
-  }
-
   /**
    * Checks if a tenant context is set.
    *
@@ -70,5 +65,20 @@ public final class TenantContext {
    */
   public static boolean hasTenantContext() {
     return CURRENT_TENANT_ID.get() != null;
+  }
+
+  /**
+   * Checks if a user context is set.
+   *
+   * @return true if user context exists
+   */
+  public static boolean hasUserContext() {
+    return CURRENT_USER_ID.get() != null;
+  }
+
+  /** Clears all context. Call this at the end of each request. */
+  public static void clear() {
+    CURRENT_TENANT_ID.remove();
+    CURRENT_USER_ID.remove();
   }
 }

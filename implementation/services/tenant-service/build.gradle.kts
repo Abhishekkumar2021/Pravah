@@ -17,12 +17,10 @@ description = "Pravah Tenant Service - Multi-tenancy and user management"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
-
-    // AOP (for RlsAspect per ADR-013)
-    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")

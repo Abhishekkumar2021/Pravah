@@ -2,6 +2,7 @@ package io.pravah.tenant;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 
 /**
  * Tenant Service Application Entry Point.
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/lld/02-database-erd.md">Database ERD - Tenant Domain</a>
  */
 @SpringBootApplication
+@ComponentScan(basePackages = {"io.pravah.tenant", "io.pravah.spring.multitenancy"})
 public class TenantServiceApplication {
 
   public static void main(String[] args) {

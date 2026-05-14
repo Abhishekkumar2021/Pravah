@@ -43,7 +43,7 @@ hibernate-validator = "8.0.2.Final"
 junit = "5.11.4"
 assertj = "3.27.7"
 mockito = "5.14.2"
-testcontainers = "1.20.6"
+testcontainers = "1.21.4"
 awaitility = "4.2.2"
 
 # Utilities

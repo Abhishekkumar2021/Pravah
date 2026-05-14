@@ -18,9 +18,16 @@ description = "Pravah Pipeline Service - Pipeline definition management"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
+
+    // Security (JWT per ADR-009)
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation(libs.jjwt.api)
+    runtimeOnly(libs.jjwt.impl)
+    runtimeOnly(libs.jjwt.jackson)
 
     // YAML parsing
     implementation("org.yaml:snakeyaml:2.2")

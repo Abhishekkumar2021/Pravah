@@ -1,6 +1,6 @@
 package io.pravah.tenant.infrastructure.logging;
 
-import io.pravah.tenant.infrastructure.security.TenantContext;
+import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

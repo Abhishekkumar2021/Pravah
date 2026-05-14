@@ -2,6 +2,8 @@ package io.pravah.pipeline;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Pipeline Service Application Entry Point.
@@ -12,6 +14,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/lld/03-state-machines.md">State Machines - Pipeline States</a>
  */
 @SpringBootApplication
+@EnableScheduling
+@ComponentScan(basePackages = {"io.pravah.pipeline", "io.pravah.spring.multitenancy"})
 public class PipelineServiceApplication {
 
   public static void main(String[] args) {
