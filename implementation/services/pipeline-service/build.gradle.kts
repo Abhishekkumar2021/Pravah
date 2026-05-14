@@ -22,6 +22,15 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // AOP (RLS aspect per ADR-013)
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // Security (JWT per ADR-009)
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation(libs.jjwt.api)
+    runtimeOnly(libs.jjwt.impl)
+    runtimeOnly(libs.jjwt.jackson)
+
     // YAML parsing
     implementation("org.yaml:snakeyaml:2.2")
 

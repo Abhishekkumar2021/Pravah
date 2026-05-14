@@ -14,10 +14,15 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        default_schema: public
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   
   flyway:
     enabled: true
     locations: classpath:db/migration
+    schemas: public
   
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -27,6 +32,19 @@ spring:
 
 server:
   port: 8083
+
+pravah:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:pravah-local-dev-secret-key-minimum-256-bits-for-hs256}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+  outbox:
+    relay:
+      enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
+      fixed-delay-ms: ${PRAVAH_OUTBOX_RELAY_FIXED_DELAY_MS:2000}
+    topic:
+      pipeline-events: pravah.pipeline.pipeline.events
 
 management:
   endpoints:

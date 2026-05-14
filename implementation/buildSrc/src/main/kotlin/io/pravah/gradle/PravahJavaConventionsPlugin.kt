@@ -16,11 +16,15 @@ import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withType
+import org.gradle.testing.jacoco.plugins.JacocoPlugin
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 class PravahJavaConventionsPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.plugins.apply(JavaPlugin::class.java)
         project.plugins.apply("io.spring.dependency-management")
+        project.plugins.apply(JacocoPlugin::class.java)
 
         project.extensions.getByType(JavaPluginExtension::class.java).apply {
             toolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
@@ -52,6 +56,20 @@ class PravahJavaConventionsPlugin : Plugin<Project> {
                 showStackTraces = true
             }
             failFast = false
+            finalizedBy(project.tasks.named("jacocoTestReport"))
+        }
+
+        project.extensions.configure<JacocoPluginExtension> {
+            toolVersion = "0.8.11"
+        }
+
+        project.tasks.withType(JacocoReport::class.java).configureEach {
+            dependsOn(project.tasks.withType(Test::class.java))
+            reports {
+                xml.required.set(true)
+                html.required.set(true)
+                csv.required.set(false)
+            }
         }
 
         val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)

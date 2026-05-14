@@ -2,6 +2,7 @@ package io.pravah.pipeline;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Pipeline Service Application Entry Point.
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/lld/03-state-machines.md">State Machines - Pipeline States</a>
  */
 @SpringBootApplication
+@EnableScheduling
 public class PipelineServiceApplication {
 
   public static void main(String[] args) {
