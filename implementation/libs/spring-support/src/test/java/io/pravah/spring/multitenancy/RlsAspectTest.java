@@ -1,5 +1,7 @@
 package io.pravah.spring.multitenancy;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -20,6 +22,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RlsAspectTest {
+
+  private static final String SET_TENANT_SQL =
+      "SELECT set_config('pravah.current_tenant_id', cast(:tenantId as text), true)";
 
   @Mock private EntityManager entityManager;
   @Mock private Query nativeQuery;
@@ -42,13 +47,14 @@ class RlsAspectTest {
     TenantContext.setCurrentTenantId(tenantId);
 
     when(entityManager.createNativeQuery(anyString())).thenReturn(nativeQuery);
-    when(nativeQuery.setParameter(anyString(), anyString())).thenReturn(nativeQuery);
+    when(nativeQuery.setParameter(anyString(), any())).thenReturn(nativeQuery);
+    when(nativeQuery.getSingleResult()).thenReturn(tenantId.toString());
 
     rlsAspect.setTenantContextBeforeTransaction();
 
-    verify(entityManager).createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId");
-    verify(nativeQuery).setParameter("tenantId", tenantId.toString());
-    verify(nativeQuery).executeUpdate();
+    verify(entityManager).createNativeQuery(SET_TENANT_SQL);
+    verify(nativeQuery).setParameter("tenantId", tenantId);
+    verify(nativeQuery).getSingleResult();
   }
 
   @Test
@@ -75,14 +81,14 @@ class RlsAspectTest {
     TenantContext.setCurrentTenantId(tenantId);
 
     when(entityManager.createNativeQuery(anyString())).thenReturn(nativeQuery);
-    when(nativeQuery.setParameter(anyString(), anyString())).thenReturn(nativeQuery);
+    when(nativeQuery.setParameter(anyString(), any())).thenReturn(nativeQuery);
+    when(nativeQuery.getSingleResult()).thenReturn(tenantId.toString());
 
     rlsAspect.setTenantContextBeforeTransaction();
     rlsAspect.setTenantContextBeforeTransaction();
 
-    verify(entityManager, Mockito.times(2))
-        .createNativeQuery("SET LOCAL pravah.current_tenant_id = :tenantId");
-    verify(nativeQuery, Mockito.times(2)).setParameter(eq("tenantId"), eq(tenantId.toString()));
+    verify(entityManager, Mockito.times(2)).createNativeQuery(SET_TENANT_SQL);
+    verify(nativeQuery, Mockito.times(2)).setParameter(eq("tenantId"), eq(tenantId));
   }
 
   @Test
@@ -91,14 +97,23 @@ class RlsAspectTest {
     UUID tenantId2 = UUID.randomUUID();
 
     when(entityManager.createNativeQuery(anyString())).thenReturn(nativeQuery);
-    when(nativeQuery.setParameter(anyString(), anyString())).thenReturn(nativeQuery);
+    when(nativeQuery.setParameter(anyString(), any())).thenReturn(nativeQuery);
+    when(nativeQuery.getSingleResult()).thenReturn("x");
 
     TenantContext.setCurrentTenantId(tenantId1);
     rlsAspect.setTenantContextBeforeTransaction();
-    verify(nativeQuery).setParameter("tenantId", tenantId1.toString());
+    verify(nativeQuery).setParameter("tenantId", tenantId1);
 
     TenantContext.setCurrentTenantId(tenantId2);
     rlsAspect.setTenantContextBeforeTransaction();
-    verify(nativeQuery).setParameter("tenantId", tenantId2.toString());
+    verify(nativeQuery).setParameter("tenantId", tenantId2);
+  }
+
+  @Test
+  void setTenantContext_sqlUsesSetConfigForParameterizedTenant() {
+    assertThat(SET_TENANT_SQL)
+        .contains("set_config")
+        .contains("pravah.current_tenant_id")
+        .contains("true");
   }
 }
