@@ -47,6 +47,8 @@ server:
   port: 8084
 
 pravah:
+  job:
+    max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
   security:
     jwt:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
@@ -62,6 +64,9 @@ pravah:
       job-created: pravah.job.created
   kafka:
     execution-created-listener-enabled: ${PRAVAH_EXECUTION_CREATED_LISTENER_ENABLED:true}
+    job-worker-listener-enabled: ${PRAVAH_JOB_WORKER_LISTENER_ENABLED:true}
+    job-worker:
+      consumer-group-id: ${PRAVAH_JOB_WORKER_KAFKA_GROUP:execution-service-job-worker}
 
 management:
   endpoints:

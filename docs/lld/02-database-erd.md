@@ -678,6 +678,7 @@ erDiagram
         varchar trigger_type
         uuid triggered_by
         jsonb parameters
+        jsonb definition_snapshot
         timestamptz started_at
         timestamptz completed_at
         text error_message
@@ -749,6 +750,7 @@ CREATE TABLE executions (
     trigger_type    VARCHAR(50) NOT NULL,
     triggered_by    UUID, -- user_id, NULL for scheduled/event
     parameters      JSONB NOT NULL DEFAULT '{}',
+    definition_snapshot JSONB, -- pipeline definition at run time (DAG scheduling)
     started_at      TIMESTAMPTZ,
     completed_at    TIMESTAMPTZ,
     error_message   TEXT,

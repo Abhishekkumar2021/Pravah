@@ -104,7 +104,7 @@ public class ExecutionApplicationService {
             .pipelineVersion(snapshot.pipelineVersion())
             .triggerType(TRIGGER_MANUAL)
             .triggeredBy(userId)
-            .parameters(Map.of())
+            .definitionSnapshot(snapshot.definition())
             .build();
 
     execution = executionEntityRepository.save(execution);

@@ -58,6 +58,10 @@ public class ExecutionEntity {
   @Column(nullable = false, columnDefinition = "jsonb")
   private Map<String, Object> parameters;
 
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "definition_snapshot", columnDefinition = "jsonb")
+  private Map<String, Object> definitionSnapshot;
+
   @Column(name = "started_at")
   private Instant startedAt;
 
@@ -91,6 +95,7 @@ public class ExecutionEntity {
     this.triggerType = Objects.requireNonNull(builder.triggerType, "triggerType is required");
     this.triggeredBy = builder.triggeredBy;
     this.parameters = builder.parameters != null ? builder.parameters : Map.of();
+    this.definitionSnapshot = builder.definitionSnapshot;
     this.retryOf = builder.retryOf;
     this.createdAt = Instant.now();
   }
@@ -129,6 +134,10 @@ public class ExecutionEntity {
 
   public Map<String, Object> getParameters() {
     return parameters;
+  }
+
+  public Map<String, Object> getDefinitionSnapshot() {
+    return definitionSnapshot;
   }
 
   public Instant getStartedAt() {
@@ -230,6 +239,7 @@ public class ExecutionEntity {
     private String triggerType;
     private UUID triggeredBy;
     private Map<String, Object> parameters;
+    private Map<String, Object> definitionSnapshot;
     private UUID retryOf;
 
     public Builder tenantId(UUID tenantId) {
@@ -264,6 +274,11 @@ public class ExecutionEntity {
 
     public Builder parameters(Map<String, Object> parameters) {
       this.parameters = parameters;
+      return this;
+    }
+
+    public Builder definitionSnapshot(Map<String, Object> definitionSnapshot) {
+      this.definitionSnapshot = definitionSnapshot;
       return this;
     }
 

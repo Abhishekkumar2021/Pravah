@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class StagePlannerTest {
@@ -42,6 +43,31 @@ class StagePlannerTest {
                 Map.of(
                     "stages",
                     List.of(Map.of("id", "a", "name", "A"), Map.of("id", "b", "name", "B")))))
+        .containsExactly("a", "b");
+  }
+
+  @Test
+  void stagesReadyToQueueAfterSuccesses_respectsDependsOn() {
+    Map<String, Object> definition =
+        Map.of(
+            "stages",
+            List.of(
+                Map.of("id", "extract", "name", "Extract"),
+                Map.of("id", "load", "name", "Load", "dependsOn", List.of("extract"))));
+
+    assertThat(StagePlanner.stagesReadyToQueueAfterSuccesses(definition, Set.of()))
+        .containsExactly("extract");
+    assertThat(StagePlanner.stagesReadyToQueueAfterSuccesses(definition, Set.of("extract")))
+        .containsExactly("load");
+    assertThat(StagePlanner.stagesReadyToQueueAfterSuccesses(definition, Set.of("extract", "load")))
+        .isEmpty();
+  }
+
+  @Test
+  void stagesReadyToQueueAfterSuccesses_parallelRootsWhenNoneSucceeded() {
+    Map<String, Object> definition =
+        Map.of("stages", List.of(Map.of("id", "a", "name", "A"), Map.of("id", "b", "name", "B")));
+    assertThat(StagePlanner.stagesReadyToQueueAfterSuccesses(definition, Set.of()))
         .containsExactly("a", "b");
   }
 
