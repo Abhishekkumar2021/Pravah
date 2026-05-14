@@ -5,7 +5,7 @@ import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 import org.junit.jupiter.api.extension.ExtensionContext.Store.CloseableResource;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -26,11 +26,12 @@ public class KafkaContainerExtension implements BeforeAllCallback, AfterAllCallb
   private static final Namespace NAMESPACE = Namespace.create(KafkaContainerExtension.class);
   private static final String CONTAINER_KEY = "kafka-container";
 
-  private static final KafkaContainer KAFKA;
+  private static final ConfluentKafkaContainer KAFKA;
 
   static {
     KAFKA =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0")).withReuse(true);
+        new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"))
+            .withReuse(true);
     KAFKA.start();
   }
 
@@ -52,7 +53,7 @@ public class KafkaContainerExtension implements BeforeAllCallback, AfterAllCallb
     return KAFKA.getBootstrapServers();
   }
 
-  public static KafkaContainer getContainer() {
+  public static ConfluentKafkaContainer getContainer() {
     return KAFKA;
   }
 
@@ -63,9 +64,9 @@ public class KafkaContainerExtension implements BeforeAllCallback, AfterAllCallb
    * reuse is not enabled.
    */
   private static class KafkaContainerResource implements CloseableResource {
-    private final KafkaContainer container;
+    private final ConfluentKafkaContainer container;
 
-    KafkaContainerResource(KafkaContainer container) {
+    KafkaContainerResource(ConfluentKafkaContainer container) {
       this.container = container;
     }
 

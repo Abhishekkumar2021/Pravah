@@ -177,6 +177,12 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 ---
 
+## Git workflow
+
+Prefer **topic branches and pull requests** into `main` or `develop` instead of pushing straight to those branches. On GitHub, use **branch rulesets** (or branch protection) so default merges require PRs and checks; as a **solo maintainer** you can grant **repository admin bypass** when you need to override—see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
 ## Quality Gates
 
 Before any PR:

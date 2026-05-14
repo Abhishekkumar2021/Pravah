@@ -13,17 +13,12 @@ plugins {
 description = "Pravah Common Library - Shared utilities and domain primitives"
 
 dependencies {
-    // Jackson for JSON serialization
-    api(platform("com.fasterxml.jackson:jackson-bom:2.17.0"))
-    api("com.fasterxml.jackson.core:jackson-databind")
-    api("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    api(platform(libs.jackson.bom))
+    api(libs.jackson.databind)
+    api(libs.jackson.datatype.jsr310)
 
-    // Validation API
-    api("jakarta.validation:jakarta.validation-api:3.0.2")
+    api(libs.jakarta.validation.api)
 
-    // Guava for collections and utilities
-    implementation("com.google.guava:guava:33.6.0-jre")
-
-    // Commons Lang for string utilities
-    implementation("org.apache.commons:commons-lang3:3.14.0")
+    implementation(libs.guava)
+    implementation(libs.commons.lang3)
 }

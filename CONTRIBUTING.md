@@ -43,6 +43,42 @@ main (protected)
 - Requires passing CI (Build & Test)
 - Force pushes disabled
 
+**Important:** The bullets above are **policy**. GitHub will only block direct pushes after rules are configured on the server. Docs alone do not enforce anything.
+
+For a **solo maintainer**, GitHub **branch rulesets** can still require PRs and CI for day-to-day quality, while **Allow repository admins to bypass** (or an equivalent bypass entry for the repository admin role) lets you merge or push when you are blocked by checks—use sparingly.
+
+### Enforcing PR-only workflow (repository administrators)
+
+Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **rulesets** (Settings → Rules → Rulesets); they supersede classic branch protection where both exist.
+
+#### Option A — Branch rulesets (recommended)
+
+1. Open the repo on GitHub → **Settings** → **Rules** → **Rulesets** → **New ruleset** → **New branch ruleset**.
+2. **Ruleset name:** e.g. `Protect main and develop`.
+3. **Enforcement status:** Active.
+4. **Target branches:** Add targets → **Include by pattern** → enter `main` → add another pattern → `develop`.
+5. Enable at least:
+   - **Require a pull request before merging** (set minimum number of approvals and “dismiss stale reviews” as you prefer).
+   - **Require status checks to pass** → add the checks from `.github/workflows/` (e.g. build/test jobs from `ci.yml` / `pr-checks.yml`).
+   - **Block force pushes**.
+6. **Bypass list (solo developer):** enable **Repository admin** (or **Repository role: Admin**) so the owner can bypass when needed. Omit this if you want the strictest possible setup with no bypasses.
+7. Save the ruleset. With PR required and optional admin bypass, normal work goes through PRs; direct pushes stay blocked unless you use bypass (e.g. merge with admin override or adjust rules in Settings).
+
+#### Option B — Classic branch protection
+
+1. **Settings** → **Branches** → **Add branch protection rule** (or edit existing).
+2. **Branch name pattern:** `main` (repeat for a second rule on `develop`).
+3. Enable:
+   - **Require a pull request before merging**
+   - **Require approvals** (e.g. 1) where you want review
+   - **Require status checks to pass before merging** (select the same CI checks as in Option A)
+   - For a solo repo, **do not** enable “Do not allow bypassing the above settings” if you want the owner to be able to override when needed.
+4. Enable **Block force pushes**.
+
+#### Day-to-day for contributors
+
+- Never commit to `develop` or `main` directly. Always: `git checkout -b feature/...` (or `fix/...`) from up-to-date `develop`, push the **topic branch**, open a PR into `develop` (or `main` for hotfix/release per your process).
+
 ## Development Workflow
 
 ### 1. Create a Feature Branch
