@@ -34,4 +34,26 @@ class StagePlannerTest {
     assertThat(jobs.get(1).stageId()).isEqualTo("load");
     assertThat(jobs.get(1).stageName()).isEqualTo("load");
   }
+
+  @Test
+  void rootStageIds_whenNoDependsOn_returnsAllStageIds() {
+    assertThat(
+            StagePlanner.rootStageIds(
+                Map.of(
+                    "stages",
+                    List.of(Map.of("id", "a", "name", "A"), Map.of("id", "b", "name", "B")))))
+        .containsExactly("a", "b");
+  }
+
+  @Test
+  void rootStageIds_whenDependsOn_returnsOnlyRoots() {
+    assertThat(
+            StagePlanner.rootStageIds(
+                Map.of(
+                    "stages",
+                    List.of(
+                        Map.of("id", "extract", "name", "Extract"),
+                        Map.of("id", "load", "name", "Load", "dependsOn", List.of("extract"))))))
+        .containsExactly("extract");
+  }
 }
