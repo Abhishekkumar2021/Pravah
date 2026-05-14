@@ -4,6 +4,7 @@ import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PipelineDetailResponse;
 import io.pravah.pipeline.api.dto.PipelineListResponse;
 import io.pravah.pipeline.api.dto.PipelineResponse;
+import io.pravah.pipeline.api.dto.PipelineVersionDefinitionResponse;
 import io.pravah.pipeline.api.dto.PublishPipelineRequest;
 import io.pravah.pipeline.api.dto.UpdatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
@@ -41,6 +42,12 @@ public class PipelineController {
   @PostMapping("/validate")
   public ValidatePipelineResponse validate(@Valid @RequestBody ValidatePipelineRequest request) {
     return pipelineApplicationService.validatePipelineDefinition(request);
+  }
+
+  @GetMapping("/{id}/versions/{version}")
+  public PipelineVersionDefinitionResponse getPublishedVersion(
+      @PathVariable UUID id, @PathVariable int version) {
+    return pipelineApplicationService.getPublishedVersionDefinition(id, version);
   }
 
   @GetMapping("/{id}")

@@ -1,6 +1,6 @@
 package io.pravah.pipeline.infrastructure.config;
 
-import io.pravah.pipeline.infrastructure.security.TenantFilter;
+import io.pravah.spring.security.ApiTenantJwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -15,10 +15,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-  private final TenantFilter tenantFilter;
+  private final ApiTenantJwtFilter apiTenantJwtFilter;
 
-  public SecurityConfig(TenantFilter tenantFilter) {
-    this.tenantFilter = tenantFilter;
+  public SecurityConfig(ApiTenantJwtFilter apiTenantJwtFilter) {
+    this.apiTenantJwtFilter = apiTenantJwtFilter;
   }
 
   @Bean
@@ -32,7 +32,7 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .authenticated())
-        .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(apiTenantJwtFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }
 }

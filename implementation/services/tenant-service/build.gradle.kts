@@ -22,11 +22,11 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
-    // Security
+    // Security (JWT per ADR-009)
+    // - JwtTokenVerifier from :libs:spring-support for token verification
+    // - JwtTokenIssuer locally for RS256 token issuance (holds private key)
     implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation(libs.jjwt.api)
-    runtimeOnly(libs.jjwt.impl)
-    runtimeOnly(libs.jjwt.jackson)
+    implementation(libs.nimbus.jose.jwt)
 
     // Structured logging (JSON format for production)
     implementation(libs.logstash.logback.encoder)

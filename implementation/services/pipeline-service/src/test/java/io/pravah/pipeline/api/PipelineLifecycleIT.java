@@ -10,31 +10,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PublishPipelineRequest;
 import io.pravah.pipeline.api.dto.UpdatePipelineRequest;
-import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
+import io.pravah.test.security.TestJwtIssuer;
+import io.pravah.test.security.TestSecurityConfiguration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
+@Import(TestSecurityConfiguration.class)
 class PipelineLifecycleIT extends AbstractPipelinePostgresIT {
 
   @Autowired private MockMvc mockMvc;
 
   @Autowired private ObjectMapper objectMapper;
 
-  @Autowired private JwtTokenProvider jwtTokenProvider;
+  @Autowired private TestJwtIssuer testJwtIssuer;
 
   @Test
   void fullLifecycle_createUpdatePublishArchiveListRestore() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest createBody =
         new CreatePipelineRequest(projectId, "lifecycle-pipe", "initial", "draftYaml:\n  key: a\n");
@@ -94,6 +97,15 @@ class PipelineLifecycleIT extends AbstractPipelinePostgresIT {
         .andExpect(jsonPath("$.currentVersion").value(1))
         .andExpect(jsonPath("$.versions.length()").value(1))
         .andExpect(jsonPath("$.versions[0].version").value(1));
+
+    mockMvc
+        .perform(
+            get("/api/v1/pipelines/{id}/versions/{version}", pipelineId, 1)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pipelineId").value(pipelineId.toString()))
+        .andExpect(jsonPath("$.version").value(1))
+        .andExpect(jsonPath("$.definition.stages[0].id").value("extract"));
 
     mockMvc
         .perform(
@@ -163,10 +175,23 @@ class PipelineLifecycleIT extends AbstractPipelinePostgresIT {
   }
 
   @Test
+  void getPublishedVersion_unknownVersion_returns404() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    mockMvc
+        .perform(
+            get("/api/v1/pipelines/{id}/versions/{version}", UUID.randomUUID(), 99)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
   void getPipeline_notFound_returns404() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     mockMvc
         .perform(
@@ -183,8 +208,8 @@ class PipelineLifecycleIT extends AbstractPipelinePostgresIT {
     UUID userB = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
 
-    String tokenA = jwtTokenProvider.generateAccessToken(userA, tenantA, "a@example.com", "User A");
-    String tokenB = jwtTokenProvider.generateAccessToken(userB, tenantB, "b@example.com", "User B");
+    String tokenA = testJwtIssuer.generateAccessToken(userA, tenantA);
+    String tokenB = testJwtIssuer.generateAccessToken(userB, tenantB);
 
     CreatePipelineRequest createBody =
         new CreatePipelineRequest(projectId, "iso", null, "key: value\n");

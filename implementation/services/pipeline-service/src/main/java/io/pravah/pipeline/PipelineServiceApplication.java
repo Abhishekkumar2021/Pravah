@@ -15,7 +15,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableScheduling
-@ComponentScan(basePackages = {"io.pravah.pipeline", "io.pravah.spring.multitenancy"})
+@ComponentScan(
+    basePackages = {
+      "io.pravah.pipeline",
+      "io.pravah.spring.multitenancy",
+      "io.pravah.spring.security"
+    })
 public class PipelineServiceApplication {
 
   public static void main(String[] args) {

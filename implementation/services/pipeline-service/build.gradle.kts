@@ -23,11 +23,8 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
-    // Security (JWT per ADR-009)
+    // Security (JWT per ADR-009) — JwtTokenVerifier + ApiTenantJwtFilter from :libs:spring-support
     implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation(libs.jjwt.api)
-    runtimeOnly(libs.jjwt.impl)
-    runtimeOnly(libs.jjwt.jackson)
 
     // YAML parsing
     implementation("org.yaml:snakeyaml:2.2")

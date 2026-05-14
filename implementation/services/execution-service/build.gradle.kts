@@ -20,9 +20,15 @@ description = "Pravah Execution Service - Pipeline run orchestration"
 dependencies {
     implementation(project(":libs:common"))
     implementation(project(":libs:proto"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Security (JWT per ADR-009) — JwtTokenVerifier + ApiTenantJwtFilter from :libs:spring-support
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // Test support
     testImplementation(project(":libs:test-support"))

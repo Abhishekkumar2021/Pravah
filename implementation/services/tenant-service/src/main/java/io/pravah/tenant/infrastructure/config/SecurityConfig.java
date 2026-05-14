@@ -51,6 +51,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/actuator/info")
                     .permitAll()
+                    .requestMatchers("/.well-known/jwks.json")
+                    .permitAll()
                     .requestMatchers("/api/v1/auth/login")
                     .permitAll()
                     .requestMatchers("/api/v1/auth/register")

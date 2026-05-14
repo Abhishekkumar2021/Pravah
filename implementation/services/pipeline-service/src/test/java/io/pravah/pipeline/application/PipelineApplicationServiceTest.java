@@ -8,20 +8,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pravah.common.domain.PipelineId;
+import io.pravah.common.domain.ProjectId;
+import io.pravah.common.domain.UserId;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PipelineResponse;
+import io.pravah.pipeline.api.dto.PipelineVersionDefinitionResponse;
 import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
 import io.pravah.pipeline.domain.Pipeline;
+import io.pravah.pipeline.domain.PipelineState;
 import io.pravah.pipeline.domain.repository.PipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.pipeline.infrastructure.persistence.entity.PipelineEventEntity;
+import io.pravah.pipeline.infrastructure.persistence.entity.PipelineVersionEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -289,5 +299,46 @@ class PipelineApplicationServiceTest {
     assertThat(payload).containsKey("name");
     assertThat(payload).containsKey("description");
     assertThat(payload).containsKey("status");
+  }
+
+  @Test
+  void getPublishedVersionDefinition_storesJsonNode_convertsToPlainCollections() throws Exception {
+    UUID pipelineUuid = UUID.randomUUID();
+    PipelineId pipelineId = PipelineId.of(pipelineUuid);
+    Instant now = Instant.parse("2026-05-14T12:00:00Z");
+    Pipeline pipeline =
+        Pipeline.builder()
+            .id(pipelineId)
+            .tenantId(tenantId)
+            .projectId(ProjectId.of(projectId))
+            .name("p")
+            .description("d")
+            .currentVersion(1)
+            .state(PipelineState.ACTIVE)
+            .createdAt(now)
+            .updatedAt(now)
+            .createdBy(UserId.of(userId))
+            .build();
+    when(pipelineRepository.findByIdAndTenantId(pipelineId, tenantId))
+        .thenReturn(Optional.of(pipeline));
+
+    var definitionJson =
+        objectMapper.readTree("{\"stages\":[{\"id\":\"extract\",\"type\":\"sql\"}]}");
+
+    when(pipelineVersionRepository.findByPipelineIdAndVersion(pipelineUuid, 1))
+        .thenReturn(
+            Optional.of(new PipelineVersionEntity(pipelineUuid, 1, definitionJson, now, userId)));
+
+    PipelineVersionDefinitionResponse response =
+        service.getPublishedVersionDefinition(pipelineUuid, 1);
+
+    assertThat(response.pipelineId()).isEqualTo(pipelineUuid);
+    assertThat(response.version()).isEqualTo(1);
+    assertThat(response.definition().get("stages")).isInstanceOf(List.class);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> stages =
+        (List<Map<String, Object>>) response.definition().get("stages");
+    assertThat(stages.get(0).get("id")).isEqualTo("extract");
+    assertThat(stages.get(0).get("type")).isEqualTo("sql");
   }
 }

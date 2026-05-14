@@ -17,7 +17,9 @@
  *   <li>Depend on {@code :libs:spring-support}
  *   <li>Component-scan {@code io.pravah.spring.multitenancy} or import {@link
  *       io.pravah.spring.multitenancy.RlsTransactionConfig}
- *   <li>Set {@link io.pravah.spring.multitenancy.TenantContext} in their security filter from JWT
+ *   <li>Set {@link io.pravah.spring.multitenancy.TenantContext} via {@link
+ *       io.pravah.spring.security.ApiTenantJwtFilter} and {@link
+ *       io.pravah.spring.security.JwtTokenProvider} (ADR-009) or a service-specific filter
  * </ol>
  *
  * @see <a href="docs/adr/ADR-013-postgresql-rls-tenant-isolation.md">ADR-013: PostgreSQL RLS</a>

@@ -1,4 +1,4 @@
-package io.pravah.pipeline.infrastructure.security;
+package io.pravah.spring.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -7,9 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
+import io.pravah.spring.security.JwtTokenVerifier.JwtVerificationException;
+import io.pravah.test.security.TestJwtIssuer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,22 +24,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @ExtendWith(MockitoExtension.class)
-class TenantFilterTest {
-
-  private static final String SECRET =
-      "test-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm";
+class ApiTenantJwtFilterTest {
 
   @Mock private HttpServletRequest request;
   @Mock private HttpServletResponse response;
   @Mock private FilterChain filterChain;
+  @Mock private JwtTokenVerifier jwtTokenVerifier;
 
-  private JwtTokenProvider jwtTokenProvider;
-  private TenantFilter tenantFilter;
+  private ApiTenantJwtFilter apiTenantJwtFilter;
+  private TestJwtIssuer testJwtIssuer;
 
   @BeforeEach
   void setUp() {
-    jwtTokenProvider = new JwtTokenProvider(SECRET, 3600000, 86400000);
-    tenantFilter = new TenantFilter(jwtTokenProvider);
+    testJwtIssuer = new TestJwtIssuer();
+    apiTenantJwtFilter = new ApiTenantJwtFilter(jwtTokenVerifier);
     TenantContext.clear();
     SecurityContextHolder.clearContext();
   }
@@ -49,33 +51,36 @@ class TenantFilterTest {
   @Test
   void shouldNotFilter_nonApiPath_returnsTrue() {
     when(request.getRequestURI()).thenReturn("/actuator/health");
-    assertThat(tenantFilter.shouldNotFilter(request)).isTrue();
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
 
     when(request.getRequestURI()).thenReturn("/actuator/info");
-    assertThat(tenantFilter.shouldNotFilter(request)).isTrue();
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
 
     when(request.getRequestURI()).thenReturn("/");
-    assertThat(tenantFilter.shouldNotFilter(request)).isTrue();
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
   }
 
   @Test
   void shouldNotFilter_apiPath_returnsFalse() {
     when(request.getRequestURI()).thenReturn("/api/v1/pipelines");
-    assertThat(tenantFilter.shouldNotFilter(request)).isFalse();
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isFalse();
 
     when(request.getRequestURI()).thenReturn("/api/v1/users");
-    assertThat(tenantFilter.shouldNotFilter(request)).isFalse();
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isFalse();
   }
 
   @Test
   void doFilterInternal_validToken_setsTenantContextAndContinues() throws Exception {
     UUID userId = UUID.randomUUID();
     UUID tenantId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "e@e.com", "Name");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+    JwtClaims claims =
+        new JwtClaims(userId, tenantId, "jti", Instant.now(), Instant.now().plusSeconds(900));
 
     when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+    when(jwtTokenVerifier.validateAndGetClaims(token)).thenReturn(claims);
 
-    tenantFilter.doFilterInternal(request, response, filterChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, filterChain);
 
     verify(filterChain).doFilter(request, response);
     verify(response, never())
@@ -86,7 +91,7 @@ class TenantFilterTest {
   void doFilterInternal_missingAuthorizationHeader_returns401() throws Exception {
     when(request.getHeader("Authorization")).thenReturn(null);
 
-    tenantFilter.doFilterInternal(request, response, filterChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, filterChain);
 
     verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing bearer token");
     verify(filterChain, never()).doFilter(request, response);
@@ -96,7 +101,7 @@ class TenantFilterTest {
   void doFilterInternal_emptyBearerToken_returns401() throws Exception {
     when(request.getHeader("Authorization")).thenReturn("Bearer ");
 
-    tenantFilter.doFilterInternal(request, response, filterChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, filterChain);
 
     verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing bearer token");
     verify(filterChain, never()).doFilter(request, response);
@@ -105,23 +110,12 @@ class TenantFilterTest {
   @Test
   void doFilterInternal_invalidToken_returns401() throws Exception {
     when(request.getHeader("Authorization")).thenReturn("Bearer invalid.token.here");
+    when(jwtTokenVerifier.validateAndGetClaims("invalid.token.here"))
+        .thenThrow(new JwtVerificationException("Invalid token"));
 
-    tenantFilter.doFilterInternal(request, response, filterChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, filterChain);
 
     verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid bearer token");
-    verify(filterChain, never()).doFilter(request, response);
-  }
-
-  @Test
-  void doFilterInternal_tokenWithoutTenantId_returns401() throws Exception {
-    String refreshToken = jwtTokenProvider.generateRefreshToken(UUID.randomUUID());
-
-    when(request.getHeader("Authorization")).thenReturn("Bearer " + refreshToken);
-
-    tenantFilter.doFilterInternal(request, response, filterChain);
-
-    verify(response)
-        .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token missing tenant_id claim");
     verify(filterChain, never()).doFilter(request, response);
   }
 
@@ -129,7 +123,7 @@ class TenantFilterTest {
   void doFilterInternal_wrongAuthorizationScheme_returns401() throws Exception {
     when(request.getHeader("Authorization")).thenReturn("Basic dXNlcjpwYXNz");
 
-    tenantFilter.doFilterInternal(request, response, filterChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, filterChain);
 
     verify(response).sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing bearer token");
     verify(filterChain, never()).doFilter(request, response);
@@ -139,9 +133,12 @@ class TenantFilterTest {
   void doFilterInternal_clearsContextInFinally() throws Exception {
     UUID userId = UUID.randomUUID();
     UUID tenantId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "e@e.com", "Name");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+    JwtClaims claims =
+        new JwtClaims(userId, tenantId, "jti", Instant.now(), Instant.now().plusSeconds(900));
 
     when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+    when(jwtTokenVerifier.validateAndGetClaims(token)).thenReturn(claims);
 
     FilterChain throwingChain =
         mock(
@@ -153,7 +150,7 @@ class TenantFilterTest {
             });
 
     try {
-      tenantFilter.doFilterInternal(request, response, throwingChain);
+      apiTenantJwtFilter.doFilterInternal(request, response, throwingChain);
     } catch (RuntimeException e) {
       // Expected
     }
@@ -167,9 +164,12 @@ class TenantFilterTest {
   void doFilterInternal_setsSecurityContextAuthentication() throws Exception {
     UUID userId = UUID.randomUUID();
     UUID tenantId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "e@e.com", "Name");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+    JwtClaims claims =
+        new JwtClaims(userId, tenantId, "jti", Instant.now(), Instant.now().plusSeconds(900));
 
     when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
+    when(jwtTokenVerifier.validateAndGetClaims(token)).thenReturn(claims);
 
     FilterChain verifyingChain =
         (req, res) -> {
@@ -180,6 +180,6 @@ class TenantFilterTest {
           assertThat(auth.getAuthorities().iterator().next().getAuthority()).isEqualTo("ROLE_USER");
         };
 
-    tenantFilter.doFilterInternal(request, response, verifyingChain);
+    apiTenantJwtFilter.doFilterInternal(request, response, verifyingChain);
   }
 }

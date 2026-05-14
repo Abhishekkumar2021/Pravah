@@ -1,17 +1,16 @@
-package io.pravah.pipeline.infrastructure.security;
+package io.pravah.spring.security;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
+import io.pravah.spring.security.JwtTokenVerifier.JwtVerificationException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -22,20 +21,29 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Validates JWT for {@code /api/**} and sets {@link TenantContext} plus Spring Security context.
+ * Requires a valid Bearer JWT for {@code /api/**}, populates {@link TenantContext} and Spring
+ * {@code SecurityContext}.
+ *
+ * <p>Per ADR-009, tokens are validated using RS256 with public keys fetched from the JWKS endpoint.
+ *
+ * <p>Services that expose public or mixed-auth routes (e.g. registration) should not use this
+ * filter for those paths — use a service-specific filter instead.
+ *
+ * @see JwtTokenVerifier
+ * @see io.pravah.spring.multitenancy.TenantContext
  */
 @Component
 @Order(1)
-public class TenantFilter extends OncePerRequestFilter {
+public class ApiTenantJwtFilter extends OncePerRequestFilter {
 
-  private static final Logger log = LoggerFactory.getLogger(TenantFilter.class);
+  private static final Logger log = LoggerFactory.getLogger(ApiTenantJwtFilter.class);
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String BEARER_PREFIX = "Bearer ";
 
-  private final JwtTokenProvider jwtTokenProvider;
+  private final JwtTokenVerifier jwtTokenVerifier;
 
-  public TenantFilter(JwtTokenProvider jwtTokenProvider) {
-    this.jwtTokenProvider = jwtTokenProvider;
+  public ApiTenantJwtFilter(JwtTokenVerifier jwtTokenVerifier) {
+    this.jwtTokenVerifier = jwtTokenVerifier;
   }
 
   @Override
@@ -54,29 +62,30 @@ public class TenantFilter extends OncePerRequestFilter {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing bearer token");
         return;
       }
-      Claims claims;
+
+      JwtClaims claims;
       try {
-        claims = jwtTokenProvider.validateAndGetClaims(token);
-      } catch (JwtException | IllegalArgumentException e) {
-        log.debug("JWT validation failed: {}", e.getMessage());
+        claims = jwtTokenVerifier.validateAndGetClaims(token);
+      } catch (JwtVerificationException e) {
+        log.debug("JWT validation failed", kv("error", e.getMessage()));
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid bearer token");
         return;
       }
-      UUID userId = jwtTokenProvider.getUserIdFromClaims(claims);
-      UUID tenantId = jwtTokenProvider.getTenantIdFromClaims(claims);
-      if (tenantId == null) {
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token missing tenant_id claim");
-        return;
-      }
-      TenantContext.setCurrentUserId(userId);
-      TenantContext.setCurrentTenantId(tenantId);
+
+      TenantContext.setCurrentUserId(claims.userId());
+      TenantContext.setCurrentTenantId(claims.tenantId());
+
       var authentication =
           new UsernamePasswordAuthenticationToken(
-              userId.toString(),
+              claims.userId().toString(),
               null,
               Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
       SecurityContextHolder.getContext().setAuthentication(authentication);
-      log.debug("Authenticated request", kv("user_id", userId), kv("tenant_id", tenantId));
+
+      log.debug(
+          "Authenticated request",
+          kv("user_id", claims.userId()),
+          kv("tenant_id", claims.tenantId()));
       filterChain.doFilter(request, response);
     } finally {
       TenantContext.clear();
