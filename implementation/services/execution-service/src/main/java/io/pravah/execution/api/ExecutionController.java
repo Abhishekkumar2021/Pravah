@@ -2,10 +2,14 @@ package io.pravah.execution.api;
 
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
+import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.application.ExecutionApplicationService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -29,5 +33,10 @@ public class ExecutionController {
       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
       @Valid @RequestBody CreateExecutionRequest request) {
     return executionApplicationService.startManualExecution(request, authorization);
+  }
+
+  @GetMapping("/{id}")
+  public GetExecutionResponse get(@PathVariable UUID id) {
+    return executionApplicationService.getExecution(id);
   }
 }

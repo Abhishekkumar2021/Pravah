@@ -1,0 +1,37 @@
+package io.pravah.execution.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+class StagePlannerTest {
+
+  @Test
+  void plan_emptyStages_returnsEmpty() {
+    assertThat(StagePlanner.plan(Map.of("stages", List.of()))).isEmpty();
+  }
+
+  @Test
+  void plan_missingStagesKey_returnsEmpty() {
+    assertThat(StagePlanner.plan(Map.of("other", List.of()))).isEmpty();
+  }
+
+  @Test
+  void plan_mapsStageIdAndName() {
+    List<StagePlanner.PlannedJob> jobs =
+        StagePlanner.plan(
+            Map.of(
+                "stages",
+                List.of(
+                    Map.of("id", "extract", "name", "Extract"),
+                    Map.of("id", "load", "type", "sql"))));
+
+    assertThat(jobs).hasSize(2);
+    assertThat(jobs.get(0).stageId()).isEqualTo("extract");
+    assertThat(jobs.get(0).stageName()).isEqualTo("Extract");
+    assertThat(jobs.get(1).stageId()).isEqualTo("load");
+    assertThat(jobs.get(1).stageName()).isEqualTo("load");
+  }
+}

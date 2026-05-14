@@ -2,8 +2,10 @@ package io.pravah.execution.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
+import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -126,6 +128,52 @@ public class ExecutionApplicationService {
         execution.getPipelineVersion(),
         execution.getStatus().asDatabaseValue(),
         jobResponses);
+  }
+
+  /**
+   * Returns an execution and its jobs for the current tenant (RLS-enforced).
+   *
+   * <p>Also verifies {@link ExecutionEntity#getTenantId()} matches {@link TenantContext} so tenant
+   * isolation holds when the DB role bypasses RLS (e.g. PostgreSQL superuser in local tests).
+   *
+   * @param executionId the execution id
+   * @return execution details
+   * @throws EntityNotFoundException if not found or not visible for this tenant
+   */
+  @Transactional(readOnly = true)
+  public GetExecutionResponse getExecution(UUID executionId) {
+    UUID tenantId = requireTenantId();
+    ExecutionEntity execution =
+        executionEntityRepository
+            .findById(executionId)
+            .orElseThrow(() -> new EntityNotFoundException("Execution", executionId));
+
+    if (!execution.getTenantId().equals(tenantId)) {
+      throw new EntityNotFoundException("Execution", executionId);
+    }
+
+    List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
+    List<GetExecutionResponse.JobSummary> jobSummaries =
+        jobs.stream()
+            .map(
+                j ->
+                    new GetExecutionResponse.JobSummary(
+                        j.getId(),
+                        j.getStageId(),
+                        j.getStageName(),
+                        j.getStatus().asDatabaseValue(),
+                        j.getAttempt()))
+            .toList();
+
+    return new GetExecutionResponse(
+        execution.getId(),
+        execution.getPipelineId(),
+        execution.getPipelineVersion(),
+        execution.getStatus().asDatabaseValue(),
+        execution.getTriggerType(),
+        execution.getTriggeredBy(),
+        execution.getCreatedAt(),
+        jobSummaries);
   }
 
   private static UUID requireTenantId() {
