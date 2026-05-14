@@ -47,6 +47,8 @@ server:
   port: 8084
 
 pravah:
+  job:
+    max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
   security:
     jwt:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}

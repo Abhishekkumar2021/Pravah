@@ -229,6 +229,7 @@ classDiagram
         -TriggerType triggerType
         -UserId triggeredBy
         -Map~String,Object~ parameters
+        -Map~String,Object~ definitionSnapshot
         -List~Job~ jobs
         -Instant startedAt
         -Instant completedAt
