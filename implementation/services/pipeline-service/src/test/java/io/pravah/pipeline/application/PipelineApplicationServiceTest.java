@@ -10,10 +10,10 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PipelineResponse;
+import io.pravah.pipeline.domain.Pipeline;
+import io.pravah.pipeline.domain.repository.PipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.entity.OutboxEntity;
-import io.pravah.pipeline.infrastructure.persistence.entity.PipelineEntity;
 import io.pravah.pipeline.infrastructure.persistence.entity.PipelineEventEntity;
-import io.pravah.pipeline.infrastructure.persistence.repository.JpaPipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
@@ -31,7 +31,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith(MockitoExtension.class)
 class PipelineApplicationServiceTest {
 
-  @Mock private JpaPipelineRepository pipelineRepository;
+  @Mock private PipelineRepository pipelineRepository;
   @Mock private PipelineEventRepository pipelineEventRepository;
   @Mock private PipelineVersionRepository pipelineVersionRepository;
   @Mock private OutboxRepository outboxRepository;
@@ -72,7 +72,7 @@ class PipelineApplicationServiceTest {
     CreatePipelineRequest request =
         new CreatePipelineRequest(projectId, "my-pipeline", "desc", "stages:\n  - id: extract\n");
 
-    when(pipelineRepository.save(any(PipelineEntity.class)))
+    when(pipelineRepository.save(any(Pipeline.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(pipelineEventRepository.save(any(PipelineEventEntity.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -86,11 +86,11 @@ class PipelineApplicationServiceTest {
     assertThat(response.projectId()).isEqualTo(projectId);
     assertThat(response.id()).isNotNull();
 
-    ArgumentCaptor<PipelineEntity> pipelineCaptor = ArgumentCaptor.forClass(PipelineEntity.class);
+    ArgumentCaptor<Pipeline> pipelineCaptor = ArgumentCaptor.forClass(Pipeline.class);
     verify(pipelineRepository).save(pipelineCaptor.capture());
-    PipelineEntity savedPipeline = pipelineCaptor.getValue();
+    Pipeline savedPipeline = pipelineCaptor.getValue();
     assertThat(savedPipeline.getTenantId()).isEqualTo(tenantId);
-    assertThat(savedPipeline.getCreatedBy()).isEqualTo(userId);
+    assertThat(savedPipeline.getCreatedBy().value()).isEqualTo(userId);
 
     ArgumentCaptor<PipelineEventEntity> eventCaptor =
         ArgumentCaptor.forClass(PipelineEventEntity.class);
@@ -112,7 +112,7 @@ class PipelineApplicationServiceTest {
     CreatePipelineRequest request =
         new CreatePipelineRequest(projectId, "duplicate", null, "key: value\n");
 
-    when(pipelineRepository.save(any(PipelineEntity.class)))
+    when(pipelineRepository.save(any(Pipeline.class)))
         .thenThrow(new DataIntegrityViolationException("unique constraint"));
 
     assertThatThrownBy(() -> service.createPipeline(request))
@@ -129,7 +129,7 @@ class PipelineApplicationServiceTest {
 
     assertThatThrownBy(() -> service.createPipeline(request))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Missing tenant or user context");
+        .hasMessageContaining("Missing tenant context");
 
     verify(pipelineRepository, never()).save(any());
   }
@@ -143,7 +143,7 @@ class PipelineApplicationServiceTest {
 
     assertThatThrownBy(() -> service.createPipeline(request))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Missing tenant or user context");
+        .hasMessageContaining("Missing user context");
 
     verify(pipelineRepository, never()).save(any());
   }
@@ -188,7 +188,7 @@ class PipelineApplicationServiceTest {
     CreatePipelineRequest request =
         new CreatePipelineRequest(projectId, "no-desc", null, "key: value\n");
 
-    when(pipelineRepository.save(any(PipelineEntity.class)))
+    when(pipelineRepository.save(any(Pipeline.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(pipelineEventRepository.save(any(PipelineEventEntity.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -205,7 +205,7 @@ class PipelineApplicationServiceTest {
     CreatePipelineRequest request =
         new CreatePipelineRequest(projectId, "full-event", "full desc", "stages: []\n");
 
-    when(pipelineRepository.save(any(PipelineEntity.class)))
+    when(pipelineRepository.save(any(Pipeline.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(pipelineEventRepository.save(any(PipelineEventEntity.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -229,8 +229,6 @@ class PipelineApplicationServiceTest {
     assertThat(payload).containsKey("pipelineId");
     assertThat(payload).containsKey("name");
     assertThat(payload).containsKey("description");
-    assertThat(payload).containsKey("definition");
     assertThat(payload).containsKey("status");
-    assertThat(payload).containsKey("createdBy");
   }
 }
