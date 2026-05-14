@@ -17,17 +17,51 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 @Configuration
 @EnableKafka
-@ConditionalOnProperty(
-    name = "pravah.kafka.execution-created-listener-enabled",
-    havingValue = "true",
-    matchIfMissing = true)
 public class ExecutionKafkaConsumerConfiguration {
 
   @Bean
+  @ConditionalOnProperty(
+      name = "pravah.kafka.execution-created-listener-enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   @SuppressWarnings("unchecked")
-  public ConsumerFactory<String, Map<String, Object>> executionKafkaConsumerFactory(
+  public ConsumerFactory<String, Map<String, Object>> executionEventsKafkaConsumerFactory(
       @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
       @Value("${spring.kafka.consumer.group-id}") String groupId) {
+    return jsonMapConsumerFactory(bootstrapServers, groupId);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "pravah.kafka.execution-created-listener-enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
+      executionKafkaListenerContainerFactory(
+          ConsumerFactory<String, Map<String, Object>> executionEventsKafkaConsumerFactory) {
+    return manualAckFactory(executionEventsKafkaConsumerFactory);
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "pravah.kafka.job-worker-listener-enabled", havingValue = "true")
+  @SuppressWarnings("unchecked")
+  public ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory(
+      @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+      @Value("${pravah.kafka.job-worker.consumer-group-id}") String groupId) {
+    return jsonMapConsumerFactory(bootstrapServers, groupId);
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "pravah.kafka.job-worker-listener-enabled", havingValue = "true")
+  public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
+      jobWorkerKafkaListenerContainerFactory(
+          ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory) {
+    return manualAckFactory(jobWorkerKafkaConsumerFactory);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ConsumerFactory<String, Map<String, Object>> jsonMapConsumerFactory(
+      String bootstrapServers, String groupId) {
     Map<String, Object> props = new HashMap<>();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -41,13 +75,11 @@ public class ExecutionKafkaConsumerConfiguration {
     return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), jsonDeserializer);
   }
 
-  @Bean
-  public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
-      executionKafkaListenerContainerFactory(
-          ConsumerFactory<String, Map<String, Object>> executionKafkaConsumerFactory) {
+  private static ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
+      manualAckFactory(ConsumerFactory<String, Map<String, Object>> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(executionKafkaConsumerFactory);
+    factory.setConsumerFactory(consumerFactory);
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
     return factory;
   }

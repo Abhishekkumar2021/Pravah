@@ -22,7 +22,8 @@ import org.springframework.test.context.TestPropertySource;
     properties = {
       "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
       "pravah.outbox.relay.enabled=false",
-      "pravah.kafka.execution-created-listener-enabled=false"
+      "pravah.kafka.execution-created-listener-enabled=false",
+      "pravah.kafka.job-worker-listener-enabled=false"
     })
 public abstract class AbstractExecutionPostgresIT {
 
