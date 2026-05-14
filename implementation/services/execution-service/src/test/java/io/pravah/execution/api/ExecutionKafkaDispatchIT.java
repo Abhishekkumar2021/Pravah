@@ -57,6 +57,8 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 @TestPropertySource(
     properties = {
+      // application.yml excludes Kafka auto-config for faster ITs; this test needs KafkaTemplate.
+      "spring.autoconfigure.exclude=",
       "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
       "spring.kafka.consumer.group-id=execution-service-kafka-it",
       "pravah.outbox.relay.enabled=false",
