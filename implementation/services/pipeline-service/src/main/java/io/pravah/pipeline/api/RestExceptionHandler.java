@@ -1,5 +1,7 @@
 package io.pravah.pipeline.api;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.common.exception.PravahException;
@@ -20,7 +22,10 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(EntityNotFoundException.class)
   public ProblemDetail notFound(EntityNotFoundException ex) {
-    log.debug("Entity not found: {} with ID {}", ex.getEntityType(), ex.getEntityId());
+    log.debug(
+        "Entity not found",
+        kv("entity_type", ex.getEntityType()),
+        kv("entity_id", ex.getEntityId()));
     ProblemDetail pd =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
@@ -34,7 +39,7 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(InvalidStateTransitionException.class)
   public ProblemDetail invalidTransition(InvalidStateTransitionException ex) {
-    log.debug("Invalid state transition: {}", ex.getMessage());
+    log.debug("Invalid state transition", kv("message", ex.getMessage()));
     ProblemDetail pd =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
@@ -50,7 +55,8 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(PravahException.class)
   public ProblemDetail pravahException(PravahException ex) {
-    log.debug("Pravah exception: {} - {}", ex.getErrorCode(), ex.getMessage());
+    log.debug(
+        "Pravah exception", kv("error_code", ex.getErrorCode()), kv("message", ex.getMessage()));
     ProblemDetail pd =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
@@ -62,7 +68,7 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(DuplicatePipelineNameException.class)
   public ProblemDetail conflict(DuplicatePipelineNameException ex) {
-    log.debug("Conflict: {}", ex.getMessage());
+    log.debug("Conflict", kv("message", ex.getMessage()));
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     pd.setTitle("Conflict");
     pd.setType(URI.create("about:blank"));
@@ -71,7 +77,7 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail badRequest(IllegalArgumentException ex) {
-    log.debug("Bad request: {}", ex.getMessage());
+    log.debug("Bad request", kv("message", ex.getMessage()));
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     pd.setTitle("Bad Request");
     pd.setType(URI.create("about:blank"));
@@ -85,7 +91,7 @@ public class RestExceptionHandler {
             .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
             .findFirst()
             .orElse("Validation failed");
-    log.debug("Validation error: {}", msg);
+    log.debug("Validation error", kv("message", msg));
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, msg);
     pd.setTitle("Validation Error");
     pd.setType(URI.create("about:blank"));
@@ -94,7 +100,7 @@ public class RestExceptionHandler {
 
   @ExceptionHandler(IllegalStateException.class)
   public ProblemDetail server(IllegalStateException ex) {
-    log.error("Internal server error", ex);
+    log.error("Internal server error", kv("message", ex.getMessage()), ex);
     ProblemDetail pd =
         ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     pd.setTitle("Internal Error");

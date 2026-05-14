@@ -3,12 +3,14 @@ package io.pravah.tenant.infrastructure.security;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.spring.security.JwtTokenVerifier;
+import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
+import io.pravah.spring.security.JwtTokenVerifier.JwtVerificationException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -22,8 +24,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <ul>
  *   <li>Extracts the JWT from the Authorization header
- *   <li>Validates the token and extracts tenant_id claim
- *   <li>Populates TenantContext for the request thread
+ *   <li>Validates the RS256 token using public key from JWKS
+ *   <li>Extracts tenant_id claim and populates TenantContext
  *   <li>Clears TenantContext after request completes
  * </ul>
  *
@@ -40,10 +42,10 @@ public class TenantFilter extends OncePerRequestFilter {
   private static final String AUTHORIZATION_HEADER = "Authorization";
   private static final String BEARER_PREFIX = "Bearer ";
 
-  private final JwtTokenProvider jwtTokenProvider;
+  private final JwtTokenVerifier jwtTokenVerifier;
 
-  public TenantFilter(JwtTokenProvider jwtTokenProvider) {
-    this.jwtTokenProvider = jwtTokenProvider;
+  public TenantFilter(JwtTokenVerifier jwtTokenVerifier) {
+    this.jwtTokenVerifier = jwtTokenVerifier;
   }
 
   @Override
@@ -53,14 +55,18 @@ public class TenantFilter extends OncePerRequestFilter {
     try {
       String token = extractToken(request);
 
-      if (token != null && jwtTokenProvider.isValidToken(token)) {
-        UUID userId = jwtTokenProvider.getUserId(token);
-        UUID tenantId = jwtTokenProvider.getTenantId(token);
-
-        TenantContext.setCurrentUserId(userId);
-        TenantContext.setCurrentTenantId(tenantId);
-
-        log.debug("Set tenant context from JWT", kv("user_id", userId), kv("tenant_id", tenantId));
+      if (token != null) {
+        try {
+          JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(token);
+          TenantContext.setCurrentUserId(claims.userId());
+          TenantContext.setCurrentTenantId(claims.tenantId());
+          log.debug(
+              "Set tenant context from JWT",
+              kv("user_id", claims.userId()),
+              kv("tenant_id", claims.tenantId()));
+        } catch (JwtVerificationException e) {
+          log.debug("JWT verification failed", kv("error", e.getMessage()));
+        }
       }
 
       filterChain.doFilter(request, response);

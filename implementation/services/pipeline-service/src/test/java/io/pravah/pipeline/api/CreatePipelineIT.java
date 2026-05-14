@@ -12,25 +12,28 @@ import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.infrastructure.persistence.repository.JpaPipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
-import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.test.security.TestJwtIssuer;
+import io.pravah.test.security.TestSecurityConfiguration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
+@Import(TestSecurityConfiguration.class)
 class CreatePipelineIT extends AbstractPipelinePostgresIT {
 
   @Autowired private MockMvc mockMvc;
 
   @Autowired private ObjectMapper objectMapper;
 
-  @Autowired private JwtTokenProvider jwtTokenProvider;
+  @Autowired private TestJwtIssuer testJwtIssuer;
 
   @Autowired private JpaPipelineRepository pipelineRepository;
 
@@ -43,7 +46,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(
@@ -74,7 +77,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body = new CreatePipelineRequest(projectId, "dup", null, "key: value\n");
 
@@ -99,7 +102,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void invalidYamlReturns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(UUID.randomUUID(), "bad-yaml", null, "- not-a-mapping-root\n");
@@ -144,7 +147,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void missingProjectIdReturns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     String bodyJson = "{\"name\": \"test\", \"definitionYaml\": \"key: value\\n\"}";
 
@@ -162,7 +165,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void blankNameReturns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(UUID.randomUUID(), "   ", null, "key: value\n");
@@ -180,7 +183,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void blankDefinitionYamlReturns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body = new CreatePipelineRequest(UUID.randomUUID(), "test", null, "   ");
 
@@ -197,7 +200,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void emptyYamlReturns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(UUID.randomUUID(), "empty-yaml", null, "");
@@ -219,8 +222,8 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     UUID userB = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
 
-    String tokenA = jwtTokenProvider.generateAccessToken(userA, tenantA, "a@example.com", "User A");
-    String tokenB = jwtTokenProvider.generateAccessToken(userB, tenantB, "b@example.com", "User B");
+    String tokenA = testJwtIssuer.generateAccessToken(userA, tenantA);
+    String tokenB = testJwtIssuer.generateAccessToken(userB, tenantB);
 
     CreatePipelineRequest bodyA =
         new CreatePipelineRequest(projectId, "tenant-a-pipeline", null, "key: a\n");
@@ -262,7 +265,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     UUID userId = UUID.randomUUID();
     UUID projectA = UUID.randomUUID();
     UUID projectB = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest bodyA =
         new CreatePipelineRequest(projectA, "same-name", null, "key: a\n");
@@ -291,7 +294,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(projectId, "full-response", "test desc", "key: value\n");
@@ -317,7 +320,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void validateDefinition_validYaml_returns200() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     ValidatePipelineRequest body =
         new ValidatePipelineRequest("stages:\n  - id: extract\n    type: sql\n");
@@ -336,7 +339,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void validateDefinition_invalidYaml_returns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     ValidatePipelineRequest body = new ValidatePipelineRequest(":\ninvalid");
 
@@ -353,7 +356,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void validateDefinition_notMappingRoot_returns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     ValidatePipelineRequest body = new ValidatePipelineRequest("- a\n- b\n");
 
@@ -382,7 +385,7 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   void validateDefinition_blankYaml_returns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     ValidatePipelineRequest body = new ValidatePipelineRequest("");
 

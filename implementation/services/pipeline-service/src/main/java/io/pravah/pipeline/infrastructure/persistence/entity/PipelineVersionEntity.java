@@ -1,5 +1,6 @@
 package io.pravah.pipeline.infrastructure.persistence.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,7 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -29,7 +29,7 @@ public class PipelineVersionEntity {
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(nullable = false, columnDefinition = "jsonb")
-  private Map<String, Object> definition;
+  private JsonNode definition;
 
   @Column(name = "published_at", nullable = false)
   private Instant publishedAt;
@@ -40,11 +40,7 @@ public class PipelineVersionEntity {
   protected PipelineVersionEntity() {}
 
   public PipelineVersionEntity(
-      UUID pipelineId,
-      int version,
-      Map<String, Object> definition,
-      Instant publishedAt,
-      UUID publishedBy) {
+      UUID pipelineId, int version, JsonNode definition, Instant publishedAt, UUID publishedBy) {
     this.pipelineId = pipelineId;
     this.version = version;
     this.definition = definition;
@@ -64,7 +60,7 @@ public class PipelineVersionEntity {
     return version;
   }
 
-  public Map<String, Object> getDefinition() {
+  public JsonNode getDefinition() {
     return definition;
   }
 

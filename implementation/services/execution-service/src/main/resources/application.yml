@@ -1,43 +1,44 @@
 spring:
   application:
     name: execution-service
-  
+
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
   datasource:
     url: jdbc:postgresql://localhost:5432/pravah_execution
     username: ${DB_USERNAME:pravah}
     password: ${DB_PASSWORD:pravah}
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-  
+      maximum-pool-size: 10
+      minimum-idle: 2
+
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-  
+    properties:
+      hibernate:
+        default_schema: public
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
   flyway:
     enabled: true
     locations: classpath:db/migration
-  
+    schemas: public
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    consumer:
-      group-id: execution-service
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: io.pravah.common.event
-
-grpc:
-  server:
-    port: 9090
 
 server:
   port: 8084
+
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
+  pipeline-service:
+    base-url: ${PIPELINE_SERVICE_BASE_URL:http://localhost:8083}
 
 management:
   endpoints:

@@ -30,6 +30,7 @@ logstash-logback = "7.4"
 
 # Security
 jwt = "0.12.6"
+nimbus-jose-jwt = "9.47"
 bouncycastle = "1.79"
 
 # Serialization (align with Spring Boot 3.4 managed Jackson where possible)
@@ -116,6 +117,7 @@ logstash-logback-encoder = { module = "net.logstash.logback:logstash-logback-enc
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jwt" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-bcpkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 

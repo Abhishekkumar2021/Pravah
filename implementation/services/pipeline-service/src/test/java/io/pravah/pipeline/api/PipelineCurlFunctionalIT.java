@@ -6,7 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
-import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
+import io.pravah.test.security.TestJwtIssuer;
+import io.pravah.test.security.TestSecurityConfiguration;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,16 +22,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
+@Import(TestSecurityConfiguration.class)
 class PipelineCurlFunctionalIT extends AbstractPipelinePostgresIT {
 
   private record CurlResult(int httpCode, String body) {}
 
   @LocalServerPort private int port;
 
-  @Autowired private JwtTokenProvider jwtTokenProvider;
+  @Autowired private TestJwtIssuer testJwtIssuer;
 
   @Autowired private ObjectMapper objectMapper;
 
@@ -92,7 +95,7 @@ class PipelineCurlFunctionalIT extends AbstractPipelinePostgresIT {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID projectId = UUID.randomUUID();
-    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreatePipelineRequest createReq =
         new CreatePipelineRequest(projectId, "curl-pipeline", null, "key: value\n");

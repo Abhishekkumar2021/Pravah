@@ -14,6 +14,7 @@ description = "Pravah Test Support - Shared test utilities and fixtures"
 
 dependencies {
     api(project(":libs:common"))
+    api(project(":libs:spring-support"))
 
     // Propagate Spring Boot + Testcontainers BOMs to consumers (e.g. :runner) so api() deps keep versions.
     // Spring Boot BOM pins Testcontainers 1.20.x; enforced Testcontainers BOM aligns with libs.versions.toml
@@ -31,4 +32,7 @@ dependencies {
 
     api(libs.awaitility)
     api(libs.datafaker)
+
+    // RS256 JWT token generation for integration tests (ADR-009)
+    api(libs.nimbus.jose.jwt)
 }

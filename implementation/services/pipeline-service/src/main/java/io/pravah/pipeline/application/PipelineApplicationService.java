@@ -12,6 +12,7 @@ import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PipelineDetailResponse;
 import io.pravah.pipeline.api.dto.PipelineListResponse;
 import io.pravah.pipeline.api.dto.PipelineResponse;
+import io.pravah.pipeline.api.dto.PipelineVersionDefinitionResponse;
 import io.pravah.pipeline.api.dto.UpdatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
@@ -147,6 +148,29 @@ public class PipelineApplicationService {
   }
 
   @Transactional(readOnly = true)
+  public PipelineVersionDefinitionResponse getPublishedVersionDefinition(
+      UUID pipelineId, int version) {
+    requireTenantId();
+    requireUserId();
+
+    findPipelineOrThrow(PipelineId.of(pipelineId));
+
+    PipelineVersionEntity entity =
+        pipelineVersionRepository
+            .findByPipelineIdAndVersion(pipelineId, version)
+            .orElseThrow(
+                () -> new EntityNotFoundException("PipelineVersion", pipelineId + ":v" + version));
+
+    return new PipelineVersionDefinitionResponse(
+        pipelineId,
+        entity.getVersion(),
+        objectMapper.convertValue(
+            entity.getDefinition(), new TypeReference<Map<String, Object>>() {}),
+        entity.getPublishedAt(),
+        entity.getPublishedBy());
+  }
+
+  @Transactional(readOnly = true)
   public PipelineDetailResponse getPipeline(UUID pipelineId) {
     UUID tenantId = requireTenantId();
 
@@ -266,6 +290,7 @@ public class PipelineApplicationService {
     Pipeline pipeline = findPipelineOrThrow(PipelineId.of(pipelineId));
 
     Map<String, Object> definition = parseYamlDefinition(definitionYaml);
+    var definitionJson = objectMapper.valueToTree(definition);
 
     int newVersion = pipeline.publish(userId);
 
@@ -273,7 +298,7 @@ public class PipelineApplicationService {
 
     PipelineVersionEntity version =
         new PipelineVersionEntity(
-            pipelineId, newVersion, definition, pipeline.getUpdatedAt(), userId.value());
+            pipelineId, newVersion, definitionJson, pipeline.getUpdatedAt(), userId.value());
 
     pipeline = pipelineRepository.save(pipeline);
     pipelineVersionRepository.save(version);
