@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
 import io.pravah.pipeline.api.dto.PipelineResponse;
+import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
 import io.pravah.pipeline.domain.Pipeline;
 import io.pravah.pipeline.domain.repository.PipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.entity.OutboxEntity;
@@ -202,6 +204,41 @@ class PipelineApplicationServiceTest {
     PipelineResponse response = service.createPipeline(request);
 
     assertThat(response.description()).isNull();
+  }
+
+  @Test
+  void validatePipelineDefinition_validYaml_returnsValid() {
+    ValidatePipelineRequest request = new ValidatePipelineRequest("stages: []\n");
+
+    ValidatePipelineResponse response = service.validatePipelineDefinition(request);
+
+    assertThat(response.valid()).isTrue();
+    verify(pipelineRepository, never()).save(any());
+    verify(entityManager, never()).flush();
+  }
+
+  @Test
+  void validatePipelineDefinition_invalidYaml_throwsIllegalArgumentException() {
+    ValidatePipelineRequest request = new ValidatePipelineRequest(":\nbad");
+
+    assertThatThrownBy(() -> service.validatePipelineDefinition(request))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Invalid YAML");
+
+    verify(pipelineRepository, never()).save(any());
+  }
+
+  @Test
+  void validatePipelineDefinition_missingTenantContext_throwsIllegalStateException() {
+    TenantContext.clear();
+    TenantContext.setCurrentUserId(userId);
+    ValidatePipelineRequest request = new ValidatePipelineRequest("key: value\n");
+
+    assertThatThrownBy(() -> service.validatePipelineDefinition(request))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Missing tenant context");
+
+    verify(pipelineRepository, never()).save(any());
   }
 
   @Test

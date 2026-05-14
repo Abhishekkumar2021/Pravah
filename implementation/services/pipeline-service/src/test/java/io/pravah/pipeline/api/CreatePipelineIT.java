@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
+import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.infrastructure.persistence.repository.JpaPipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
@@ -365,5 +366,87 @@ class CreatePipelineIT {
         .andExpect(jsonPath("$.status").value("draft"))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.updatedAt").exists());
+  }
+
+  @Test
+  void validateDefinition_validYaml_returns200() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body =
+        new ValidatePipelineRequest("stages:\n  - id: extract\n    type: sql\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.valid").value(true));
+  }
+
+  @Test
+  void validateDefinition_invalidYaml_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest(":\ninvalid");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void validateDefinition_notMappingRoot_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest("- a\n- b\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void validateDefinition_missingAuth_returns401() throws Exception {
+    ValidatePipelineRequest body = new ValidatePipelineRequest("key: value\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void validateDefinition_blankYaml_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = jwtTokenProvider.generateAccessToken(userId, tenantId, "u@example.com", "User");
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest("");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
   }
 }
