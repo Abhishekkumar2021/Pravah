@@ -38,9 +38,16 @@ public class JpaPipelineRepositoryAdapter implements PipelineRepository {
 
   @Override
   public Pipeline save(Pipeline pipeline) {
-    PipelineEntity entity = toEntity(pipeline);
-    PipelineEntity saved = jpaRepository.save(entity);
-    return toDomain(saved);
+    PipelineEntity entity =
+        jpaRepository
+            .findByIdAndTenantId(pipeline.getId().value(), pipeline.getTenantId())
+            .map(
+                existing -> {
+                  applyPipelineFields(existing, pipeline);
+                  return existing;
+                })
+            .orElseGet(() -> toEntity(pipeline));
+    return toDomain(jpaRepository.save(entity));
   }
 
   @Override
@@ -96,5 +103,13 @@ public class JpaPipelineRepositoryAdapter implements PipelineRepository {
         pipeline.getCreatedAt(),
         pipeline.getUpdatedAt(),
         pipeline.getCreatedBy().value());
+  }
+
+  private void applyPipelineFields(PipelineEntity entity, Pipeline pipeline) {
+    entity.setName(pipeline.getName());
+    entity.setDescription(pipeline.getDescription());
+    entity.setCurrentVersion(pipeline.getCurrentVersion());
+    entity.setStatus(pipeline.getState().asDatabaseValue());
+    entity.setUpdatedAt(pipeline.getUpdatedAt());
   }
 }

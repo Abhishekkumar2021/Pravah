@@ -21,6 +21,7 @@ import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRep
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineVersionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
+import java.sql.SQLException;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,8 +119,12 @@ class PipelineApplicationServiceTest {
     CreatePipelineRequest request =
         new CreatePipelineRequest(projectId, "duplicate", null, "key: value\n");
 
+    var sqlException =
+        new SQLException(
+            "duplicate key value violates unique constraint \"pipelines_project_id_name_key\"",
+            "23505");
     when(pipelineRepository.save(any(Pipeline.class)))
-        .thenThrow(new DataIntegrityViolationException("unique constraint"));
+        .thenThrow(new DataIntegrityViolationException("unique constraint", sqlException));
 
     assertThatThrownBy(() -> service.createPipeline(request))
         .isInstanceOf(DuplicatePipelineNameException.class)
@@ -237,6 +242,19 @@ class PipelineApplicationServiceTest {
     assertThatThrownBy(() -> service.validatePipelineDefinition(request))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Missing tenant context");
+
+    verify(pipelineRepository, never()).save(any());
+  }
+
+  @Test
+  void validatePipelineDefinition_missingUserContext_throwsIllegalStateException() {
+    TenantContext.setCurrentTenantId(tenantId);
+    TenantContext.setCurrentUserId(null);
+    ValidatePipelineRequest request = new ValidatePipelineRequest("key: value\n");
+
+    assertThatThrownBy(() -> service.validatePipelineDefinition(request))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Missing user context");
 
     verify(pipelineRepository, never()).save(any());
   }

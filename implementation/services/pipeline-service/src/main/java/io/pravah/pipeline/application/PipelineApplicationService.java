@@ -110,7 +110,10 @@ public class PipelineApplicationService {
       entityManager.flush();
       persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      throw duplicatePipelineName(request.projectId(), request.name(), e);
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(request.projectId(), request.name(), e);
+      }
+      throw e;
     } catch (JpaSystemException e) {
       if (isPipelineProjectNameUniqueViolation(e)) {
         throw duplicatePipelineName(request.projectId(), request.name(), e);
@@ -234,7 +237,10 @@ public class PipelineApplicationService {
       entityManager.flush();
       persistDomainEvents(pipeline, pendingEvents);
     } catch (DataIntegrityViolationException e) {
-      throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      if (isPipelineProjectNameUniqueViolation(e)) {
+        throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);
+      }
+      throw e;
     } catch (JpaSystemException e) {
       if (isPipelineProjectNameUniqueViolation(e)) {
         throw duplicatePipelineName(pipeline.getProjectId().value(), pipeline.getName(), e);

@@ -14,46 +14,17 @@ import io.pravah.pipeline.infrastructure.persistence.repository.OutboxRepository
 import io.pravah.pipeline.infrastructure.persistence.repository.PipelineEventRepository;
 import io.pravah.pipeline.infrastructure.security.JwtTokenProvider;
 import io.pravah.spring.multitenancy.TenantContext;
-import java.io.IOException;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-@Testcontainers(disabledWithoutDocker = true)
-@TestPropertySource(
-    properties = {
-      "pravah.outbox.relay.enabled=false",
-      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
-    })
-class CreatePipelineIT {
-
-  @Container
-  private static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
-          .withDatabaseName("pravah_test")
-          .withUsername("test")
-          .withPassword("test");
-
-  @DynamicPropertySource
-  static void registerDatasource(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-  }
+class CreatePipelineIT extends AbstractPipelinePostgresIT {
 
   @Autowired private MockMvc mockMvc;
 
@@ -66,32 +37,6 @@ class CreatePipelineIT {
   @Autowired private PipelineEventRepository pipelineEventRepository;
 
   @Autowired private OutboxRepository outboxRepository;
-
-  @BeforeEach
-  void cleanDatabase() throws IOException, InterruptedException {
-    // RLS hides all rows when tenant context is unset, so JPA deleteAll() would not clean anything.
-    // Truncate as the container superuser (POSTGRES_USER) so each test starts from an empty schema.
-    var result =
-        POSTGRES.execInContainer(
-            "env",
-            "PGPASSWORD=" + POSTGRES.getPassword(),
-            "psql",
-            "-U",
-            POSTGRES.getUsername(),
-            "-d",
-            POSTGRES.getDatabaseName(),
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            "TRUNCATE TABLE outbox, pipeline_versions, pipeline_events, pipelines CASCADE;");
-    if (result.getExitCode() != 0) {
-      throw new IllegalStateException(
-          "Failed to truncate pipeline tables: stdout="
-              + result.getStdout()
-              + " stderr="
-              + result.getStderr());
-    }
-  }
 
   @Test
   void createPipelinePersistsEventAndOutbox() throws Exception {
