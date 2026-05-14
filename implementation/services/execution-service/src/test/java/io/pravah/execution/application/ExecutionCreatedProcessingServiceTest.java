@@ -134,7 +134,7 @@ class ExecutionCreatedProcessingServiceTest {
   }
 
   @Test
-  void process_idempotent_whenJobsAlreadyQueued() {
+  void process_skipsWhenExecutionNotPending() {
     UUID tenantId = UUID.randomUUID();
     UUID executionId = UUID.randomUUID();
     UUID eventId = UUID.randomUUID();
@@ -144,14 +144,9 @@ class ExecutionCreatedProcessingServiceTest {
 
     ExecutionEntity execution = mock(ExecutionEntity.class);
     when(execution.getTenantId()).thenReturn(tenantId);
-
-    JobEntity job = mock(JobEntity.class);
-    when(job.getStageId()).thenReturn("extract");
-    when(job.getStatus()).thenReturn(JobState.QUEUED);
+    when(execution.getStatus()).thenReturn(ExecutionState.CANCELLED);
 
     when(executionEntityRepository.findById(executionId)).thenReturn(Optional.of(execution));
-    when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId))
-        .thenReturn(List.of(job));
 
     Map<String, Object> payload =
         Map.of(
@@ -162,8 +157,36 @@ class ExecutionCreatedProcessingServiceTest {
 
     service.processExecutionCreated(payload);
 
-    verify(job, never()).queue();
-    verify(execution, never()).start();
+    verify(jobEntityRepository, never()).findByExecutionIdOrderByStageIdAsc(any());
+    verify(outboxRepository, never()).save(any());
+    verify(processedEventRepository).save(any());
+  }
+
+  @Test
+  void process_duplicateEventWhenExecutionAlreadyRunning_skipsWithoutJobOutbox() {
+    UUID tenantId = UUID.randomUUID();
+    UUID executionId = UUID.randomUUID();
+    UUID eventId = UUID.randomUUID();
+    TenantContext.setCurrentTenantId(tenantId);
+
+    when(processedEventRepository.existsByEventId(eventId)).thenReturn(false);
+
+    ExecutionEntity execution = mock(ExecutionEntity.class);
+    when(execution.getTenantId()).thenReturn(tenantId);
+    when(execution.getStatus()).thenReturn(ExecutionState.RUNNING);
+
+    when(executionEntityRepository.findById(executionId)).thenReturn(Optional.of(execution));
+
+    Map<String, Object> payload =
+        Map.of(
+            "eventId", eventId.toString(),
+            "tenantId", tenantId.toString(),
+            "executionId", executionId.toString(),
+            "rootStageIds", List.of("extract"));
+
+    service.processExecutionCreated(payload);
+
+    verify(jobEntityRepository, never()).findByExecutionIdOrderByStageIdAsc(any());
     verify(outboxRepository, never()).save(any());
     verify(processedEventRepository).save(any());
   }

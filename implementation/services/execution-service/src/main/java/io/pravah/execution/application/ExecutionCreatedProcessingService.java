@@ -98,6 +98,15 @@ public class ExecutionCreatedProcessingService {
       throw new IllegalStateException("Execution tenant mismatch for execution.created");
     }
 
+    if (execution.getStatus() != ExecutionState.PENDING) {
+      log.info(
+          "execution.created skipped — execution not pending (e.g. cancelled or already started)",
+          kv("execution_id", executionId),
+          kv("status", execution.getStatus()));
+      recordProcessed(eventId);
+      return;
+    }
+
     List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
     boolean anyNewlyQueued = false;
     Instant occurredAt = Instant.now();

@@ -10,6 +10,7 @@ package io.pravah.common.domain;
  * <ul>
  *   <li>PENDING → QUEUED (dependencies met)
  *   <li>PENDING → SKIPPED (skip condition true)
+ *   <li>PENDING → CANCELLED (parent execution cancelled before queue)
  *   <li>QUEUED → RUNNING (runner assigned)
  *   <li>RUNNING → SUCCEEDED (success)
  *   <li>RUNNING → FAILED (failure after max retries)
@@ -34,6 +35,11 @@ public enum JobState {
     @Override
     public JobState onSkip() {
       return SKIPPED;
+    }
+
+    @Override
+    public JobState onCancel() {
+      return CANCELLED;
     }
   },
 
@@ -178,7 +184,7 @@ public enum JobState {
    */
   public boolean canTransitionTo(JobState target) {
     return switch (this) {
-      case PENDING -> target == QUEUED || target == SKIPPED;
+      case PENDING -> target == QUEUED || target == SKIPPED || target == CANCELLED;
       case QUEUED -> target == RUNNING || target == CANCELLED;
       case RUNNING ->
           target == SUCCEEDED || target == FAILED || target == QUEUED || target == CANCELLED;

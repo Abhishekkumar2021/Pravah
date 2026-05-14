@@ -18,7 +18,7 @@ spring:
         - id: execution-service
           uri: lb://execution-service
           predicates:
-            - Path=/api/v1/runs/**,/api/v1/jobs/**
+            - Path=/api/v1/runs/**,/api/v1/jobs/**,/api/v1/executions/**
         
         - id: tenant-service
           uri: lb://tenant-service

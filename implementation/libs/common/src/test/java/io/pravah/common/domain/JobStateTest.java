@@ -27,6 +27,12 @@ class JobStateTest {
     }
 
     @Test
+    @DisplayName("PENDING → CANCELLED on cancel")
+    void pending_onCancel_transitionsToCancelled() {
+      assertThat(JobState.PENDING.onCancel()).isEqualTo(JobState.CANCELLED);
+    }
+
+    @Test
     @DisplayName("QUEUED → RUNNING on assign")
     void queued_onAssign_transitionsToRunning() {
       assertThat(JobState.QUEUED.onAssign()).isEqualTo(JobState.RUNNING);
@@ -190,10 +196,11 @@ class JobStateTest {
   class CanTransitionTo {
 
     @Test
-    @DisplayName("PENDING can transition to QUEUED, SKIPPED")
+    @DisplayName("PENDING can transition to QUEUED, SKIPPED, CANCELLED")
     void pending_canTransitionToValidStates() {
       assertThat(JobState.PENDING.canTransitionTo(JobState.QUEUED)).isTrue();
       assertThat(JobState.PENDING.canTransitionTo(JobState.SKIPPED)).isTrue();
+      assertThat(JobState.PENDING.canTransitionTo(JobState.CANCELLED)).isTrue();
       assertThat(JobState.PENDING.canTransitionTo(JobState.RUNNING)).isFalse();
     }
 

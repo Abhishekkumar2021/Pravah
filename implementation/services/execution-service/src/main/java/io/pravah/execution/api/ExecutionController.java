@@ -35,6 +35,11 @@ public class ExecutionController {
     return executionApplicationService.startManualExecution(request, authorization);
   }
 
+  @PostMapping("/{id}/cancel")
+  public GetExecutionResponse cancel(@PathVariable("id") UUID id) {
+    return executionApplicationService.cancelExecution(id);
+  }
+
   @GetMapping("/{id}")
   public GetExecutionResponse get(@PathVariable UUID id) {
     return executionApplicationService.getExecution(id);

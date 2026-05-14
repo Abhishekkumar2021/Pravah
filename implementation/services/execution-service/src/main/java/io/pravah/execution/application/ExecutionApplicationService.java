@@ -2,7 +2,9 @@ package io.pravah.execution.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.exception.EntityNotFoundException;
+import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
@@ -172,6 +174,71 @@ public class ExecutionApplicationService {
         jobResponses);
   }
 
+  /**
+   * Cancels a non-terminal execution (US-02.04). Transitions execution and all non-terminal jobs to
+   * {@code CANCELLED}, and appends an {@code execution.cancelled} outbox row for relay.
+   *
+   * <p>Idempotent: if the execution is already {@link ExecutionState#CANCELLED}, returns the
+   * current view without emitting another event.
+   *
+   * @param executionId the execution id
+   * @return current execution snapshot including job statuses
+   * @throws EntityNotFoundException if not found or not visible for this tenant
+   * @throws InvalidStateTransitionException if the execution is in a terminal state other than
+   *     cancelled
+   */
+  @Transactional
+  public GetExecutionResponse cancelExecution(UUID executionId) {
+    UUID tenantId = requireTenantId();
+    requireUserId();
+
+    ExecutionEntity execution = loadExecutionForTenant(executionId, tenantId);
+
+    if (execution.getStatus() == ExecutionState.CANCELLED) {
+      return toGetExecutionResponse(execution);
+    }
+    if (execution.getStatus() != ExecutionState.PENDING
+        && execution.getStatus() != ExecutionState.RUNNING) {
+      throw new InvalidStateTransitionException(
+          "execution",
+          execution.getId().toString(),
+          execution.getStatus().asDatabaseValue(),
+          "cancel");
+    }
+
+    List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
+    for (JobEntity job : jobs) {
+      if (!job.getStatus().isTerminal()) {
+        job.cancel();
+      }
+    }
+
+    execution.cancel();
+
+    UUID eventId = UUID.randomUUID();
+    Instant occurredAt = Instant.now();
+    Map<String, Object> payload =
+        buildExecutionCancelledPayload(
+            eventId, occurredAt, tenantId, execution, TenantContext.getCurrentUserId());
+    outboxRepository.save(
+        new OutboxEntity(
+            AGGREGATE_EXECUTION,
+            execution.getId(),
+            ExecutionEventTypes.EXECUTION_CANCELLED,
+            executionEventsTopic,
+            execution.getId().toString(),
+            payload,
+            occurredAt));
+
+    log.info(
+        "Execution cancelled",
+        kv("tenant_id", tenantId),
+        kv("execution_id", execution.getId()),
+        kv("event_id", eventId));
+
+    return toGetExecutionResponse(execution);
+  }
+
   private static Map<String, Object> buildExecutionCreatedPayload(
       UUID eventId,
       Instant occurredAt,
@@ -198,6 +265,32 @@ public class ExecutionApplicationService {
     return m;
   }
 
+  private static Map<String, Object> buildExecutionCancelledPayload(
+      UUID eventId,
+      Instant occurredAt,
+      UUID tenantId,
+      ExecutionEntity execution,
+      UUID cancelledBy) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("eventId", eventId.toString());
+    m.put("eventType", ExecutionEventTypes.EXECUTION_CANCELLED);
+    m.put("occurredAt", occurredAt.toString());
+    m.put("aggregateType", AGGREGATE_EXECUTION);
+    m.put("aggregateId", execution.getId().toString());
+    m.put("tenantId", tenantId.toString());
+    m.put("executionId", execution.getId().toString());
+    m.put("pipelineId", execution.getPipelineId().toString());
+    m.put("pipelineVersion", execution.getPipelineVersion());
+    m.put("triggerType", execution.getTriggerType());
+    if (execution.getTriggeredBy() != null) {
+      m.put("triggeredBy", execution.getTriggeredBy().toString());
+    }
+    if (cancelledBy != null) {
+      m.put("cancelledBy", cancelledBy.toString());
+    }
+    return m;
+  }
+
   /**
    * Returns an execution and its jobs for the current tenant (RLS-enforced).
    *
@@ -211,16 +304,24 @@ public class ExecutionApplicationService {
   @Transactional(readOnly = true)
   public GetExecutionResponse getExecution(UUID executionId) {
     UUID tenantId = requireTenantId();
+    ExecutionEntity execution = loadExecutionForTenant(executionId, tenantId);
+    return toGetExecutionResponse(execution);
+  }
+
+  private ExecutionEntity loadExecutionForTenant(UUID executionId, UUID tenantId) {
     ExecutionEntity execution =
         executionEntityRepository
             .findById(executionId)
             .orElseThrow(() -> new EntityNotFoundException("Execution", executionId));
-
     if (!execution.getTenantId().equals(tenantId)) {
       throw new EntityNotFoundException("Execution", executionId);
     }
+    return execution;
+  }
 
-    List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
+  private GetExecutionResponse toGetExecutionResponse(ExecutionEntity execution) {
+    List<JobEntity> jobs =
+        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
     List<GetExecutionResponse.JobSummary> jobSummaries =
         jobs.stream()
             .map(
@@ -232,7 +333,6 @@ public class ExecutionApplicationService {
                         j.getStatus().asDatabaseValue(),
                         j.getAttempt()))
             .toList();
-
     return new GetExecutionResponse(
         execution.getId(),
         execution.getPipelineId(),
