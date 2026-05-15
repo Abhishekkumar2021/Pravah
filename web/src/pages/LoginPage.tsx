@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -83,6 +84,8 @@ export function LoginPage() {
                   name="password"
                   type="password"
                   autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full rounded-xl border border-zinc-200 bg-white py-3 pl-10 pr-3 text-sm text-zinc-900 shadow-sm outline-none ring-teal-500/30 transition-shadow focus:border-teal-500 focus:ring-4 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-teal-400"
                 />

@@ -173,7 +173,7 @@ Pravah/
 │
 ├── web/                                  # EPIC-12: React SPA (Vite, Tailwind v4)
 │
-└── implementation/                       # Spring Boot microservices & runner
+└── backend/                              # Spring Boot microservices & runner
     ├── services/                         # Spring Boot microservices
     ├── runner/                           # Standalone runner binary
     ├── proto/                            # Protobuf contracts

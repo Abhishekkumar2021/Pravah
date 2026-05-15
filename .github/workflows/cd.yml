@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'implementation/**'
+      - 'backend/**'
   release:
     types: [published]
 
@@ -53,11 +53,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Grant execute permission for gradlew
-        working-directory: implementation
+        working-directory: backend
         run: chmod +x gradlew
 
       - name: Build service JAR
-        working-directory: implementation
+        working-directory: backend
         run: ./gradlew :services:${{ matrix.service }}:bootJar --no-daemon
 
       - name: Set up Docker Buildx
@@ -85,8 +85,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: implementation
-          file: implementation/docker/Dockerfile.service
+          context: backend
+          file: backend/docker/Dockerfile.service
           build-args: |
             SERVICE_NAME=${{ matrix.service }}
           push: ${{ github.event_name != 'pull_request' }}
@@ -119,18 +119,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Grant execute permission for gradlew
-        working-directory: implementation
+        working-directory: backend
         run: chmod +x gradlew
 
       - name: Build runner fat JAR
-        working-directory: implementation
+        working-directory: backend
         run: ./gradlew :runner:fatJar --no-daemon
 
       - name: Upload runner artifact
         uses: actions/upload-artifact@v4
         with:
           name: pravah-runner
-          path: implementation/runner/build/libs/*-all.jar
+          path: backend/runner/build/libs/*-all.jar
           retention-days: 30
 
       - name: Set up Docker Buildx
@@ -156,8 +156,8 @@ jobs:
       - name: Build and push runner image
         uses: docker/build-push-action@v5
         with:
-          context: implementation
-          file: implementation/docker/Dockerfile.runner
+          context: backend
+          file: backend/docker/Dockerfile.runner
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

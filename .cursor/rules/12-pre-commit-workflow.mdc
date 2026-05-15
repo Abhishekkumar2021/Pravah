@@ -11,7 +11,7 @@ Do NOT skip steps. Do NOT commit if any step fails.
 ## Step 1: Format Code
 
 ```bash
-cd implementation && ./gradlew spotlessApply --no-daemon
+cd backend && ./gradlew spotlessApply --no-daemon
 ```
 
 **Verify**: Command exits with `BUILD SUCCESSFUL`
@@ -19,7 +19,7 @@ cd implementation && ./gradlew spotlessApply --no-daemon
 ## Step 2: Compile and Check for Warnings
 
 ```bash
-cd implementation && ./gradlew compileJava compileTestJava --no-daemon
+cd backend && ./gradlew compileJava compileTestJava --no-daemon
 ```
 
 **Verify**: No compilation errors, review any warnings
@@ -27,7 +27,7 @@ cd implementation && ./gradlew compileJava compileTestJava --no-daemon
 ## Step 3: Run Unit Tests
 
 ```bash
-cd implementation && ./gradlew test --no-daemon
+cd backend && ./gradlew test --no-daemon
 ```
 
 **Verify**: All tests pass. If tests fail, FIX THEM before proceeding.
@@ -95,7 +95,7 @@ git status  # Verify working directory is clean
 
 ```bash
 # Full pre-commit check (copy-paste this)
-cd implementation && \
+cd backend && \
   ./gradlew spotlessApply --no-daemon && \
   ./gradlew compileJava compileTestJava --no-daemon && \
   ./gradlew test --no-daemon && \

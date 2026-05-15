@@ -25,6 +25,7 @@ export function RunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [tokenDraft, setTokenDraft] = useState(getDevBearerToken() ?? "");
   const [showToken, setShowToken] = useState(false);
 
@@ -61,12 +62,15 @@ export function RunDetailPage() {
       return;
     }
     setActionError(null);
+    setCancelling(true);
     try {
       const next = await cancelExecution(executionId);
       setData(next);
       dialogRef.current?.close();
     } catch (e: unknown) {
       setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -236,8 +240,8 @@ export function RunDetailPage() {
           <Button type="button" variant="secondary" onClick={() => dialogRef.current?.close()}>
             Dismiss
           </Button>
-          <Button type="button" variant="danger" onClick={() => void onConfirmCancel()}>
-            Confirm cancel
+          <Button type="button" variant="danger" disabled={cancelling} onClick={() => void onConfirmCancel()}>
+            {cancelling ? "Cancelling…" : "Confirm cancel"}
           </Button>
         </div>
       </dialog>

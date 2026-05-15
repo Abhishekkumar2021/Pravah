@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: implementation
+        working-directory: backend
 
     steps:
       - name: Checkout code

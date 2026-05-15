@@ -44,7 +44,7 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      implementation: ${{ steps.filter.outputs.implementation }}
+      backend: ${{ steps.filter.outputs.backend }}
       docs: ${{ steps.filter.outputs.docs }}
       workflows: ${{ steps.filter.outputs.workflows }}
       web: ${{ steps.filter.outputs.web }}
@@ -54,8 +54,8 @@ jobs:
         id: filter
         with:
           filters: |
-            implementation:
-              - 'implementation/**'
+            backend:
+              - 'backend/**'
             docs:
               - 'docs/**'
               - '*.md'
@@ -65,16 +65,16 @@ jobs:
               - 'web/**'
 
   # ============================================================================
-  # Build Check (only if implementation changed)
+  # Build Check (only if backend changed)
   # ============================================================================
   build-check:
     name: Build Check
     needs: changes
-    if: needs.changes.outputs.implementation == 'true'
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: implementation
+        working-directory: backend
 
     steps:
       - name: Checkout code
