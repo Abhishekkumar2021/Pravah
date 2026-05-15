@@ -126,7 +126,7 @@ If you can't write a test for the behavior, you don't understand the requirement
 
 ```bash
 # Run all checks (do this before every commit)
-cd implementation && \
+cd backend && \
   ./gradlew spotlessApply --no-daemon && \
   ./gradlew compileJava compileTestJava --no-daemon && \
   ./gradlew test --no-daemon && \

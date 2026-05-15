@@ -1,11 +1,11 @@
-# Pravah Implementation
+# Pravah Backend
 
-This directory contains the implementation of the Pravah CI/CD platform.
+This directory contains the backend services of the Pravah data orchestration platform.
 
 ## Project Structure
 
 ```
-implementation/
+backend/
 ├── buildSrc/                    # Gradle convention plugins
 │   └── src/main/kotlin/
 │       ├── pravah.java-conventions.gradle.kts

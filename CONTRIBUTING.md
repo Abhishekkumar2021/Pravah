@@ -153,7 +153,7 @@ Before submitting a PR, ensure:
 
 ### Build & Test
 ```bash
-cd implementation
+cd backend
 make build      # Build all modules
 make test       # Run unit tests
 make lint       # Check formatting

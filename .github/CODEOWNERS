@@ -17,14 +17,14 @@
 
 # CI/CD and infrastructure
 /.github/                   @Abhishekkumar2021
-/implementation/docker/     @Abhishekkumar2021
+/backend/docker/     @Abhishekkumar2021
 
 # Build configuration
-/implementation/buildSrc/   @Abhishekkumar2021
-/implementation/*.gradle*   @Abhishekkumar2021
+/backend/buildSrc/   @Abhishekkumar2021
+/backend/*.gradle*   @Abhishekkumar2021
 
 # Core libraries
-/implementation/libs/       @Abhishekkumar2021
+/backend/libs/       @Abhishekkumar2021
 
 # Services
-/implementation/services/   @Abhishekkumar2021
+/backend/services/   @Abhishekkumar2021
