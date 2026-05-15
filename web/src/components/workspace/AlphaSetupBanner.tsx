@@ -30,11 +30,8 @@ export function AlphaSetupBanner({ onProjectSaved }: AlphaSetupBannerProps) {
           Set your project UUID (tenant scope for pipeline list).
         </li>
         <li className={hasToken ? "text-neutral-400 line-through" : undefined}>
-          Paste a gateway JWT on any{" "}
-          <Link to="/app/runs" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-            run detail
-          </Link>{" "}
-          page (Dev token panel).
+          Open <Link to="/app/runs" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Runs</Link>
+          , choose any execution, and paste a gateway JWT in the Dev token panel.
         </li>
         <li>Start a run from a workflow row or detail page, then refresh to see status changes until WebSocket ships.</li>
       </ol>

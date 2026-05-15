@@ -10,6 +10,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   return {
     ...mod,
     getDevBearerToken: vi.fn(),
+    subscribeDevBearerToken: vi.fn(() => () => {}),
     createExecution: vi.fn(),
   };
 });
@@ -26,7 +27,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 describe("TriggerRunButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.getDevBearerToken).mockReturnValue(null);
+    vi.mocked(api.getDevBearerToken).mockReturnValue(undefined);
   });
 
   it("disables run when no dev token", () => {

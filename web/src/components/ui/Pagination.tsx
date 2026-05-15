@@ -15,7 +15,8 @@ export function Pagination({ page, totalPages, totalElements, onPageChange, clas
   }
 
   return (
-    <div
+    <nav
+      aria-label="Pagination"
       className={cn(
         "flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800",
         className,
@@ -30,6 +31,7 @@ export function Pagination({ page, totalPages, totalElements, onPageChange, clas
           variant="secondary"
           className="h-8 px-3 text-[12px]"
           disabled={page <= 0}
+          aria-label="Previous page"
           onClick={() => onPageChange(page - 1)}
         >
           Previous
@@ -39,11 +41,12 @@ export function Pagination({ page, totalPages, totalElements, onPageChange, clas
           variant="secondary"
           className="h-8 px-3 text-[12px]"
           disabled={page >= totalPages - 1}
+          aria-label="Next page"
           onClick={() => onPageChange(page + 1)}
         >
           Next
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

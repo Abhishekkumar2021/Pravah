@@ -31,6 +31,8 @@ export function RunListPage() {
     if (!token) {
       setRows([]);
       setPipelineNames(new Map());
+      setTotalPages(0);
+      setTotalElements(0);
       setError(null);
       setLoading(false);
       return;
@@ -63,6 +65,8 @@ export function RunListPage() {
       setError(e instanceof ApiError ? e.message : String(e));
       setRows([]);
       setPipelineNames(new Map());
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }

@@ -35,6 +35,8 @@ export function WorkflowListPage() {
     const token = getDevBearerToken();
     if (!pid || !token) {
       setRows([]);
+      setTotalPages(0);
+      setTotalElements(0);
       setLoading(false);
       setError(null);
       return;
@@ -53,6 +55,8 @@ export function WorkflowListPage() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setRows([]);
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
@@ -75,6 +79,18 @@ export function WorkflowListPage() {
     });
   }, [rows, query]);
 
+  const showPagination = !loading && rows.length > 0 && totalPages > 1;
+  const emptyTableCopy = useMemo(() => {
+    if (loading || filtered.length > 0) return null;
+    if (rows.length === 0) {
+      return "No workflows for this filter on this page.";
+    }
+    if (query.trim()) {
+      return "No name or description matches on this page. Clear the search or change page.";
+    }
+    return "No workflows match your filters.";
+  }, [loading, filtered.length, rows.length, query]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -94,10 +110,16 @@ export function WorkflowListPage() {
               type="search"
               placeholder="Search by name…"
               aria-label="Search workflows"
+              aria-describedby={totalPages > 1 && !loading && rows.length > 0 ? "workflow-search-scope" : undefined}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="py-2 pl-9"
             />
+            {totalPages > 1 && !loading && rows.length > 0 ? (
+              <p id="workflow-search-scope" className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Search applies to this page only.
+              </p>
+            ) : null}
           </div>
           <Select
             aria-label="Filter by status"
@@ -136,10 +158,10 @@ export function WorkflowListPage() {
           aria-label="Workflows"
           footer={
             <>
-              {!loading && filtered.length === 0 ? (
-                <p className="px-4 py-3 text-[13px] text-neutral-500">No workflows match your filters.</p>
+              {emptyTableCopy ? (
+                <p className="px-4 py-3 text-[13px] text-neutral-500">{emptyTableCopy}</p>
               ) : null}
-              {!loading && filtered.length > 0 ? (
+              {showPagination ? (
                 <Pagination
                   page={page}
                   totalPages={totalPages}

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import { Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { ApiError, createExecution, getDevBearerToken } from "@/lib/api";
+import { ApiError, createExecution, getDevBearerToken, subscribeDevBearerToken } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 type TriggerRunButtonProps = {
@@ -25,9 +25,13 @@ export function TriggerRunButton({
   label = "Run",
 }: TriggerRunButtonProps) {
   const navigate = useNavigate();
+  const hasToken = useSyncExternalStore(
+    subscribeDevBearerToken,
+    () => Boolean(getDevBearerToken()),
+    () => false,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasToken = Boolean(getDevBearerToken());
 
   async function handleRun() {
     setLoading(true);
@@ -53,6 +57,7 @@ export function TriggerRunButton({
         variant={variant}
         className={cn(size === "sm" && "h-8 px-3 text-[12px]")}
         disabled={disabled || !hasToken || loading}
+        aria-busy={loading}
         title={title}
         onClick={() => void handleRun()}
       >

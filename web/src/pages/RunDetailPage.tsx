@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Ban, ChevronRight, KeyRound } from "lucide-react";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import {
+  ApiError,
   cancelExecution,
   getDevBearerToken,
   getExecution,
@@ -28,6 +29,12 @@ function isCancellable(status: string) {
   return s === "pending" || s === "running";
 }
 
+function formatLoadError(e: unknown): string {
+  if (e instanceof ApiError) return e.message;
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
 export function RunDetailPage() {
   const { executionId } = useParams();
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -39,20 +46,30 @@ export function RunDetailPage() {
   const [tokenDraft, setTokenDraft] = useState(getDevBearerToken() ?? "");
   const [showToken, setShowToken] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
+  const reloadGeneration = useRef(0);
 
   const reload = useCallback(async () => {
     if (!executionId) {
       return;
     }
+    const gen = ++reloadGeneration.current;
     setLoading(true);
     setError(null);
     try {
       const d = await getExecution(executionId);
+      if (gen !== reloadGeneration.current) {
+        return;
+      }
       setData(d);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (gen !== reloadGeneration.current) {
+        return;
+      }
+      setError(formatLoadError(e));
     } finally {
-      setLoading(false);
+      if (gen === reloadGeneration.current) {
+        setLoading(false);
+      }
     }
   }, [executionId]);
 
@@ -93,7 +110,7 @@ export function RunDetailPage() {
       setData(next);
       setCancelOpen(false);
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      setActionError(formatLoadError(e));
     } finally {
       setCancelling(false);
     }
