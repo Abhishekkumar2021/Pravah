@@ -7,7 +7,7 @@ export function Card({
   ...props
 }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
   return (
-    <div className={cn("surface-card p-6", className)} {...props}>
+    <div className={cn("surface-card p-5", className)} {...props}>
       {children}
     </div>
   );
@@ -30,7 +30,7 @@ export function CardTitle({
   className?: string;
   children: ReactNode;
 }) {
-  return <h3 className={cn("text-lg font-semibold tracking-tight", className)}>{children}</h3>;
+  return <h3 className={cn("text-base font-semibold tracking-tight", className)}>{children}</h3>;
 }
 
 export function CardDescription({
@@ -41,6 +41,6 @@ export function CardDescription({
   children: ReactNode;
 }) {
   return (
-    <p className={cn("text-sm text-zinc-500 dark:text-zinc-400", className)}>{children}</p>
+    <p className={cn("text-[13px] leading-snug text-neutral-500 dark:text-neutral-400", className)}>{children}</p>
   );
 }

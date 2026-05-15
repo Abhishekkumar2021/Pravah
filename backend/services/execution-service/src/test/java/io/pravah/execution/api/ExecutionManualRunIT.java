@@ -507,6 +507,149 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
         .andExpect(status().isNotFound());
   }
 
+  @Test
+  void listExecutions_afterTwoRuns_returnsNewestFirst() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    Map<String, Object> definition =
+        Map.of(
+            "stages",
+            List.of(
+                Map.of("id", "extract", "name", "Extract data"),
+                Map.of("id", "load", "name", "Load")));
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(new PublishedPipelineSnapshot(pipelineId, 1, definition, "active"));
+
+    String firstExecutionId =
+        objectMapper
+            .readTree(
+                mockMvc
+                    .perform(
+                        post("/api/v1/executions")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(
+                                objectMapper.writeValueAsString(
+                                    new CreateExecutionRequest(pipelineId, null))))
+                    .andExpect(status().isCreated())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .path("id")
+            .asText();
+
+    String secondExecutionId =
+        objectMapper
+            .readTree(
+                mockMvc
+                    .perform(
+                        post("/api/v1/executions")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(
+                                objectMapper.writeValueAsString(
+                                    new CreateExecutionRequest(pipelineId, null))))
+                    .andExpect(status().isCreated())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .path("id")
+            .asText();
+
+    mockMvc
+        .perform(get("/api/v1/executions").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(2))
+        .andExpect(jsonPath("$.totalElements").value(2))
+        .andExpect(jsonPath("$.content[0].id").value(secondExecutionId))
+        .andExpect(jsonPath("$.content[1].id").value(firstExecutionId));
+  }
+
+  @Test
+  void listExecutions_invalidStatus_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions")
+                .param("status", "not-a-state")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void listExecutions_negativePage_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions")
+                .param("page", "-1")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("page must be >= 0"));
+  }
+
+  @Test
+  void listExecutions_sizeOutOfRange_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions").param("size", "0").header("Authorization", "Bearer " + token))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("size must be between 1 and 100"));
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions")
+                .param("size", "101")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").value("size must be between 1 and 100"));
+  }
+
+  @Test
+  void listExecutions_otherTenantSeesEmptyList() throws Exception {
+    UUID tenantA = UUID.randomUUID();
+    UUID tenantB = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String tokenA = testJwtIssuer.generateAccessToken(userId, tenantA);
+    String tokenB = testJwtIssuer.generateAccessToken(userId, tenantB);
+
+    Map<String, Object> definition =
+        Map.of("stages", List.of(Map.of("id", "extract", "name", "Extract data")));
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(new PublishedPipelineSnapshot(pipelineId, 1, definition, "active"));
+
+    mockMvc
+        .perform(
+            post("/api/v1/executions")
+                .header("Authorization", "Bearer " + tokenA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(new CreateExecutionRequest(pipelineId, null))))
+        .andExpect(status().isCreated());
+
+    mockMvc
+        .perform(get("/api/v1/executions").header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(0))
+        .andExpect(jsonPath("$.totalElements").value(0));
+  }
+
   @TestConfiguration
   static class PipelineCatalogTestConfig {
 

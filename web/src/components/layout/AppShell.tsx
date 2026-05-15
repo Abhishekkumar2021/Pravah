@@ -1,6 +1,7 @@
 import { LayoutDashboard, PanelLeftClose, PanelLeft, PlayCircle, Workflow } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { TopBar } from "./TopBar";
 
@@ -17,10 +18,10 @@ export function AppShell() {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
       isActive
-        ? "bg-teal-600/15 text-teal-800 dark:bg-teal-500/10 dark:text-teal-300"
-        : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/80",
+        ? "bg-blue-600/10 text-blue-800 dark:bg-blue-500/10 dark:text-blue-300"
+        : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800/60",
       collapsed && "justify-center px-2",
     );
 
@@ -28,25 +29,25 @@ export function AppShell() {
     <div className="flex min-h-dvh">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-teal-600 focus:px-4 focus:py-2 focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white"
       >
         Skip to content
       </a>
       <aside
         className={cn(
-          "sticky top-0 flex h-dvh flex-col border-r border-zinc-200/80 bg-white/90 backdrop-blur-md dark:border-zinc-800/80 dark:bg-zinc-950/90",
+          "sticky top-0 flex h-dvh flex-col border-r border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950",
           collapsed ? "w-[4.25rem]" : "w-60",
         )}
         aria-label="Main navigation"
       >
-        <div className="flex h-16 items-center gap-2 border-b border-zinc-200/80 px-4 dark:border-zinc-800/80">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-sm font-bold text-white shadow-md">
+        <div className="flex h-14 items-center gap-2 border-b border-neutral-200 px-4 dark:border-neutral-800">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-xs font-semibold text-white">
             P
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold tracking-tight">Pravah</p>
-              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">Control plane</p>
+              <p className="truncate text-sm font-medium tracking-tight text-neutral-900 dark:text-neutral-50">Pravah</p>
+              <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">Control plane</p>
             </div>
           )}
         </div>
@@ -64,11 +65,12 @@ export function AppShell() {
             {!collapsed && "Runs"}
           </NavLink>
         </nav>
-        <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
-          <button
+        <div className="border-t border-neutral-200 p-3 dark:border-neutral-800">
+          <Button
             type="button"
+            variant="ghost"
             onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/80"
+            className="h-auto w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-400"
             aria-expanded={!collapsed}
             aria-controls="app-sidebar-nav"
           >
@@ -78,12 +80,12 @@ export function AppShell() {
               <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden />
             )}
             {!collapsed && "Collapse"}
-          </button>
+          </Button>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
-        <main id="main-content" className="flex-1 bg-zinc-50/80 p-6 dark:bg-zinc-950/50">
+        <main id="main-content" className="flex-1 bg-neutral-50 p-6 dark:bg-neutral-950">
           <div className="mx-auto max-w-6xl">
             <Outlet />
           </div>

@@ -9,6 +9,7 @@ import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
+import io.pravah.execution.api.dto.ListExecutionsResponse;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
 import io.pravah.execution.domain.ExecutionEventTypes;
@@ -29,6 +30,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -310,6 +314,57 @@ public class ExecutionApplicationService {
     UUID tenantId = requireTenantId();
     ExecutionEntity execution = loadExecutionForTenant(executionId, tenantId);
     return toGetExecutionResponse(execution);
+  }
+
+  /**
+   * Lists executions for the current tenant, newest first, with optional filters (US-12.07).
+   *
+   * @param statusFilter optional execution status (case-insensitive database value, e.g. {@code
+   *     pending})
+   * @param pipelineId optional pipeline id filter
+   * @param page zero-based page index
+   * @param size page size (clamped to 1..100)
+   */
+  @Transactional(readOnly = true)
+  public ListExecutionsResponse listExecutions(
+      String statusFilter, UUID pipelineId, int page, int size) {
+    UUID tenantId = requireTenantId();
+    int safeSize = Math.min(Math.max(size, 1), 100);
+    int safePage = Math.max(page, 0);
+    PageRequest pageable =
+        PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+    ExecutionState stateFilter = null;
+    if (statusFilter != null && !statusFilter.isBlank()) {
+      stateFilter = ExecutionState.fromDatabase(statusFilter.trim());
+    }
+
+    Page<ExecutionEntity> result =
+        executionEntityRepository.findForTenant(tenantId, stateFilter, pipelineId, pageable);
+
+    List<ListExecutionsResponse.ExecutionListItem> items =
+        result.getContent().stream()
+            .map(
+                e ->
+                    new ListExecutionsResponse.ExecutionListItem(
+                        e.getId(),
+                        e.getPipelineId(),
+                        e.getPipelineVersion(),
+                        e.getStatus().asDatabaseValue(),
+                        e.getTriggerType(),
+                        e.getTriggeredBy(),
+                        e.getCreatedAt(),
+                        e.getStartedAt(),
+                        e.getCompletedAt()))
+            .toList();
+
+    return new ListExecutionsResponse(
+        items,
+        result.getNumber(),
+        result.getSize(),
+        result.getTotalElements(),
+        result.getTotalPages(),
+        result.isLast());
   }
 
   private ExecutionEntity loadExecutionForTenant(UUID executionId, UUID tenantId) {
