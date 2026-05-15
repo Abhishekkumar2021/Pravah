@@ -18,6 +18,7 @@ npm run preview
 | Variable | Purpose |
 |----------|---------|
 | `VITE_PRAVAH_API_BASE` | Absolute API base (e.g. production gateway). If unset, the app uses same-origin `/api/...` (dev server proxy). |
+| `VITE_PRAVAH_PROJECT_ID` | Default **project UUID** for `GET /api/v1/pipelines?projectId=…` (workflows list, dashboard). Overridable in the UI via **Project scope** (stored as `localStorage.pravah.defaultProjectId`). |
 | `VITE_DEV_PROXY_TARGET` | Override proxy target for `npm run dev` (see `vite.config.ts`). |
 
 Copy `env.example` to `.env.local` for local overrides (gitignored).
@@ -26,8 +27,9 @@ Copy `env.example` to `.env.local` for local overrides (gitignored).
 
 1. Run the API gateway (and dependencies) so `GET/POST /api/v1/executions/...` is available.
 2. `npm run dev` — Vite forwards `/api` to `VITE_DEV_PROXY_TARGET` (default `http://localhost:8080`).
-3. Open **Runs →** pick a row or paste a real execution UUID in the URL (`/app/runs/{id}`).
-4. Open **Dev token**, paste a JWT the gateway accepts, **Save & reload** (stored as `localStorage.pravah.devBearerToken`).
+3. Open **Workflows** or **Dashboard** — set **Project scope** (or `VITE_PRAVAH_PROJECT_ID`) so pipeline lists resolve.
+4. Open **Runs →** pick a row or paste a real execution UUID in the URL (`/app/runs/{id}`).
+5. Open **Dev token**, paste a JWT the gateway accepts, **Save & reload** (stored as `localStorage.pravah.devBearerToken`).
 
 Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 

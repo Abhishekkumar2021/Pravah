@@ -8,6 +8,7 @@ import {
   cancelExecution,
   getDevBearerToken,
   getExecution,
+  getPipeline,
   setDevBearerToken,
   type ExecutionResponse,
 } from "@/lib/api";
@@ -28,6 +29,7 @@ export function RunDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [tokenDraft, setTokenDraft] = useState(getDevBearerToken() ?? "");
   const [showToken, setShowToken] = useState(false);
+  const [pipelineName, setPipelineName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!executionId) {
@@ -56,6 +58,28 @@ export function RunDetailPage() {
       cancelled = true;
     };
   }, [executionId]);
+
+  useEffect(() => {
+    if (!data?.pipelineId || !getDevBearerToken()) {
+      setPipelineName(null);
+      return;
+    }
+    let cancelled = false;
+    void getPipeline(data.pipelineId)
+      .then((p) => {
+        if (!cancelled) {
+          setPipelineName(p.name);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPipelineName(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.pipelineId]);
 
   async function onConfirmCancel() {
     if (!executionId) {
@@ -108,10 +132,24 @@ export function RunDetailPage() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Run detail</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            {pipelineName ? `Run · ${pipelineName}` : "Run detail"}
+          </h2>
           <p className="mt-1 max-w-2xl text-sm text-zinc-500 dark:text-zinc-400">
             Layout for <span className="font-medium text-zinc-700 dark:text-zinc-300">US-12.08</span> (timeline,
             logs, retry/cancel). Cancel calls the gateway when a bearer token is configured—see dev panel.
+            {data && (
+              <>
+                {" "}
+                <Link
+                  to={`/app/workflows/${data.pipelineId}`}
+                  className="font-medium text-teal-600 hover:underline dark:text-teal-400"
+                >
+                  Open workflow
+                </Link>
+                .
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
