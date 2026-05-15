@@ -8,6 +8,7 @@ React + Vite + TypeScript + Tailwind CSS v4. This package is the **alpha UI shel
 cd web
 npm ci
 npm run dev      # http://localhost:5173 — proxies /api → gateway (default http://localhost:8080)
+npm run lint     # TypeScript check (same as CI)
 npm run build
 npm run preview
 ```

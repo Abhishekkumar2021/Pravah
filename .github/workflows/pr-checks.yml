@@ -63,6 +63,8 @@ jobs:
               - '.github/workflows/**'
             web:
               - 'web/**'
+              - '.github/workflows/web-ci.yml'
+              - '.github/workflows/pr-checks.yml'
 
   # ============================================================================
   # Build Check (only if backend changed)
@@ -131,6 +133,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint (TypeScript)
+        run: npm run lint
 
       - name: Build
         run: npm run build
