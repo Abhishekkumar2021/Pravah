@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { ApiError, getDevBearerToken, getPipeline, listExecutions, type PipelineDetailResponse } from "@/lib/api";
 import { formatShortDateTime, formatExecutionWallDuration } from "@/lib/format";
 
@@ -125,11 +126,21 @@ export function WorkflowDetailPage() {
               <p className="mt-2 max-w-2xl text-[13px] text-neutral-600 dark:text-neutral-300">{pipeline.description}</p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {pipeline && <StatusBadge status={pipeline.status} />}
             <span className="rounded-full bg-neutral-100 px-3 py-1 font-mono text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
               v{pipeline?.currentVersion ?? "—"}
             </span>
+            {pipeline && (
+              <TriggerRunButton
+                pipelineId={pipeline.id}
+                pipelineVersion={pipeline.currentVersion}
+                variant="primary"
+                size="default"
+                label="Run now"
+                disabled={pipeline.status.toLowerCase() !== "active"}
+              />
+            )}
           </div>
         </div>
       </div>

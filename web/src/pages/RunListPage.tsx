@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
+import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
 import { StatusBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
+import { Pagination } from "@/components/ui/Pagination";
 import { Select } from "@/components/ui/Select";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError, getDevBearerToken, listExecutions, listPipelines, type ExecutionListItem } from "@/lib/api";
@@ -17,8 +19,11 @@ export function RunListPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 20;
 
-  const projectId = getResolvedProjectId();
   const hasToken = Boolean(getDevBearerToken());
 
   const load = useCallback(async () => {
@@ -35,10 +40,16 @@ export function RunListPage() {
     try {
       const pid = getResolvedProjectId();
       const [execRes, pipeRes] = await Promise.all([
-        listExecutions({ page: 0, size: 50, status: statusFilter === "all" ? undefined : statusFilter }),
+        listExecutions({
+          page,
+          size: pageSize,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        }),
         pid ? listPipelines(pid, { page: 0, size: 200 }) : Promise.resolve(null),
       ]);
       setRows(execRes.content);
+      setTotalPages(execRes.totalPages);
+      setTotalElements(execRes.totalElements);
       if (pipeRes) {
         const m = new Map<string, string>();
         for (const p of pipeRes.content) {
@@ -55,6 +66,10 @@ export function RunListPage() {
     } finally {
       setLoading(false);
     }
+  }, [statusFilter, page]);
+
+  useEffect(() => {
+    setPage(0);
   }, [statusFilter]);
 
   useEffect(() => {
@@ -79,32 +94,32 @@ export function RunListPage() {
         <div>
           <h2 className="page-title">Runs</h2>
           <p className="page-desc">
-            Live data from <span className="font-medium">GET /api/v1/executions</span> (
-            <span className="font-medium">US-12.07</span>). Pipeline names resolve when a project id is set.
+            Live data from <span className="font-medium">POST/GET /api/v1/executions</span> (
+            <span className="font-medium">US-12.07</span>). Refresh to see status changes until{" "}
+            <span className="font-medium">US-12.10</span> WebSocket delivery.
           </p>
         </div>
-        <Select
-          aria-label="Filter by status"
-          value={statusFilter}
-          onValueChange={setStatusFilter}
-          options={statusOptions}
-          className="w-full sm:w-44"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9"
+            disabled={!hasToken || loading}
+            onClick={() => void load()}
+          >
+            Refresh
+          </Button>
+          <Select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            options={statusOptions}
+            className="w-full sm:w-44"
+          />
+        </div>
       </div>
 
-      {!projectId && (
-        <ProjectScopeCard onSaved={() => setProjectNonce((n) => n + 1)} />
-      )}
-
-      {!hasToken && (
-        <Card className="border-blue-200/80 dark:border-blue-900/50">
-          <CardTitle className="text-base">JWT required</CardTitle>
-          <CardDescription>
-            Open any run (or create one via API) and use the <span className="font-medium">Dev token</span> panel to
-            store a gateway JWT, then reload this page.
-          </CardDescription>
-        </Card>
-      )}
+      <AlphaSetupBanner onProjectSaved={() => setProjectNonce((n) => n + 1)} />
 
       {error && (
         <Card className="border-rose-200 dark:border-rose-900/50">
@@ -118,12 +133,22 @@ export function RunListPage() {
       <DataTable
         aria-label="Runs"
         footer={
-          hasToken && !loading && rows.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-neutral-500">
-              No runs found for this tenant
-              {statusFilter !== "all" ? ` in status "${statusFilter}".` : "."}
-            </p>
-          ) : null
+          <>
+            {hasToken && !loading && rows.length === 0 ? (
+              <p className="px-4 py-3 text-[13px] text-neutral-500">
+                No runs found for this tenant
+                {statusFilter !== "all" ? ` in status "${statusFilter}".` : "."}
+              </p>
+            ) : null}
+            {hasToken && !loading && rows.length > 0 ? (
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                onPageChange={setPage}
+              />
+            ) : null}
+          </>
         }
       >
         {loading && hasToken ? (

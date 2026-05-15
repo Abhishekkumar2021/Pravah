@@ -179,6 +179,46 @@ export async function getPipeline(pipelineId: string): Promise<PipelineDetailRes
   return handleResponse<PipelineDetailResponse>(res);
 }
 
+export type CreateExecutionRequest = {
+  pipelineId: string;
+  pipelineVersion?: number | null;
+};
+
+export type CreateExecutionJobResponse = {
+  id: string;
+  stageId: string;
+  stageName: string;
+  status: string;
+};
+
+export type CreateExecutionResponse = {
+  id: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: string;
+  jobs: CreateExecutionJobResponse[];
+};
+
+/** Start a manual execution (POST /api/v1/executions). */
+export async function createExecution(
+  pipelineId: string,
+  pipelineVersion?: number | null,
+): Promise<CreateExecutionResponse> {
+  const body: CreateExecutionRequest = {
+    pipelineId,
+    pipelineVersion: pipelineVersion ?? null,
+  };
+  const res = await fetch(apiUrl("/api/v1/executions"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CreateExecutionResponse>(res);
+}
+
 export async function listExecutions(opts?: {
   status?: string;
   pipelineId?: string;
