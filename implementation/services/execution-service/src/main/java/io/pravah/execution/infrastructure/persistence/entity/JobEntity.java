@@ -242,8 +242,21 @@ public class JobEntity {
    * @throws IllegalStateException if transition is not allowed
    */
   public void cancel() {
+    cancel("Cancelled by user");
+  }
+
+  /**
+   * Transitions to CANCELLED state and records a human-readable reason (support / UI).
+   *
+   * @param reason non-blank cancellation reason
+   * @throws IllegalStateException if transition is not allowed
+   */
+  public void cancel(String reason) {
     this.status = this.status.onCancel();
     this.completedAt = Instant.now();
+    if (reason != null && !reason.isBlank()) {
+      this.errorMessage = reason;
+    }
   }
 
   @Override

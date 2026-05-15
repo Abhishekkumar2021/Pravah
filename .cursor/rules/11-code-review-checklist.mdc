@@ -64,6 +64,15 @@ feat(pipeline-service): implement pipeline creation
 Refs: US-01.01
 ```
 
+## Pull request title (before opening / updating a PR)
+
+CI runs `amannn/action-semantic-pull-request` (see `.github/workflows/pr-checks.yml`). The PR title must:
+
+- Use conventional form: `type(optional-scope): Subject here`
+- Have the **subject start with an uppercase letter** (regex `^[A-Z].+$` on the subject only)
+
+Example: `feat(execution-service): Cancel execution API (US-02.04)` — not `...: cancel execution ...`.
+
 ## Red Flags - Do NOT Commit If:
 
 - ❌ Tests are failing

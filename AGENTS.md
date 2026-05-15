@@ -181,6 +181,10 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 Prefer **topic branches and pull requests** into `main` or `develop` instead of pushing straight to those branches. On GitHub, use **branch rulesets** (or branch protection) so default merges require PRs and checks; as a **solo maintainer** you can grant **repository admin bypass** when you need to override—see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### PR title (semantic PR check)
+
+PR titles are linted like conventional commits, with an extra rule: the **subject** (the part after `type(scope): `) **must start with an uppercase letter** (`subjectPattern: ^[A-Z].+$` in `pr-checks.yml`). Use sentence-style wording after the colon, e.g. `feat(execution-service): Cancel execution API (US-02.04)`, not `...: cancel ...`.
+
 ---
 
 ## Quality Gates

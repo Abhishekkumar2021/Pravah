@@ -121,6 +121,8 @@ sequenceDiagram
     ExecutionSvc->>ExecutionSvc: Update job: QUEUED → RUNNING<br/>started_at = now
 ```
 
+**Consumer guard (`execution.created`):** The Execution Service only queues root jobs when the execution row is still **`PENDING`**. If the run was **cancelled** before the event was delivered, or a duplicate `execution.created` arrives after the run has already moved to **`RUNNING`**, the handler records the event as processed and **does not** emit additional `job.created` rows. This avoids duplicate scheduling and matches cancel-before-consume ordering.
+
 ---
 
 ## 3. Execute Job

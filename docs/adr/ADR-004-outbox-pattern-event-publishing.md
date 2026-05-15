@@ -127,6 +127,10 @@ LIMIT 100
 FOR UPDATE SKIP LOCKED;
 ```
 
+### Same topic, multiple event types (Execution Service)
+
+The Execution Service may append several logical event types (`execution.created`, `execution.cancelled`, …) to the **same** Kafka topic (`pravah.execution.execution.events`) so all execution-aggregate notifications for a run share one partition key (the execution id). **Consumers must branch on `payload.eventType`** (or equivalent). Each consumer must remain **idempotent** at the `eventId` level (see processed-events in LLD §16).
+
 **Debezium alternative (CDC-based outbox):**
 
 For very high event volumes, the polling approach adds latency (up to 100ms + PostgreSQL query overhead). An alternative is to use Debezium to tail PostgreSQL's WAL and publish outbox rows to Kafka as they appear. This reduces latency to near-zero. Pravah's initial implementation uses the polling approach because it is simpler to operate; the Debezium path is available as an upgrade if latency requirements tighten.

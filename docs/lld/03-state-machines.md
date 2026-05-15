@@ -177,8 +177,10 @@ stateDiagram-v2
     
     PENDING --> QUEUED : deps_met()
     PENDING --> SKIPPED : skip_condition_true
+    PENDING --> CANCELLED : parent_cancelled()
     
     QUEUED --> RUNNING : runner_assigned()
+    QUEUED --> CANCELLED : cancel()
     
     RUNNING --> SUCCEEDED : success()
     RUNNING --> FAILED : failure_max_retries

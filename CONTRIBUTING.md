@@ -136,8 +136,8 @@ git commit -m "docs(api): update GraphQL schema documentation"
 # Push your branch
 git push -u origin feature/your-feature-name
 
-# Create PR via GitHub CLI
-gh pr create --base develop --title "feat: your feature" --body "Description..."
+# Create PR via GitHub CLI (subject after ":" must start with A–Z — see PR title rules below)
+gh pr create --base develop --title "feat(pipeline-service): Add YAML validation for definitions" --body "Description..."
 ```
 
 ### 5. PR Review Process
@@ -173,11 +173,27 @@ make test-int   # Run integration tests
 ## Pull Request Guidelines
 
 ### PR Title
-Follow conventional commit format:
+
+CI (`.github/workflows/pr-checks.yml`, `amannn/action-semantic-pull-request`) enforces:
+
+1. **Conventional-commit prefix:** `type(optional-scope): ` where `type` is one of the allowed types (same family as commits: `feat`, `fix`, `docs`, …).
+2. **Subject (text after the colon and space):** must match `^[A-Z].+$` — the first character **must be an uppercase letter** (sentence case / title-style start), not lowercase.
+
+Valid:
+
 ```
-feat(scope): brief description
-fix(scope): brief description
+feat(execution-service): Cancel execution API (US-02.04)
+fix(gateway): Route execution cancel to execution-service
 ```
+
+Invalid (fails PR lint):
+
+```
+feat(execution-service): cancel execution API (US-02.04)
+feat: your feature
+```
+
+Scope is optional in the action (`requireScope: false`) but **recommended** for service or component, matching commit scope.
 
 ### PR Description
 Use the PR template and include:

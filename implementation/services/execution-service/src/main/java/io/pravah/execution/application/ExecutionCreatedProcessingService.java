@@ -30,11 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
  * Handles {@code execution.created} after it is published to Kafka (self-consume per LLD §2).
  *
  * <p>Implements explicit idempotency via {@link ProcessedEventRepository} (LLD §16: Idempotent
- * Consumer pattern). Also has implicit idempotency: jobs already in {@link JobState#QUEUED} are
- * skipped.
+ * Consumer pattern). Duplicate delivery while the execution is no longer {@link
+ * ExecutionState#PENDING} skips queueing without new {@code job.created} outbox rows.
  *
  * <p>The Kafka listener must set {@link TenantContext} tenant (and may leave user unset) before
  * invoking this service.
+ *
+ * <p>If the execution is no longer {@link ExecutionState#PENDING} (e.g. already cancelled or
+ * started), the handler skips DAG queueing and still marks the event processed — see LLD sequence
+ * note for {@code execution.created}.
  */
 @Service
 public class ExecutionCreatedProcessingService {
@@ -96,6 +100,15 @@ public class ExecutionCreatedProcessingService {
 
     if (!execution.getTenantId().equals(tenantId)) {
       throw new IllegalStateException("Execution tenant mismatch for execution.created");
+    }
+
+    if (execution.getStatus() != ExecutionState.PENDING) {
+      log.info(
+          "execution.created skipped — execution not pending (e.g. cancelled or already started)",
+          kv("execution_id", executionId),
+          kv("status", execution.getStatus()));
+      recordProcessed(eventId);
+      return;
     }
 
     List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
