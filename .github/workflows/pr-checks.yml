@@ -137,6 +137,9 @@ jobs:
       - name: Lint (TypeScript)
         run: npm run lint
 
+      - name: Test (Vitest + Testing Library)
+        run: npm run test
+
       - name: Build
         run: npm run build
 

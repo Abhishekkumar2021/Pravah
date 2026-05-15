@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
+import { DataTable } from "@/components/ui/DataTable";
+import { Select } from "@/components/ui/Select";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError, getDevBearerToken, listExecutions, listPipelines, type ExecutionListItem } from "@/lib/api";
 import { formatExecutionWallDuration, formatShortDateTime } from "@/lib/format";
 import { getResolvedProjectId } from "@/lib/workspace";
@@ -13,7 +16,7 @@ export function RunListPage() {
   const [pipelineNames, setPipelineNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const projectId = getResolvedProjectId();
   const hasToken = Boolean(getDevBearerToken());
@@ -32,7 +35,7 @@ export function RunListPage() {
     try {
       const pid = getResolvedProjectId();
       const [execRes, pipeRes] = await Promise.all([
-        listExecutions({ page: 0, size: 50, status: statusFilter || undefined }),
+        listExecutions({ page: 0, size: 50, status: statusFilter === "all" ? undefined : statusFilter }),
         pid ? listPipelines(pid, { page: 0, size: 200 }) : Promise.resolve(null),
       ]);
       setRows(execRes.content);
@@ -60,7 +63,7 @@ export function RunListPage() {
 
   const statusOptions = useMemo(
     () => [
-      { value: "", label: "All statuses" },
+      { value: "all", label: "All statuses" },
       { value: "pending", label: "Pending" },
       { value: "running", label: "Running" },
       { value: "succeeded", label: "Succeeded" },
@@ -74,24 +77,19 @@ export function RunListPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Runs</h2>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <h2 className="page-title">Runs</h2>
+          <p className="page-desc">
             Live data from <span className="font-medium">GET /api/v1/executions</span> (
             <span className="font-medium">US-12.07</span>). Pipeline names resolve when a project id is set.
           </p>
         </div>
-        <select
+        <Select
           aria-label="Filter by status"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        >
-          {statusOptions.map((o) => (
-            <option key={o.value || "all"} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          onValueChange={setStatusFilter}
+          options={statusOptions}
+          className="w-full sm:w-44"
+        />
       </div>
 
       {!projectId && (
@@ -99,7 +97,7 @@ export function RunListPage() {
       )}
 
       {!hasToken && (
-        <Card className="border-teal-200/80 dark:border-teal-900/50">
+        <Card className="border-blue-200/80 dark:border-blue-900/50">
           <CardTitle className="text-base">JWT required</CardTitle>
           <CardDescription>
             Open any run (or create one via API) and use the <span className="font-medium">Dev token</span> panel to
@@ -115,52 +113,61 @@ export function RunListPage() {
         </Card>
       )}
 
-      {loading && <p className="text-sm text-zinc-500">Loading runs…</p>}
+      {loading && <span className="sr-only">Loading runs…</span>}
 
-      <div className="surface-card overflow-hidden">
-        <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-zinc-200 bg-zinc-50/80 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-            <tr>
-              <th className="px-6 py-3">Workflow</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Started</th>
-              <th className="px-6 py-3">Duration</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {rows.map((r) => {
-              const wfName = pipelineNames.get(r.pipelineId);
-              return (
-                <tr key={r.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
-                  <td className="px-6 py-4">
-                    <Link
-                      to={`/app/runs/${r.id}`}
-                      className="font-medium text-zinc-900 hover:text-teal-600 dark:text-zinc-100 dark:hover:text-teal-400"
-                    >
-                      {wfName ?? "Pipeline"}
-                    </Link>
-                    <p className="mt-0.5 font-mono text-xs text-zinc-400">{r.id}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td className="px-6 py-4 text-zinc-600 dark:text-zinc-400">
-                    {formatShortDateTime(r.startedAt ?? r.createdAt)}
-                  </td>
-                  <td className="px-6 py-4 text-zinc-600 dark:text-zinc-400">
-                    {formatExecutionWallDuration(r)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!loading && hasToken && rows.length === 0 && (
-          <p className="border-t border-zinc-100 px-6 py-4 text-sm text-zinc-500 dark:border-zinc-800">
-            No runs found for this tenant{statusFilter ? ` in status “${statusFilter}”.` : "."}
-          </p>
+      <DataTable
+        aria-label="Runs"
+        footer={
+          hasToken && !loading && rows.length === 0 ? (
+            <p className="px-4 py-3 text-[13px] text-neutral-500">
+              No runs found for this tenant
+              {statusFilter !== "all" ? ` in status "${statusFilter}".` : "."}
+            </p>
+          ) : null
+        }
+      >
+        {loading && hasToken ? (
+          <TableSkeleton headers={["Workflow", "Status", "Started", "Duration"]} rows={8} />
+        ) : (
+          <table className="table-data">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const wfName = pipelineNames.get(r.pipelineId);
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      <Link
+                        to={`/app/runs/${r.id}`}
+                        className="font-medium text-neutral-900 hover:text-blue-600 dark:text-neutral-100 dark:hover:text-blue-400"
+                      >
+                        {wfName ?? "Pipeline"}
+                      </Link>
+                      <p className="mt-0.5 font-mono text-[11px] text-neutral-400">{r.id}</p>
+                    </td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td className="text-neutral-600 dark:text-neutral-400">
+                      {formatShortDateTime(r.startedAt ?? r.createdAt)}
+                    </td>
+                    <td className="text-neutral-600 dark:text-neutral-400">
+                      {formatExecutionWallDuration(r)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </div>
+      </DataTable>
     </div>
   );
 }

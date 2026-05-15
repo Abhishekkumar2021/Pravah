@@ -3,9 +3,16 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --color-pravah-accent: oklch(0.7 0.14 195);
-  --color-pravah-accent-muted: oklch(0.55 0.1 195);
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --color-pravah-accent: oklch(0.55 0.22 264);
+  --color-pravah-accent-muted: oklch(0.48 0.14 264);
+  --color-selection-bg: oklch(0.9 0.055 264);
+  --color-selection-fg: oklch(0.28 0.07 264);
+  --color-selection-bg-dark: oklch(0.4 0.12 264);
+  --color-selection-fg-dark: oklch(0.97 0.015 264);
+  --color-caret: oklch(0.5 0.2 264);
+  --color-caret-dark: oklch(0.72 0.14 264);
 }
 
 @layer base {
@@ -14,25 +21,131 @@
   }
 
   body {
-    @apply min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+    @apply min-h-dvh bg-neutral-50 text-[13px] leading-snug text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
     font-family: var(--font-sans);
+    caret-color: var(--color-caret);
+  }
+
+  .dark body {
+    caret-color: var(--color-caret-dark);
+  }
+
+  ::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  ::-moz-selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark ::selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  .dark ::-moz-selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  input::selection,
+  textarea::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  input::-moz-selection,
+  textarea::-moz-selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark input::selection,
+  .dark textarea::selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 92%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  .dark input::-moz-selection,
+  .dark textarea::-moz-selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 92%, transparent);
+    color: var(--color-selection-fg-dark);
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-teal-500 dark:outline-teal-400;
+    @apply outline-2 outline-offset-2 outline-blue-600 dark:outline-blue-500;
+  }
+
+  code,
+  .font-mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  dialog::backdrop {
+    @apply bg-black/40;
   }
 }
 
 @layer utilities {
   .surface-card {
-    @apply rounded-2xl border border-zinc-200/80 bg-white/80 shadow-sm backdrop-blur-sm dark:border-zinc-800/80 dark:bg-zinc-900/60;
+    @apply rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
   }
 
   .surface-elevated {
-    @apply rounded-xl border border-zinc-200 bg-white shadow-md dark:border-zinc-800 dark:bg-zinc-900;
+    @apply rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
   }
 
   .text-gradient-brand {
-    @apply bg-gradient-to-r from-teal-600 to-cyan-500 bg-clip-text text-transparent dark:from-teal-400 dark:to-cyan-300;
+    @apply bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent dark:from-blue-400 dark:to-blue-300;
+  }
+
+  /** Gradient text: show solid selection instead of clipped gradient. */
+  .text-gradient-brand::selection {
+    -webkit-text-fill-color: var(--color-selection-fg);
+    background-image: none;
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark .text-gradient-brand::selection {
+    -webkit-text-fill-color: var(--color-selection-fg-dark);
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  /** Dense data grids (runs/workflows tables). */
+  .table-data {
+    @apply min-w-full text-left text-[13px] leading-snug tabular-nums text-neutral-800 dark:text-neutral-200;
+  }
+
+  .table-data thead {
+    @apply border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/70;
+  }
+
+  .table-data th {
+    @apply px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400;
+  }
+
+  .table-data tbody {
+    @apply divide-y divide-neutral-100 dark:divide-neutral-800;
+  }
+
+  .table-data td {
+    @apply px-4 py-2.5 align-middle;
+  }
+
+  .table-data tbody tr {
+    @apply transition-colors hover:bg-neutral-50/90 dark:hover:bg-neutral-900/50;
+  }
+
+  /** Page titles stay slightly larger than body copy. */
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl;
+  }
+
+  .page-desc {
+    @apply mt-1 text-[13px] leading-snug text-neutral-500 dark:text-neutral-400;
   }
 }

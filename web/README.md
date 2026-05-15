@@ -9,6 +9,7 @@ cd web
 npm ci
 npm run dev      # http://localhost:5173 — proxies /api → gateway (default http://localhost:8080)
 npm run lint     # TypeScript check (same as CI)
+npm run test     # Vitest + Testing Library (UI integration tests)
 npm run build
 npm run preview
 ```
@@ -45,4 +46,8 @@ Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 | Run list | US-12.07 |
 | Run detail + cancel | US-12.08 / US-02.04 |
 
-GraphQL read model (ADR-033) is not implemented yet; pages use mock data or REST where noted.
+GraphQL read model (ADR-033) is not implemented yet; pages use REST where noted.
+
+## Design system (`src/components/ui/`)
+
+Use `Button`, `Input`, `Select`, `Checkbox`, `PasswordInput`, and `IconButton` for actions and form fields so styling stays consistent. Do not paste one-off field styles in pages — extend primitives with `className` + `cn()` instead.
