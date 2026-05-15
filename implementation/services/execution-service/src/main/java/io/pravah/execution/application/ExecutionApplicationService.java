@@ -3,6 +3,7 @@ package io.pravah.execution.application;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.domain.ExecutionState;
+import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
@@ -186,13 +187,16 @@ public class ExecutionApplicationService {
    * @throws EntityNotFoundException if not found or not visible for this tenant
    * @throws InvalidStateTransitionException if the execution is in a terminal state other than
    *     cancelled
+   * @throws AccessDeniedException if {@link ExecutionEntity#getTriggeredBy()} is non-null and does
+   *     not match the current user (another user in the tenant may not cancel that run)
    */
   @Transactional
   public GetExecutionResponse cancelExecution(UUID executionId) {
     UUID tenantId = requireTenantId();
-    requireUserId();
+    UUID canceller = requireUserId();
 
     ExecutionEntity execution = loadExecutionForTenant(executionId, tenantId);
+    assertCanCancelAsUser(execution, canceller);
 
     if (execution.getStatus() == ExecutionState.CANCELLED) {
       return toGetExecutionResponse(execution);
@@ -207,9 +211,11 @@ public class ExecutionApplicationService {
     }
 
     List<JobEntity> jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(executionId);
+    int jobsStopped = 0;
     for (JobEntity job : jobs) {
       if (!job.getStatus().isTerminal()) {
         job.cancel();
+        jobsStopped++;
       }
     }
 
@@ -218,8 +224,7 @@ public class ExecutionApplicationService {
     UUID eventId = UUID.randomUUID();
     Instant occurredAt = Instant.now();
     Map<String, Object> payload =
-        buildExecutionCancelledPayload(
-            eventId, occurredAt, tenantId, execution, TenantContext.getCurrentUserId());
+        buildExecutionCancelledPayload(eventId, occurredAt, tenantId, execution, canceller);
     outboxRepository.save(
         new OutboxEntity(
             AGGREGATE_EXECUTION,
@@ -234,9 +239,10 @@ public class ExecutionApplicationService {
         "Execution cancelled",
         kv("tenant_id", tenantId),
         kv("execution_id", execution.getId()),
-        kv("event_id", eventId));
+        kv("event_id", eventId),
+        kv("jobs_stopped", jobsStopped));
 
-    return toGetExecutionResponse(execution);
+    return toGetExecutionResponse(execution, jobs);
   }
 
   private static Map<String, Object> buildExecutionCreatedPayload(
@@ -285,9 +291,7 @@ public class ExecutionApplicationService {
     if (execution.getTriggeredBy() != null) {
       m.put("triggeredBy", execution.getTriggeredBy().toString());
     }
-    if (cancelledBy != null) {
-      m.put("cancelledBy", cancelledBy.toString());
-    }
+    m.put("cancelledBy", cancelledBy.toString());
     return m;
   }
 
@@ -319,9 +323,24 @@ public class ExecutionApplicationService {
     return execution;
   }
 
+  /**
+   * When {@code triggeredBy} is set, only that principal may cancel (manual runs and similar). When
+   * it is null (e.g. system-triggered), any authenticated user in the tenant may cancel.
+   */
+  private static void assertCanCancelAsUser(ExecutionEntity execution, UUID canceller) {
+    UUID triggeredBy = execution.getTriggeredBy();
+    if (triggeredBy != null && !triggeredBy.equals(canceller)) {
+      throw new AccessDeniedException("execution", "cancel");
+    }
+  }
+
   private GetExecutionResponse toGetExecutionResponse(ExecutionEntity execution) {
-    List<JobEntity> jobs =
-        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
+    return toGetExecutionResponse(
+        execution, jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId()));
+  }
+
+  private GetExecutionResponse toGetExecutionResponse(
+      ExecutionEntity execution, List<JobEntity> jobs) {
     List<GetExecutionResponse.JobSummary> jobSummaries =
         jobs.stream()
             .map(

@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -54,6 +55,18 @@ public class RestExceptionHandler {
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     pd.setTitle("Bad Request");
     pd.setType(URI.create("about:blank"));
+    return pd;
+  }
+
+  @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+  public ProblemDetail optimisticLock(ObjectOptimisticLockingFailureException ex) {
+    log.warn("Optimistic locking conflict", kv("message", ex.getMessage()));
+    ProblemDetail pd =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT, "Resource was modified concurrently; retry the request");
+    pd.setTitle("Conflict");
+    pd.setType(URI.create("about:blank"));
+    pd.setProperty("errorCode", "OPTIMISTIC_LOCK_CONFLICT");
     return pd;
   }
 

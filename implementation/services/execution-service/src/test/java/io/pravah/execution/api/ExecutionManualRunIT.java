@@ -1,6 +1,8 @@
 package io.pravah.execution.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -255,12 +257,95 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                 .header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("cancelled"))
-        .andExpect(jsonPath("$.jobs[0].status").value("cancelled"))
-        .andExpect(jsonPath("$.jobs[1].status").value("cancelled"));
+        .andExpect(jsonPath("$.jobs[*].status", everyItem(is("cancelled"))));
 
     assertThat(outboxRepository.findAll())
         .filteredOn(o -> ExecutionEventTypes.EXECUTION_CANCELLED.equals(o.getEventType()))
         .hasSize(1);
+  }
+
+  @Test
+  void postCancel_differentUserThanTriggerer_returns403() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userA = UUID.randomUUID();
+    UUID userB = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String tokenA = testJwtIssuer.generateAccessToken(userA, tenantId);
+    String tokenB = testJwtIssuer.generateAccessToken(userB, tenantId);
+
+    Map<String, Object> definition =
+        Map.of("stages", List.of(Map.of("id", "only", "name", "Only")));
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(new PublishedPipelineSnapshot(pipelineId, 1, definition, "active"));
+
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/executions")
+                    .header("Authorization", "Bearer " + tokenA)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            new CreateExecutionRequest(pipelineId, null))))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    UUID executionId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+    mockMvc
+        .perform(
+            post("/api/v1/executions/{id}/cancel", executionId)
+                .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.errorCode").value("ACCESS_DENIED"));
+  }
+
+  @Test
+  void postCancel_afterOwnerCancelled_otherUser_returns403() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userA = UUID.randomUUID();
+    UUID userB = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String tokenA = testJwtIssuer.generateAccessToken(userA, tenantId);
+    String tokenB = testJwtIssuer.generateAccessToken(userB, tenantId);
+
+    Map<String, Object> definition =
+        Map.of("stages", List.of(Map.of("id", "only", "name", "Only")));
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(new PublishedPipelineSnapshot(pipelineId, 1, definition, "active"));
+
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/executions")
+                    .header("Authorization", "Bearer " + tokenA)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            new CreateExecutionRequest(pipelineId, null))))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    UUID executionId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+    mockMvc
+        .perform(
+            post("/api/v1/executions/{id}/cancel", executionId)
+                .header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk());
+
+    mockMvc
+        .perform(
+            post("/api/v1/executions/{id}/cancel", executionId)
+                .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.errorCode").value("ACCESS_DENIED"));
   }
 
   @Test
