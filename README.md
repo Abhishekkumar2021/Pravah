@@ -137,7 +137,7 @@ See [`docs/architecture/high-level-architecture.md`](docs/architecture/high-leve
 | **Auth** | JWT RS256 + OAuth 2.0 + SSO (OIDC/SAML 2.0) + mTLS |
 | **Data lineage** | OpenLineage spec — column-level, stored in Elasticsearch |
 | **Infra / GitOps** | Kubernetes + Helm + Argo CD + KEDA |
-| **UI** | Next.js 14 · React Flow (DAG canvas) · TailwindCSS |
+| **UI** | Vite 6 · React 19 · Tailwind CSS v4 · React Router 7 (`web/`) |
 | **Agent** | Spring AI · Claude / GPT-4 · ReAct · pgvector |
 
 ---
@@ -171,7 +171,9 @@ Pravah/
 │   ├── 11-opentelemetry/                 # Distributed tracing
 │   └── 12-graphql/                       # DataLoader, pagination
 │
-└── implementation/                       # Source code (coming next)
+├── web/                                  # EPIC-12: React SPA (Vite, Tailwind v4)
+│
+└── implementation/                       # Spring Boot microservices & runner
     ├── services/                         # Spring Boot microservices
     ├── runner/                           # Standalone runner binary
     ├── proto/                            # Protobuf contracts
@@ -288,6 +290,11 @@ open docs/architecture/high-level-architecture.md
 # Run a playground module
 cd playground/01-kafka
 ./gradlew test
+
+# Web UI (EPIC-12 shell) — requires Node 22+
+cd web
+npm ci
+npm run dev
 ```
 
 ---

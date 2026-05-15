@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --color-pravah-accent: oklch(0.7 0.14 195);
+  --color-pravah-accent-muted: oklch(0.55 0.1 195);
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-teal-500 dark:outline-teal-400;
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-2xl border border-zinc-200/80 bg-white/80 shadow-sm backdrop-blur-sm dark:border-zinc-800/80 dark:bg-zinc-900/60;
+  }
+
+  .surface-elevated {
+    @apply rounded-xl border border-zinc-200 bg-white shadow-md dark:border-zinc-800 dark:bg-zinc-900;
+  }
+
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-teal-600 to-cyan-500 bg-clip-text text-transparent dark:from-teal-400 dark:to-cyan-300;
+  }
+}
