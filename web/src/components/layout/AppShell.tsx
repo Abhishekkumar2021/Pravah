@@ -2,6 +2,7 @@ import { LayoutDashboard, PanelLeftClose, PanelLeft, PlayCircle, Workflow } from
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
+import { TooltipProvider } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 import { TopBar } from "./TopBar";
 
@@ -26,6 +27,7 @@ export function AppShell() {
     );
 
   return (
+    <TooltipProvider>
     <div className="flex min-h-dvh">
       <a
         href="#main-content"
@@ -46,7 +48,9 @@ export function AppShell() {
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium tracking-tight text-neutral-900 dark:text-neutral-50">Pravah</p>
+              <p className="truncate text-sm font-medium tracking-tight text-neutral-900 dark:text-neutral-50">
+                Pravah
+              </p>
               <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">Control plane</p>
             </div>
           )}
@@ -92,5 +96,6 @@ export function AppShell() {
         </main>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

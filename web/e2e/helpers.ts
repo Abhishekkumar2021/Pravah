@@ -39,6 +39,25 @@ export function mockExecutionBody(status: string, jobs: MockJob[] = defaultJobs(
   };
 }
 
+export function mockMultiStageExecutionBody(status = "failed") {
+  return mockExecutionBody(status, [
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      stageId: "extract",
+      stageName: "Extract data",
+      status: "succeeded",
+      attempt: 1,
+    },
+    {
+      id: "55555555-5555-4555-8555-555555555555",
+      stageId: "transform",
+      stageName: "Transform",
+      status: "failed",
+      attempt: 2,
+    },
+  ]);
+}
+
 function defaultJobs(executionStatus: string): MockJob[] {
   const jobStatus =
     executionStatus === "running"
