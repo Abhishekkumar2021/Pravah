@@ -14,6 +14,6 @@ describe("TopBar", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("button", { name: /theme preference/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /sign out/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /sign out/i })).toBeVisible();
   });
 });
