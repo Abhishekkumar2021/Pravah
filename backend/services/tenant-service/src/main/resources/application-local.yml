@@ -1,0 +1,6 @@
+pravah:
+  dev:
+    tenant-id: ${PRAVAH_DEV_TENANT_ID:11111111-1111-4111-8111-111111111111}
+    user-id: ${PRAVAH_DEV_USER_ID:22222222-2222-4222-8222-222222222222}
+    # Optional: require X-Pravah-Dev-Secret header on POST /api/v1/auth/dev-token
+    token-secret: ${PRAVAH_DEV_TOKEN_SECRET:}

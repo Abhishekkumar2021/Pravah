@@ -155,7 +155,10 @@ export function RunListPage() {
         </div>
       </div>
 
-      <AlphaSetupBanner onProjectSaved={() => setProjectNonce((n) => n + 1)} />
+      <AlphaSetupBanner
+        onProjectSaved={() => setProjectNonce((n) => n + 1)}
+        onTokenSaved={() => setProjectNonce((n) => n + 1)}
+      />
 
       {error && (
         <Card className="border-rose-200 dark:border-rose-900/50">

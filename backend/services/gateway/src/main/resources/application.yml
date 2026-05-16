@@ -29,7 +29,7 @@ spring:
         - id: tenant-service
           uri: lb://tenant-service
           predicates:
-            - Path=/api/v1/tenants/**,/api/v1/users/**
+            - Path=/api/v1/tenants/**,/api/v1/users/**,/api/v1/auth/**
 
 server:
   port: 8080

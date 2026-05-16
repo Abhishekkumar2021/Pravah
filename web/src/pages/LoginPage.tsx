@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { DevTokenCard } from "@/components/workspace/DevTokenCard";
+import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -132,7 +134,15 @@ export function LoginPage() {
             SSO and OAuth are placeholders per{" "}
             <span className="font-medium text-neutral-600 dark:text-neutral-400">US-12.01</span>.
           </p>
-          <p className="mt-4 text-center text-[13px] text-neutral-500">
+          <div className="mt-10 space-y-4 border-t border-neutral-200 pt-10 dark:border-neutral-800">
+            <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">Local development</p>
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              No login API yet — paste a JWT and project id here, then open the app.
+            </p>
+            <DevTokenCard />
+            <ProjectScopeCard />
+          </div>
+          <p className="mt-6 text-center text-[13px] text-neutral-500">
             <Link to="/app/dashboard" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
               Skip to app shell
             </Link>

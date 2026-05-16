@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { DevTokenCard } from "@/components/workspace/DevTokenCard";
 import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
 import { getDevBearerToken } from "@/lib/api";
 import { getResolvedProjectId } from "@/lib/workspace";
 
 type AlphaSetupBannerProps = {
   onProjectSaved?: () => void;
+  onTokenSaved?: () => void;
 };
 
-export function AlphaSetupBanner({ onProjectSaved }: AlphaSetupBannerProps) {
+export function AlphaSetupBanner({ onProjectSaved, onTokenSaved }: AlphaSetupBannerProps) {
   const projectId = getResolvedProjectId();
   const hasToken = Boolean(getDevBearerToken());
 
@@ -31,16 +33,14 @@ export function AlphaSetupBanner({ onProjectSaved }: AlphaSetupBannerProps) {
           Set your project UUID (tenant scope for pipeline list).
         </li>
         <li className={hasToken ? "text-neutral-400 line-through" : undefined}>
-          Open <Link to="/app/runs" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Runs</Link>
-          , choose any execution, and paste a gateway JWT in the Dev token panel.
+          Paste your dev JWT below (from <code className="text-[12px]">make local-dev-token</code>).
         </li>
         <li>Start a run from a workflow row or detail page; open run detail to watch live job status.</li>
       </ol>
-      {!projectId && (
-        <div className="mt-4">
-          <ProjectScopeCard onSaved={onProjectSaved} />
-        </div>
-      )}
+      <div className="mt-4 flex flex-col gap-4">
+        {!projectId && <ProjectScopeCard onSaved={onProjectSaved} />}
+        {!hasToken && <DevTokenCard onSaved={onTokenSaved} />}
+      </div>
     </Card>
   );
 }

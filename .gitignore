@@ -41,6 +41,9 @@ Thumbs.db
 *.log
 logs/
 
+# Local stack (backend make local-services)
+backend/.local/
+
 # Terraform
 .terraform/
 *.tfstate

@@ -1,6 +1,7 @@
 package io.pravah.execution.infrastructure.config;
 
 import io.pravah.spring.security.ApiTenantJwtFilter;
+import io.pravah.spring.security.JwtTokenVerifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -15,14 +16,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-  private final ApiTenantJwtFilter apiTenantJwtFilter;
-
-  public SecurityConfig(ApiTenantJwtFilter apiTenantJwtFilter) {
-    this.apiTenantJwtFilter = apiTenantJwtFilter;
+  @Bean
+  public ApiTenantJwtFilter apiTenantJwtFilter(JwtTokenVerifier jwtTokenVerifier) {
+    return new ApiTenantJwtFilter(jwtTokenVerifier);
   }
 
   @Bean
-  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http, ApiTenantJwtFilter apiTenantJwtFilter) throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

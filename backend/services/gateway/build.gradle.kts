@@ -19,6 +19,7 @@ dependencies {
 
     implementation(platform(libs.spring.cloud.dependencies))
     implementation(libs.spring.cloud.starter.gateway)
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
