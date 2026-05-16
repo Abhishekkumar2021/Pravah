@@ -9,6 +9,13 @@ public class QuotaExceededException extends PravahException {
   private final long currentValue;
   private final long limit;
 
+  /**
+   * Creates a quota exceeded exception with quota details.
+   *
+   * @param quotaType type of quota exceeded (e.g., "pipelines", "executions")
+   * @param currentValue current usage value
+   * @param limit maximum allowed value
+   */
   public QuotaExceededException(String quotaType, long currentValue, long limit) {
     super(
         "QUOTA_EXCEEDED",
@@ -17,6 +24,18 @@ public class QuotaExceededException extends PravahException {
     this.quotaType = quotaType;
     this.currentValue = currentValue;
     this.limit = limit;
+  }
+
+  /**
+   * Creates a rate limit exception with a custom message.
+   *
+   * @param message custom error message (e.g., "Too many login attempts")
+   */
+  public QuotaExceededException(String message) {
+    super("RATE_LIMIT_EXCEEDED", message);
+    this.quotaType = "rate_limit";
+    this.currentValue = -1;
+    this.limit = -1;
   }
 
   public String getQuotaType() {

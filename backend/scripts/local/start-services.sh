@@ -49,4 +49,9 @@ start_one gateway :services:gateway
 
 echo ""
 echo "Services starting in background. Logs: $PRAVAH_LOCAL_LOG_DIR"
-echo "Wait ~30–60s, then: make local-status && make local-dev-token"
+echo "Wait ~30–60s, then:"
+echo "  make local-status"
+echo "  make local-seed          # required once for demo user password (dev@localhost.pravah / PravahDev1!)"
+echo "  make local-dev-token     # or sign in at http://localhost:5173/login"
+echo ""
+echo "After pulling auth changes, run: make local-services-stop && make local-services"

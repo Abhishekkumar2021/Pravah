@@ -8,16 +8,38 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { DevTokenCard } from "@/components/workspace/DevTokenCard";
 import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
+import { ApiError, login } from "@/lib/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("dev@localhost.pravah");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const rememberId = useId();
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    navigate("/app/dashboard");
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(email.trim(), password);
+      navigate("/app/dashboard");
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 500) {
+        setError(
+          "Auth service unavailable. Run: make local-services-stop && make local-services (in backend/), then make local-seed.",
+        );
+      } else if (err instanceof ApiError && err.status === 401) {
+        setError(
+          "Invalid email or password. After make local-seed use dev@localhost.pravah / PravahDev1!",
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : "Sign in failed");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -53,7 +75,11 @@ export function LoginPage() {
           <div className="hidden lg:block">
             <h1 className="page-title">Sign in</h1>
             <p className="page-desc mt-2">
-              Welcome back. Auth is not wired yet—this is the US-12.01 layout shell.
+              Sign in with your Pravah account. Seeded local user:{" "}
+              <span className="font-mono text-neutral-600 dark:text-neutral-400">
+                dev@localhost.pravah
+              </span>
+              .
             </p>
           </div>
 
@@ -106,8 +132,17 @@ export function LoginPage() {
               </div>
               <span className="text-neutral-400">Forgot password</span>
             </div>
-            <Button type="submit" className="h-11 w-full rounded-lg text-[13px] font-medium">
-              Continue
+            {error && (
+              <p className="text-[13px] text-rose-600 dark:text-rose-400" role="alert">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="h-11 w-full rounded-lg text-[13px] font-medium"
+              disabled={submitting || !email.trim() || !password}
+            >
+              {submitting ? "Signing in…" : "Continue"}
             </Button>
           </form>
 
@@ -137,7 +172,8 @@ export function LoginPage() {
           <div className="mt-10 space-y-4 border-t border-neutral-200 pt-10 dark:border-neutral-800">
             <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">Local development</p>
             <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
-              No login API yet — paste a JWT and project id here, then open the app.
+              Or paste a dev JWT below (password after{" "}
+              <span className="font-mono">make local-seed</span>: PravahDev1!).
             </p>
             <DevTokenCard />
             <ProjectScopeCard />

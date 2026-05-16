@@ -3,6 +3,7 @@ package io.pravah.tenant.api.rest;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.exception.AccessDeniedException;
+import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ConcurrencyException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
@@ -73,6 +74,17 @@ public class GlobalExceptionHandler {
     pd.setTitle("Validation Error");
     pd.setType(URI.create("https://pravah.io/errors/validation"));
     pd.setProperty("fieldErrors", errors);
+    pd.setProperty("timestamp", Instant.now().toString());
+    return pd;
+  }
+
+  @ExceptionHandler(AuthenticationException.class)
+  public ProblemDetail handleAuthentication(AuthenticationException ex) {
+    log.debug("Authentication failed", kv("message", ex.getMessage()));
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    pd.setTitle("Unauthorized");
+    pd.setType(URI.create("https://pravah.io/errors/unauthorized"));
+    pd.setProperty("errorCode", ex.getErrorCode());
     pd.setProperty("timestamp", Instant.now().toString());
     return pd;
   }

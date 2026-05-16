@@ -2,6 +2,7 @@ package io.pravah.spring.web;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.common.exception.PravahException;
@@ -31,6 +32,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PravahRestExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(PravahRestExceptionHandler.class);
+
+  @ExceptionHandler(AuthenticationException.class)
+  public ProblemDetail handleAuthentication(AuthenticationException ex) {
+    log.debug("Authentication failed", kv("message", ex.getMessage()));
+    ProblemDetail pd =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
+    pd.setTitle("Unauthorized");
+    pd.setType(URI.create("about:blank"));
+    pd.setProperty("errorCode", ex.getErrorCode());
+    return pd;
+  }
 
   @ExceptionHandler(EntityNotFoundException.class)
   public ProblemDetail handleNotFound(EntityNotFoundException ex) {

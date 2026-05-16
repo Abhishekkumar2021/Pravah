@@ -39,7 +39,7 @@ VALUES (
   '11111111-1111-4111-8111-111111111111',
   'dev@localhost.pravah',
   'Dev User',
-  NULL,
+  '$2b$12$x9nfJLkH87I6f8/ylBwz8u2IVG5Th/rUkaiJRnOMvXy/pl7eVzZ52',
   'ACTIVE',
   now() - interval '30 days',
   now(),
