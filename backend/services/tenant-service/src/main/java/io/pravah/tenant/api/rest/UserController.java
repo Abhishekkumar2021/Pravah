@@ -47,8 +47,8 @@ public class UserController {
 
   @PatchMapping("/{userId}/name")
   public ResponseEntity<UserResponse> updateName(
-      @PathVariable UUID userId, @RequestBody UpdateNameRequest request) {
-    UserResponse response = userService.updateUserName(userId, request.name);
+      @PathVariable UUID userId, @Valid @RequestBody UpdateNameRequest request) {
+    UserResponse response = userService.updateUserName(userId, request.name());
     return ResponseEntity.ok(response);
   }
 
@@ -72,12 +72,18 @@ public class UserController {
 
   @PatchMapping("/{userId}/password")
   public ResponseEntity<Void> updatePassword(
-      @PathVariable UUID userId, @RequestBody UpdatePasswordRequest request) {
-    userService.updatePassword(userId, request.newPassword);
+      @PathVariable UUID userId, @Valid @RequestBody UpdatePasswordRequest request) {
+    userService.updatePassword(userId, request.currentPassword(), request.newPassword());
     return ResponseEntity.ok().build();
   }
 
-  record UpdateNameRequest(String name) {}
+  record UpdateNameRequest(@jakarta.validation.constraints.NotBlank String name) {}
 
-  record UpdatePasswordRequest(String newPassword) {}
+  record UpdatePasswordRequest(
+      @jakarta.validation.constraints.NotBlank String currentPassword,
+      @jakarta.validation.constraints.NotBlank
+          @jakarta.validation.constraints.Size(
+              min = 8,
+              message = "Password must be at least 8 characters")
+          String newPassword) {}
 }

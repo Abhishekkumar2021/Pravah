@@ -212,16 +212,23 @@ public class UserService {
   }
 
   /**
-   * Updates a user's password.
+   * Updates a user's password after verifying the current password.
    *
    * @param userId the user ID
+   * @param currentPassword the current password for verification
    * @param newPassword the new password
+   * @throws ValidationException if current password is incorrect
    */
-  public void updatePassword(UUID userId, String newPassword) {
+  public void updatePassword(UUID userId, String currentPassword, String newPassword) {
     User user =
         userRepository
             .findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User", userId));
+
+    if (user.getPasswordHash() != null
+        && !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+      throw ValidationException.of("currentPassword", "Current password is incorrect");
+    }
 
     user.updatePasswordHash(passwordEncoder.encode(newPassword));
     userRepository.save(user);

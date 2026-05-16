@@ -25,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Uses the {@code topic} and {@code partition_key} columns stored in the outbox row. Uses
  * pessimistic locking ({@code SELECT ... FOR UPDATE SKIP LOCKED}) for safe concurrent relays.
+ *
+ * <p>Dead letter: rows exceeding {@code maxPublishRetries} are marked dead-lettered (published_at
+ * set to epoch) and logged at ERROR. Monitor "dead-lettered outbox" logs for alerting.
  */
 @Component
 @ConditionalOnBean(KafkaTemplate.class)
@@ -32,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxRelay {
 
   private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
+  private static final int MAX_PUBLISH_RETRIES = 10;
+  private static final Instant DEAD_LETTER_MARKER = Instant.EPOCH;
 
   private final OutboxRepository outboxRepository;
   private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -68,12 +73,23 @@ public class OutboxRelay {
         break;
       } catch (ExecutionException | TimeoutException e) {
         row.incrementRetryCount();
-        log.warn(
-            "Kafka publish failed; will retry",
-            kv("outbox_id", row.getId()),
-            kv("topic", topic),
-            kv("retry_count", row.getRetryCount()),
-            kv("error", e.getMessage()));
+        if (row.getRetryCount() >= MAX_PUBLISH_RETRIES) {
+          row.setPublishedAt(DEAD_LETTER_MARKER);
+          log.error(
+              "Dead-lettered outbox event after max retries",
+              kv("outbox_id", row.getId()),
+              kv("event_type", row.getEventType()),
+              kv("topic", topic),
+              kv("retry_count", row.getRetryCount()),
+              kv("error", e.getMessage()));
+        } else {
+          log.warn(
+              "Kafka publish failed; will retry",
+              kv("outbox_id", row.getId()),
+              kv("topic", topic),
+              kv("retry_count", row.getRetryCount()),
+              kv("error", e.getMessage()));
+        }
       }
     }
   }

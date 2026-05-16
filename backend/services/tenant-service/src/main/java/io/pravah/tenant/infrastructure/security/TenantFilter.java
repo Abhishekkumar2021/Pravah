@@ -11,9 +11,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -60,8 +64,16 @@ public class TenantFilter extends OncePerRequestFilter {
           JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(token);
           TenantContext.setCurrentUserId(claims.userId());
           TenantContext.setCurrentTenantId(claims.tenantId());
+
+          var authentication =
+              new UsernamePasswordAuthenticationToken(
+                  claims.userId().toString(),
+                  null,
+                  Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+          SecurityContextHolder.getContext().setAuthentication(authentication);
+
           log.debug(
-              "Set tenant context from JWT",
+              "Set tenant context and authentication from JWT",
               kv("user_id", claims.userId()),
               kv("tenant_id", claims.tenantId()));
         } catch (JwtVerificationException e) {
@@ -72,6 +84,7 @@ public class TenantFilter extends OncePerRequestFilter {
       filterChain.doFilter(request, response);
     } finally {
       TenantContext.clear();
+      SecurityContextHolder.clearContext();
     }
   }
 

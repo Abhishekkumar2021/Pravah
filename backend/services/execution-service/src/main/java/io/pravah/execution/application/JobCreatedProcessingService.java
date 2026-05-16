@@ -120,7 +120,29 @@ public class JobCreatedProcessingService {
     EmbeddedStageExecutor.StageExecutionResult result =
         embeddedStageExecutor.execute(job, execution);
     if (result.exitCode() != 0) {
+      JobState statusBeforeFail = job.getStatus();
       job.fail(result.exitCode(), "Embedded executor reported non-zero exit", maxJobAttempts);
+
+      if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.QUEUED) {
+        Instant retryOccurredAt = Instant.now();
+        Map<String, Object> retryPayload =
+            buildJobCreatedPayload(retryOccurredAt, tenantId, execution, job);
+        outboxRepository.save(
+            new OutboxEntity(
+                AGGREGATE_JOB,
+                job.getId(),
+                JobEventTypes.JOB_CREATED,
+                jobCreatedTopic,
+                execution.getId().toString(),
+                retryPayload,
+                retryOccurredAt));
+        log.info(
+            "Scheduled job retry",
+            kv("job_id", job.getId()),
+            kv("attempt", job.getAttempt()),
+            kv("max_attempts", maxJobAttempts));
+      }
+
       finalizeExecutionIfDone(execution);
       recordProcessed(eventId);
       publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);

@@ -38,7 +38,7 @@ pravah:
   security:
     jwt:
       issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
-      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
 
 management:
   endpoints:

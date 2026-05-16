@@ -96,6 +96,14 @@ export function setDevBearerToken(token: string | null) {
   }
 }
 
+/** Clear dev JWT and sign out. Use on explicit sign-out actions. */
+export function signOut() {
+  localStorage.removeItem(DEV_BEARER_STORAGE_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(DEV_BEARER_CHANGED_EVENT));
+  }
+}
+
 function authHeaders(): HeadersInit {
   const token = getDevBearerToken();
   return token ? { Authorization: `Bearer ${token}` } : {};

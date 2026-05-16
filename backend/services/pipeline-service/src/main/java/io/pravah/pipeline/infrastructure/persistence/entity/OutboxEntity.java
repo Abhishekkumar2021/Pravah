@@ -40,6 +40,9 @@ public class OutboxEntity {
   @Column(name = "published_at")
   private Instant publishedAt;
 
+  @Column(name = "retry_count", nullable = false)
+  private int retryCount = 0;
+
   protected OutboxEntity() {}
 
   public OutboxEntity(
@@ -85,5 +88,13 @@ public class OutboxEntity {
 
   public void setPublishedAt(Instant publishedAt) {
     this.publishedAt = publishedAt;
+  }
+
+  public int getRetryCount() {
+    return retryCount;
+  }
+
+  public void incrementRetryCount() {
+    this.retryCount++;
   }
 }
