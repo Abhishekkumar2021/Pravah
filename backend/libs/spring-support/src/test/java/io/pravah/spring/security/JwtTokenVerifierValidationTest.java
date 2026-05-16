@@ -57,8 +57,8 @@ class JwtTokenVerifierValidationTest {
     ref.set(jwkSet);
   }
 
-  private static String signToken(
-      com.nimbusds.jose.jwk.RSAKey rsaKey, UUID userId, UUID tenantId) throws Exception {
+  private static String signToken(com.nimbusds.jose.jwk.RSAKey rsaKey, UUID userId, UUID tenantId)
+      throws Exception {
     JWTClaimsSet claims =
         new JWTClaimsSet.Builder()
             .subject(userId.toString())

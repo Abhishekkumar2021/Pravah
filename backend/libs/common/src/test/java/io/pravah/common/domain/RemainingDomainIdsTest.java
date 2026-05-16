@@ -30,8 +30,7 @@ class RemainingDomainIdsTest {
 
   @Test
   void executionId_rejectsNullUuid() {
-    assertThatThrownBy(() -> ExecutionId.of((UUID) null))
-        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> ExecutionId.of((UUID) null)).isInstanceOf(NullPointerException.class);
   }
 
   @Test

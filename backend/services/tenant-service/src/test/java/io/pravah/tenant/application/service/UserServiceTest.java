@@ -64,7 +64,8 @@ class UserServiceTest {
 
     var response =
         userService.createUser(
-            new CreateUserRequest("new@example.com", "New User", "Password1!", Role.EDITOR_ROLE_ID));
+            new CreateUserRequest(
+                "new@example.com", "New User", "Password1!", Role.EDITOR_ROLE_ID));
 
     assertThat(response.email()).isEqualTo("new@example.com");
     verify(memberRepository).save(any(TenantMember.class));
@@ -203,9 +204,7 @@ class UserServiceTest {
     TenantContext.clear();
 
     assertThatThrownBy(
-            () ->
-                userService.createUser(
-                    new CreateUserRequest("x@example.com", "X", null, null)))
+            () -> userService.createUser(new CreateUserRequest("x@example.com", "X", null, null)))
         .isInstanceOf(IllegalStateException.class);
   }
 

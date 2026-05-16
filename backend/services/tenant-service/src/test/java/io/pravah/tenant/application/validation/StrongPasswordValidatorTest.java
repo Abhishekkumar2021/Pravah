@@ -19,7 +19,8 @@ class StrongPasswordValidatorTest {
   void setUp() {
     context = mock(ConstraintValidatorContext.class);
     builder = mock(ConstraintValidatorContext.ConstraintViolationBuilder.class);
-    org.mockito.Mockito.when(context.buildConstraintViolationWithTemplate(org.mockito.ArgumentMatchers.anyString()))
+    org.mockito.Mockito.when(
+            context.buildConstraintViolationWithTemplate(org.mockito.ArgumentMatchers.anyString()))
         .thenReturn(builder);
     org.mockito.Mockito.when(builder.addConstraintViolation()).thenReturn(context);
   }

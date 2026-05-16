@@ -30,7 +30,8 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleNotFound_returns404() {
-    ProblemDetail pd = handler.handleNotFound(new EntityNotFoundException("User", UUID.randomUUID()));
+    ProblemDetail pd =
+        handler.handleNotFound(new EntityNotFoundException("User", UUID.randomUUID()));
 
     assertThat(pd.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
     assertThat(pd.getTitle()).isEqualTo("Resource Not Found");
@@ -91,8 +92,7 @@ class GlobalExceptionHandlerTest {
     var target = new Object();
     var bindingResult = new BeanPropertyBindingResult(target, "target");
     bindingResult.addError(new FieldError("target", "email", "must not be blank"));
-    var ex =
-        new MethodArgumentNotValidException(null, bindingResult);
+    var ex = new MethodArgumentNotValidException(null, bindingResult);
 
     ProblemDetail pd = handler.handleBeanValidation(ex);
 

@@ -20,8 +20,7 @@ class DomainEventsTest {
   @Test
   void allPipelineEvents_exposeEventTypes() {
     assertThat(
-            new PipelineEvent.PipelineCreated(
-                    EVENT_ID, NOW, TENANT, PIPELINE_ID, "ETL", "user-1")
+            new PipelineEvent.PipelineCreated(EVENT_ID, NOW, TENANT, PIPELINE_ID, "ETL", "user-1")
                 .eventType())
         .isEqualTo("pipeline.created");
     assertThat(
@@ -29,8 +28,7 @@ class DomainEventsTest {
                 .eventType())
         .isEqualTo("pipeline.updated");
     assertThat(
-            new PipelineEvent.PipelinePublished(EVENT_ID, NOW, TENANT, PIPELINE_ID, 1)
-                .eventType())
+            new PipelineEvent.PipelinePublished(EVENT_ID, NOW, TENANT, PIPELINE_ID, 1).eventType())
         .isEqualTo("pipeline.published");
     assertThat(
             new PipelineEvent.PipelineArchived(EVENT_ID, NOW, TENANT, PIPELINE_ID, "user-1")
@@ -62,15 +60,13 @@ class DomainEventsTest {
             new RunEvent.RunCancelled(EVENT_ID, NOW, TENANT, RUN_ID, PIPELINE_ID, "user-1")
                 .eventType())
         .isEqualTo("run.cancelled");
-    assertThat(
-            new RunEvent.RunRetrying(EVENT_ID, NOW, TENANT, RUN_ID, PIPELINE_ID, 2).eventType())
+    assertThat(new RunEvent.RunRetrying(EVENT_ID, NOW, TENANT, RUN_ID, PIPELINE_ID, 2).eventType())
         .isEqualTo("run.retrying");
   }
 
   @Test
   void allJobEvents_exposeEventTypes() {
-    assertThat(
-            new JobEvent.JobPending(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "build").eventType())
+    assertThat(new JobEvent.JobPending(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "build").eventType())
         .isEqualTo("job.pending");
     assertThat(new JobEvent.JobQueued(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID).eventType())
         .isEqualTo("job.queued");
@@ -80,18 +76,14 @@ class DomainEventsTest {
     assertThat(
             new JobEvent.JobStarted(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, RUNNER_ID).eventType())
         .isEqualTo("job.started");
-    assertThat(
-            new JobEvent.JobSucceeded(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, 500L).eventType())
+    assertThat(new JobEvent.JobSucceeded(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, 500L).eventType())
         .isEqualTo("job.succeeded");
-    assertThat(
-            new JobEvent.JobFailed(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "err", 1).eventType())
+    assertThat(new JobEvent.JobFailed(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "err", 1).eventType())
         .isEqualTo("job.failed");
     assertThat(
-            new JobEvent.JobCancelled(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "user-1")
-                .eventType())
+            new JobEvent.JobCancelled(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, "user-1").eventType())
         .isEqualTo("job.cancelled");
-    assertThat(
-            new JobEvent.JobTimedOut(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, 60L).eventType())
+    assertThat(new JobEvent.JobTimedOut(EVENT_ID, NOW, TENANT, JOB_ID, RUN_ID, 60L).eventType())
         .isEqualTo("job.timedout");
   }
 
@@ -112,8 +104,7 @@ class DomainEventsTest {
   @Test
   void allRunnerEvents_exposeEventTypes() {
     assertThat(
-            new RunnerEvent.RunnerRegistered(
-                    EVENT_ID, NOW, TENANT, RUNNER_ID, "runner-1", "1.0.0")
+            new RunnerEvent.RunnerRegistered(EVENT_ID, NOW, TENANT, RUNNER_ID, "runner-1", "1.0.0")
                 .eventType())
         .isEqualTo("runner.registered");
     assertThat(new RunnerEvent.RunnerOnline(EVENT_ID, NOW, TENANT, RUNNER_ID).eventType())
@@ -141,8 +132,7 @@ class DomainEventsTest {
   @Test
   void domainEvents_shareSchemaVersion() {
     assertThat(
-            new PipelineEvent.PipelineCreated(
-                    EVENT_ID, NOW, TENANT, PIPELINE_ID, "ETL", "user-1")
+            new PipelineEvent.PipelineCreated(EVENT_ID, NOW, TENANT, PIPELINE_ID, "ETL", "user-1")
                 .schemaVersion())
         .isEqualTo(1);
   }

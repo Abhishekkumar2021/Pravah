@@ -1,7 +1,6 @@
 package io.pravah.spring.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.servlet.FilterChain;

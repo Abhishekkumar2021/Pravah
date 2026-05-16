@@ -3,7 +3,6 @@ package io.pravah.tenant.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,8 +146,7 @@ class TenantServiceTest {
   void addMember_validatesTenantAndUserExist() {
     when(tenantRepository.existsById(TENANT_ID)).thenReturn(false);
 
-    assertThatThrownBy(
-            () -> tenantService.addMember(TENANT_ID, USER_ID, Role.VIEWER_ROLE_ID))
+    assertThatThrownBy(() -> tenantService.addMember(TENANT_ID, USER_ID, Role.VIEWER_ROLE_ID))
         .isInstanceOf(EntityNotFoundException.class);
   }
 
@@ -165,6 +163,11 @@ class TenantServiceTest {
   }
 
   private static Tenant sampleTenant() {
-    return Tenant.builder().id(TENANT_ID).name("Dev").slug("dev-local").tier(Tenant.Tier.TEAM).build();
+    return Tenant.builder()
+        .id(TENANT_ID)
+        .name("Dev")
+        .slug("dev-local")
+        .tier(Tenant.Tier.TEAM)
+        .build();
   }
 }

@@ -85,7 +85,8 @@ class TenantControllerTest {
 
   @Test
   void updateName_returnsOk() throws Exception {
-    when(tenantService.updateTenantName(eq(TENANT_ID), eq("New Name"))).thenReturn(sampleResponse());
+    when(tenantService.updateTenantName(eq(TENANT_ID), eq("New Name")))
+        .thenReturn(sampleResponse());
 
     mockMvc
         .perform(
@@ -114,8 +115,7 @@ class TenantControllerTest {
         .perform(
             post("/api/v1/tenants/{tenantId}/members", TENANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{\"userId\": \"%s\", \"roleId\": \"%s\"}".formatted(USER_ID, ROLE_ID)))
+                .content("{\"userId\": \"%s\", \"roleId\": \"%s\"}".formatted(USER_ID, ROLE_ID)))
         .andExpect(status().isCreated());
 
     verify(tenantService).addMember(TENANT_ID, USER_ID, ROLE_ID);
@@ -144,7 +144,6 @@ class TenantControllerTest {
 
   private static TenantResponse sampleResponse() {
     Instant now = Instant.parse("2026-01-01T00:00:00Z");
-    return new TenantResponse(
-        TENANT_ID, "Dev", "dev-local", Tenant.Tier.TEAM, now, now);
+    return new TenantResponse(TENANT_ID, "Dev", "dev-local", Tenant.Tier.TEAM, now, now);
   }
 }

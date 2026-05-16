@@ -50,7 +50,8 @@ class PravahExceptionsTest {
 
   @Test
   void accessDeniedException_has403Status() {
-    assertThat(new AccessDeniedException("pipelines", "write").suggestedHttpStatus()).isEqualTo(403);
+    assertThat(new AccessDeniedException("pipelines", "write").suggestedHttpStatus())
+        .isEqualTo(403);
   }
 
   @Test

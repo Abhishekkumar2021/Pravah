@@ -12,10 +12,8 @@ class SecurityAuthoritiesTest {
   void fromJwtPermissions_alwaysIncludesRoleUser() {
     var authorities = SecurityAuthorities.fromJwtPermissions(List.of("pipelines:read"));
 
-    assertThat(authorities)
-        .anyMatch(a -> a.equals(new SimpleGrantedAuthority("ROLE_USER")));
-    assertThat(authorities)
-        .anyMatch(a -> a.equals(new SimpleGrantedAuthority("pipelines:read")));
+    assertThat(authorities).anyMatch(a -> a.equals(new SimpleGrantedAuthority("ROLE_USER")));
+    assertThat(authorities).anyMatch(a -> a.equals(new SimpleGrantedAuthority("pipelines:read")));
   }
 
   @Test

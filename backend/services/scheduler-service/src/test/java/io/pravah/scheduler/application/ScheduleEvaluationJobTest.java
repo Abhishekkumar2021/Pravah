@@ -109,7 +109,8 @@ class ScheduleEvaluationJobTest {
 
     when(leaderElectionService.isLeader()).thenReturn(true);
     when(scheduleRepository.findDueSchedulesForUpdate(any())).thenReturn(List.of(schedule));
-    when(executionTriggerClient.triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID)))
+    when(executionTriggerClient.triggerScheduledExecution(
+            eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID)))
         .thenThrow(new RuntimeException("execution unavailable"));
     when(scheduleRepository.save(any(Schedule.class))).thenAnswer(inv -> inv.getArgument(0));
 

@@ -57,8 +57,7 @@ class ScheduleServiceTest {
 
   @Test
   void previewCron_capsCountAtTen() {
-    var preview =
-        scheduleService.previewCron(new CronPreviewRequest("0 9 * * *", "UTC", null, 25));
+    var preview = scheduleService.previewCron(new CronPreviewRequest("0 9 * * *", "UTC", null, 25));
     assertThat(preview.nextRuns()).hasSize(10);
   }
 

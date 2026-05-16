@@ -53,8 +53,7 @@ class JwtTokenVerifierClaimsTest {
 
   @Test
   void extractClaims_missingTenantId_throws() {
-    JWTClaimsSet claims =
-        new JWTClaimsSet.Builder().subject(UUID.randomUUID().toString()).build();
+    JWTClaimsSet claims = new JWTClaimsSet.Builder().subject(UUID.randomUUID().toString()).build();
 
     assertThatThrownBy(() -> verifier.extractClaims(claims))
         .isInstanceOf(JwtVerificationException.class)
