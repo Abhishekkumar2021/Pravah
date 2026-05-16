@@ -167,6 +167,18 @@ VALUES
 -- ============================================================================
 \c pravah_execution
 
+-- RLS on job_logs requires tenant context when not connecting as superuser.
+SELECT set_config('pravah.current_tenant_id', '11111111-1111-4111-8111-111111111111', true);
+
+DELETE FROM job_logs WHERE job_id IN (
+  SELECT id FROM jobs WHERE execution_id IN (
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0001',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0002',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0003',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0004',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0005'
+  )
+);
 DELETE FROM jobs WHERE execution_id IN (
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0001',
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0002',
@@ -298,3 +310,86 @@ INSERT INTO jobs (
    now() - interval '3 hours', now() - interval '175 minutes', now() - interval '170 minutes', NULL, 0),
   ('cccccccc-cccc-4ccc-8ccc-cccccccc0014', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0005', 'dedupe', 'Deduplicate', 'CANCELLED', 1,
    now() - interval '170 minutes', now() - interval '168 minutes', now() - interval '170 minutes', NULL, 0);
+
+-- Per-job logs for run-detail UI (US-02.03). Mirrors embedded executor + processing messages.
+INSERT INTO job_logs (id, job_id, log_time, level, message) VALUES
+  -- Failed ETL: extract (succeeded)
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0001', 'cccccccc-cccc-4ccc-8ccc-cccccccc0001', now() - interval '115 minutes', 'INFO',
+   'Starting stage Extract data (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0002', 'cccccccc-cccc-4ccc-8ccc-cccccccc0001', now() - interval '114 minutes', 'INFO',
+   '[embedded-echo] Executing stage extract'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0003', 'cccccccc-cccc-4ccc-8ccc-cccccccc0001', now() - interval '113 minutes', 'INFO',
+   'Read 128,450 rows from source table public.orders'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0004', 'cccccccc-cccc-4ccc-8ccc-cccccccc0001', now() - interval '101 minutes', 'INFO',
+   'Stage Extract data completed successfully'),
+  -- Failed ETL: transform (failed after retry)
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0011', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '99 minutes', 'INFO',
+   'Starting stage Transform (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0012', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '98 minutes', 'INFO',
+   '[embedded-echo] Executing stage transform'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0013', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '97 minutes', 'ERROR',
+   'Stage Transform failed with exit code 1'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0014', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '96 minutes', 'WARN',
+   'Scheduling retry (attempt 2 of 3)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0015', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '95 minutes', 'INFO',
+   'Starting stage Transform (attempt 2)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0016', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '94 minutes', 'INFO',
+   '[embedded-echo] Executing stage transform'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0017', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '92 minutes', 'WARN',
+   'Null key in column customer_id at row 1842'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0018', 'cccccccc-cccc-4ccc-8ccc-cccccccc0002', now() - interval '91 minutes', 'ERROR',
+   'Stage Transform failed with exit code 1'),
+  -- Running ETL: extract (succeeded)
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0021', 'cccccccc-cccc-4ccc-8ccc-cccccccc0004', now() - interval '13 minutes', 'INFO',
+   'Starting stage Extract data (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0022', 'cccccccc-cccc-4ccc-8ccc-cccccccc0004', now() - interval '12 minutes', 'INFO',
+   '[embedded-echo] Executing stage extract'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0023', 'cccccccc-cccc-4ccc-8ccc-cccccccc0004', now() - interval '11 minutes', 'INFO',
+   'Stage Extract data completed successfully'),
+  -- Running ETL: transform (in progress — good for log polling demo)
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0031', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '8 minutes', 'INFO',
+   'Starting stage Transform (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0032', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '7 minutes', 'INFO',
+   '[embedded-echo] Executing stage transform'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0033', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '6 minutes', 'INFO',
+   'Normalizing 128,450 rows across 4 partitions'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0034', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '4 minutes', 'INFO',
+   'Partition 1/4 complete (32,112 rows)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0035', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '2 minutes', 'INFO',
+   'Partition 2/4 complete (32,118 rows)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0036', 'cccccccc-cccc-4ccc-8ccc-cccccccc0005', now() - interval '45 seconds', 'INFO',
+   'Partition 3/4 in progress…'),
+  -- Succeeded event pipeline
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0041', 'cccccccc-cccc-4ccc-8ccc-cccccccc0007', now() - interval '1 day', 'INFO',
+   'Starting stage Ingest stream (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0042', 'cccccccc-cccc-4ccc-8ccc-cccccccc0007', now() - interval '1 day' + interval '5 minutes', 'INFO',
+   '[embedded-echo] Executing stage ingest'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0043', 'cccccccc-cccc-4ccc-8ccc-cccccccc0007', now() - interval '23 hours 45 minutes', 'INFO',
+   'Stage Ingest stream completed successfully'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0044', 'cccccccc-cccc-4ccc-8ccc-cccccccc0008', now() - interval '23 hours 25 minutes', 'INFO',
+   'Starting stage Deduplicate (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0045', 'cccccccc-cccc-4ccc-8ccc-cccccccc0008', now() - interval '23 hours 20 minutes', 'INFO',
+   '[embedded-echo] Executing stage dedupe'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0046', 'cccccccc-cccc-4ccc-8ccc-cccccccc0008', now() - interval '23 hours 5 minutes', 'INFO',
+   'Removed 1,204 duplicate event keys'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0047', 'cccccccc-cccc-4ccc-8ccc-cccccccc0008', now() - interval '23 hours', 'INFO',
+   'Stage Deduplicate completed successfully'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0048', 'cccccccc-cccc-4ccc-8ccc-cccccccc0009', now() - interval '23 hours', 'INFO',
+   'Starting stage Publish metrics (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0049', 'cccccccc-cccc-4ccc-8ccc-cccccccc0009', now() - interval '23 hours', 'INFO',
+   '[embedded-echo] Executing stage publish'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0050', 'cccccccc-cccc-4ccc-8ccc-cccccccc0009', now() - interval '23 hours', 'INFO',
+   'Stage Publish metrics completed successfully'),
+  -- Cancelled run: ingest done, dedupe cancelled mid-flight
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0051', 'cccccccc-cccc-4ccc-8ccc-cccccccc0013', now() - interval '175 minutes', 'INFO',
+   'Starting stage Ingest stream (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0052', 'cccccccc-cccc-4ccc-8ccc-cccccccc0013', now() - interval '174 minutes', 'INFO',
+   '[embedded-echo] Executing stage ingest'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0053', 'cccccccc-cccc-4ccc-8ccc-cccccccc0013', now() - interval '171 minutes', 'INFO',
+   'Stage Ingest stream completed successfully'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0054', 'cccccccc-cccc-4ccc-8ccc-cccccccc0014', now() - interval '168 minutes', 'INFO',
+   'Starting stage Deduplicate (attempt 1)'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0055', 'cccccccc-cccc-4ccc-8ccc-cccccccc0014', now() - interval '167 minutes', 'INFO',
+   '[embedded-echo] Executing stage dedupe'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeee0056', 'cccccccc-cccc-4ccc-8ccc-cccccccc0014', now() - interval '170 minutes', 'WARN',
+   'Run cancelled by user; stage Deduplicate aborted');
