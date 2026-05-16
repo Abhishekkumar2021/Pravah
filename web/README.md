@@ -42,6 +42,16 @@ Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 
 Set `PRAVAH_WS_ALLOWED_ORIGINS` on execution-service if the SPA is not served from `http://localhost:5173`.
 
+## E2E tests (Playwright)
+
+```bash
+npm run test:e2e
+```
+
+- CI uses `CI=1` (build + preview on port 5173).
+- Locally, if `npm run dev` is already on 5173, Playwright reuses it (`reuseExistingServer`).
+- Otherwise set `PLAYWRIGHT_PORT` (e.g. `5199`) when port 5173 is busy.
+
 ## Product mapping
 
 | Area | Stories |

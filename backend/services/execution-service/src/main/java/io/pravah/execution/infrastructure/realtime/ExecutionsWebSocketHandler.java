@@ -46,6 +46,7 @@ public class ExecutionsWebSocketHandler extends TextWebSocketHandler {
 
   @Override
   protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-    // Client may send pings later (US-12.09); ignore for now.
+    // Client may send pings later (US-12.09). Proxies/LBs should allow long-lived upgrades;
+    // configure idle timeouts above expected run duration.
   }
 }

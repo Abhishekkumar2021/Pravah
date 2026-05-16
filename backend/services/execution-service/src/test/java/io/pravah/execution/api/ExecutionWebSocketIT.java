@@ -83,7 +83,7 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
     CountDownLatch messageLatch = new CountDownLatch(1);
     AtomicReference<String> payloadRef = new AtomicReference<>();
 
-    WebSocketSession wsSession = connectWebSocket(token, messageLatch, payloadRef, null);
+    WebSocketSession wsSession = connectWebSocket(token, messageLatch, payloadRef, null, null);
 
     try {
       mockMvc
@@ -127,11 +127,110 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
         .hasMessageContaining("did not permit the HTTP upgrade to WebSocket");
   }
 
+  @Test
+  void postCancel_pushesCancelledStatusOverWebSocket() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(
+            new PublishedPipelineSnapshot(
+                pipelineId,
+                1,
+                Map.of("stages", List.of(Map.of("id", "extract", "name", "Extract data"))),
+                "active"));
+
+    CountDownLatch messageLatch = new CountDownLatch(1);
+    AtomicReference<String> payloadRef = new AtomicReference<>();
+
+    WebSocketSession wsSession =
+        connectWebSocket(token, messageLatch, payloadRef, null, "cancelled");
+
+    try {
+      var created =
+          mockMvc
+              .perform(
+                  post("/api/v1/executions")
+                      .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(
+                          objectMapper.writeValueAsString(
+                              new CreateExecutionRequest(pipelineId, null))))
+              .andExpect(status().isCreated())
+              .andReturn();
+
+      UUID executionId =
+          UUID.fromString(
+              objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+      mockMvc
+          .perform(
+              post("/api/v1/executions/{id}/cancel", executionId)
+                  .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+          .andExpect(status().isOk());
+
+      assertThat(messageLatch.await(WS_TIMEOUT.toSeconds(), TimeUnit.SECONDS))
+          .as("execution.updated with cancelled status after POST /cancel")
+          .isTrue();
+
+      JsonNode frame = objectMapper.readTree(payloadRef.get());
+      assertThat(frame.get("status").asText()).isEqualTo("cancelled");
+      assertThat(frame.get("executionId").asText()).isEqualTo(executionId.toString());
+    } finally {
+      wsSession.close();
+    }
+  }
+
+  @Test
+  void webSocket_doesNotDeliverOtherTenantExecutions() throws Exception {
+    UUID tenantA = UUID.randomUUID();
+    UUID tenantB = UUID.randomUUID();
+    UUID userA = UUID.randomUUID();
+    UUID userB = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String tokenA = testJwtIssuer.generateAccessToken(userA, tenantA);
+    String tokenB = testJwtIssuer.generateAccessToken(userB, tenantB);
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(
+            new PublishedPipelineSnapshot(
+                pipelineId,
+                1,
+                Map.of("stages", List.of(Map.of("id", "extract", "name", "Extract data"))),
+                "active"));
+
+    CountDownLatch messageLatch = new CountDownLatch(1);
+    AtomicReference<String> payloadRef = new AtomicReference<>();
+
+    WebSocketSession wsSessionA = connectWebSocket(tokenA, messageLatch, payloadRef, null, null);
+
+    try {
+      mockMvc
+          .perform(
+              post("/api/v1/executions")
+                  .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(
+                      objectMapper.writeValueAsString(
+                          new CreateExecutionRequest(pipelineId, null))))
+          .andExpect(status().isCreated());
+
+      assertThat(messageLatch.await(2, TimeUnit.SECONDS))
+          .as("tenant A WebSocket must not receive tenant B execution.updated")
+          .isFalse();
+    } finally {
+      wsSessionA.close();
+    }
+  }
+
   private WebSocketSession connectWebSocket(
       String accessToken,
       CountDownLatch messageLatch,
       AtomicReference<String> payloadRef,
-      UUID filterExecutionId)
+      UUID filterExecutionId,
+      String requiredStatus)
       throws Exception {
     StandardWebSocketClient client = new StandardWebSocketClient();
     URI uri =
@@ -156,6 +255,10 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
               }
               if (filterExecutionId != null
                   && !filterExecutionId.toString().equals(node.path("executionId").asText())) {
+                return;
+              }
+              if (requiredStatus != null
+                  && !requiredStatus.equals(node.path("status").asText(null))) {
                 return;
               }
               payloadRef.set(message.getPayload());
