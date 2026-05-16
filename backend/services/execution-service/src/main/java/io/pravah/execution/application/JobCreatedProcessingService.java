@@ -5,8 +5,6 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
-import io.pravah.common.domain.RetryPolicy;
-import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -19,7 +17,6 @@ import io.pravah.execution.infrastructure.persistence.repository.OutboxRepositor
 import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventRepository;
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,8 +50,8 @@ public class JobCreatedProcessingService {
   private final ProcessedEventRepository processedEventRepository;
   private final EmbeddedStageExecutor embeddedStageExecutor;
   private final JobLogService jobLogService;
+  private final JobFailureService jobFailureService;
   private final String jobCreatedTopic;
-  private final int maxJobAttempts;
   private final ApplicationEventPublisher applicationEventPublisher;
   private final ObjectMapper objectMapper;
 
@@ -65,8 +62,8 @@ public class JobCreatedProcessingService {
       ProcessedEventRepository processedEventRepository,
       EmbeddedStageExecutor embeddedStageExecutor,
       JobLogService jobLogService,
+      JobFailureService jobFailureService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
-      @Value("${pravah.job.max-attempts:3}") int maxJobAttempts,
       ApplicationEventPublisher applicationEventPublisher,
       ObjectMapper objectMapper) {
     this.executionEntityRepository = executionEntityRepository;
@@ -75,8 +72,8 @@ public class JobCreatedProcessingService {
     this.processedEventRepository = processedEventRepository;
     this.embeddedStageExecutor = embeddedStageExecutor;
     this.jobLogService = jobLogService;
+    this.jobFailureService = jobFailureService;
     this.jobCreatedTopic = jobCreatedTopic;
-    this.maxJobAttempts = maxJobAttempts;
     this.applicationEventPublisher = applicationEventPublisher;
     this.objectMapper = objectMapper;
   }
@@ -130,60 +127,26 @@ public class JobCreatedProcessingService {
 
     EmbeddedStageExecutor.StageExecutionResult result =
         embeddedStageExecutor.execute(job, execution);
+
+    job =
+        jobEntityRepository
+            .findById(jobId)
+            .orElseThrow(() -> new IllegalStateException("Job not found after stage execution"));
+    if (job.getStatus() != JobState.RUNNING) {
+      log.info(
+          "Job state changed during stage execution; skipping post-process",
+          kv("job_id", jobId),
+          kv("status", job.getStatus()));
+      recordProcessed(eventId);
+      publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
+      return;
+    }
+
     if (result.exitCode() != 0) {
-      JobState statusBeforeFail = job.getStatus();
-      Map<String, Object> definition = resolveDefinitionSnapshot(execution);
-      RetryPolicy retryPolicy = resolveRetryPolicy(definition, job.getStageId());
-      Instant now = Instant.now();
-      Instant retryWindowStart =
-          job.getQueuedAt() != null ? job.getQueuedAt() : execution.getCreatedAt();
-      boolean scheduleRetry =
-          retryPolicy.shouldScheduleRetry(
-              job.getAttempt(), result.exitCode(), retryWindowStart, now);
-      job.fail(result.exitCode(), "Embedded executor reported non-zero exit", scheduleRetry);
-      jobLogService.append(
-          job.getId(),
-          JobLogLevel.ERROR,
-          "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode()));
-
-      if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.QUEUED) {
-        Duration delay = retryPolicy.delayBeforeAttempt(job.getAttempt());
-        Instant retryPublishAt = now.plus(delay);
-        jobLogService.append(
-            job.getId(),
-            JobLogLevel.WARN,
-            "Scheduling retry (attempt %d of %d)%s"
-                .formatted(
-                    job.getAttempt(),
-                    retryPolicy.maxAttempts(),
-                    delay.isZero() ? "" : " after %ds".formatted(delay.getSeconds())));
-        Map<String, Object> retryPayload =
-            buildJobCreatedPayload(retryPublishAt, tenantId, execution, job);
-        outboxRepository.save(
-            new OutboxEntity(
-                AGGREGATE_JOB,
-                job.getId(),
-                JobEventTypes.JOB_CREATED,
-                jobCreatedTopic,
-                execution.getId().toString(),
-                retryPayload,
-                retryPublishAt));
-        log.info(
-            "Scheduled job retry",
-            kv("job_id", job.getId()),
-            kv("attempt", job.getAttempt()),
-            kv("max_attempts", retryPolicy.maxAttempts()),
-            kv("delay_seconds", delay.getSeconds()),
-            kv("scheduled_at", retryPublishAt.toString()));
-      } else if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.FAILED) {
-        jobLogService.append(
-            job.getId(),
-            JobLogLevel.ERROR,
-            "No further retries (max attempts %d reached or exit code not retryable)"
-                .formatted(retryPolicy.maxAttempts()));
-      }
-
-      finalizeExecutionIfDone(execution);
+      String errorMessage =
+          "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode());
+      jobFailureService.handleStageFailure(
+          execution, job, tenantId, result.exitCode(), errorMessage);
       recordProcessed(eventId);
       publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
       return;
@@ -205,7 +168,7 @@ public class JobCreatedProcessingService {
           kv("execution_id", execution.getId()));
     }
 
-    finalizeExecutionIfDone(execution);
+    jobFailureService.finalizeExecutionIfDone(execution);
     recordProcessed(eventId);
     publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
 
@@ -248,36 +211,6 @@ public class JobCreatedProcessingService {
     }
   }
 
-  private void finalizeExecutionIfDone(ExecutionEntity execution) {
-    if (execution.getStatus() != ExecutionState.RUNNING) {
-      return;
-    }
-    List<JobEntity> jobs =
-        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
-
-    boolean anyFailed = jobs.stream().anyMatch(j -> j.getStatus() == JobState.FAILED);
-    boolean anyActive =
-        jobs.stream()
-            .anyMatch(
-                j ->
-                    j.getStatus() == JobState.PENDING
-                        || j.getStatus() == JobState.QUEUED
-                        || j.getStatus() == JobState.RUNNING);
-    if (anyActive) {
-      return;
-    }
-    if (anyFailed) {
-      JobEntity failed =
-          jobs.stream().filter(j -> j.getStatus() == JobState.FAILED).findFirst().orElseThrow();
-      execution.complete(
-          false,
-          failed.getErrorMessage() != null ? failed.getErrorMessage() : "Job failed",
-          "JOB_FAILED");
-    } else {
-      execution.complete(true, null, null);
-    }
-  }
-
   private void recordProcessed(UUID eventId) {
     processedEventRepository.save(
         new ProcessedEventEntity(eventId, JobEventTypes.JOB_CREATED, Instant.now()));
@@ -304,17 +237,6 @@ public class JobCreatedProcessingService {
 
   private static Map<String, Object> resolveDefinitionSnapshot(ExecutionEntity execution) {
     return execution.getDefinitionSnapshot();
-  }
-
-  private RetryPolicy resolveRetryPolicy(Map<String, Object> definition, String stageId) {
-    if (definition == null || definition.isEmpty()) {
-      return fallbackRetryPolicy();
-    }
-    return RetryPolicyParser.resolveForStage(definition, stageId);
-  }
-
-  private RetryPolicy fallbackRetryPolicy() {
-    return new RetryPolicy(maxJobAttempts, 0, 1.0, java.util.Set.of(), null);
   }
 
   private static UUID requireUuid(Map<String, Object> payload, String key) {

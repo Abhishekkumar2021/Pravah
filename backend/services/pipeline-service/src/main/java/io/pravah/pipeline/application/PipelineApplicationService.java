@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.PipelineId;
 import io.pravah.common.domain.ProjectId;
 import io.pravah.common.domain.RetryPolicyParser;
+import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
@@ -511,6 +512,7 @@ public class PipelineApplicationService {
       Map<String, Object> definition =
           objectMapper.convertValue(map, new TypeReference<Map<String, Object>>() {});
       RetryPolicyParser.validateDefinition(definition);
+      StageTimeoutParser.validateDefinition(definition);
       return definition;
     } catch (YAMLException e) {
       throw new IllegalArgumentException("Invalid YAML: " + e.getMessage(), e);
