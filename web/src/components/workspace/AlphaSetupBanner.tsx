@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { DevTokenCard } from "@/components/workspace/DevTokenCard";
 import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
