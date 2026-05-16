@@ -4,7 +4,9 @@ import type { JobSummary } from "@/lib/api";
 import { ApiError, getJobLogs, type JobLogLine } from "@/lib/api";
 import { isFailedJob } from "@/lib/jobStatus";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 
 type RunLogPanelProps = {
   executionId: string;
@@ -15,6 +17,8 @@ type RunLogPanelProps = {
 };
 
 const LEVELS = ["ALL", "INFO", "WARN", "ERROR"] as const;
+
+const LEVEL_OPTIONS = LEVELS.map((level) => ({ value: level, label: level }));
 
 function levelClass(level: string): string {
   switch (level.toUpperCase()) {
@@ -124,39 +128,31 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sr-only" htmlFor={`log-level-${job.id}`}>
-          Filter by level
-        </label>
-        <select
+        <Select
           id={`log-level-${job.id}`}
+          aria-label="Filter by level"
           value={levelFilter}
-          onChange={(e) => setLevelFilter(e.target.value as (typeof LEVELS)[number])}
-          className="h-8 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-[12px] text-neutral-200"
-        >
-          {LEVELS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-        <input
+          onValueChange={(value) => setLevelFilter(value as (typeof LEVELS)[number])}
+          options={LEVEL_OPTIONS}
+          className="w-[6.5rem] shrink-0"
+        />
+        <Input
           type="search"
           placeholder="Search logs…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-8 min-w-[8rem] flex-1 rounded-md border border-neutral-700 bg-neutral-900 px-2 text-[12px] text-neutral-200 placeholder:text-neutral-500"
           aria-label="Search within logs"
+          className="min-w-[8rem] flex-1"
         />
-        <Button
+        <IconButton
           type="button"
-          variant="ghost"
-          className="h-8 px-2 text-neutral-400"
+          aria-label="Download logs"
           onClick={downloadLogs}
           disabled={filtered.length === 0}
-          aria-label="Download logs"
+          className="shrink-0"
         >
           <Download className="h-4 w-4" aria-hidden />
-        </Button>
+        </IconButton>
       </div>
       <div
         ref={scrollRef}
