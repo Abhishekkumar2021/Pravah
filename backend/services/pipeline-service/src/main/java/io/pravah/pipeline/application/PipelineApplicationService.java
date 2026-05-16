@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.PipelineId;
+import io.pravah.common.domain.PipelineVariablesParser;
 import io.pravah.common.domain.ProjectId;
 import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.domain.StageTimeoutParser;
@@ -513,6 +514,7 @@ public class PipelineApplicationService {
           objectMapper.convertValue(map, new TypeReference<Map<String, Object>>() {});
       RetryPolicyParser.validateDefinition(definition);
       StageTimeoutParser.validateDefinition(definition);
+      PipelineVariablesParser.validateDefinition(definition);
       return definition;
     } catch (YAMLException e) {
       throw new IllegalArgumentException("Invalid YAML: " + e.getMessage(), e);

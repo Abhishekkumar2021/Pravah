@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
+import io.pravah.common.domain.PipelineVariable;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.application.JobLogService;
 import io.pravah.execution.application.port.PipelineCatalog;
@@ -137,6 +138,62 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
         .andExpect(jsonPath("$.triggerType").value("manual"))
         .andExpect(jsonPath("$.triggeredBy").value(userId.toString()))
         .andExpect(jsonPath("$.jobs.length()").value(2));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void postManualExecution_resolvesVariablesInDefinitionSnapshot() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    Map<String, Object> definition =
+        Map.of(
+            "variables",
+            Map.of("env", Map.of("type", "string", "default", "dev")),
+            "environments",
+            Map.of("prod", Map.of("env", "prod")),
+            "stages",
+            List.of(
+                Map.of(
+                    "id",
+                    "extract",
+                    "name",
+                    "Extract",
+                    "config",
+                    Map.of("message", "env=${var.env}"))));
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(new PublishedPipelineSnapshot(pipelineId, 1, definition, "active"));
+
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/executions")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            new CreateExecutionRequest(
+                                pipelineId,
+                                null,
+                                Map.of(PipelineVariable.ENVIRONMENT_PARAMETER, "prod")))))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    UUID executionId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+
+    ExecutionEntity execution = executionEntityRepository.findById(executionId).orElseThrow();
+    List<Map<String, Object>> stages =
+        (List<Map<String, Object>>) execution.getDefinitionSnapshot().get("stages");
+    Map<String, Object> config = (Map<String, Object>) stages.get(0).get("config");
+
+    assertThat(config.get("message")).isEqualTo("env=prod");
+    assertThat(execution.getParameters())
+        .containsEntry(PipelineVariable.ENVIRONMENT_PARAMETER, "prod");
   }
 
   @Test
