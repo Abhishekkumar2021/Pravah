@@ -308,7 +308,7 @@ export function RunDetailPage() {
                   </CardDescription>
                 </CardHeader>
                 <div className="px-6 pb-6">
-                  <RunJobStages jobs={data.jobs} />
+                  <RunJobStages executionId={data.id} jobs={data.jobs} />
                 </div>
               </Card>
             </TabsContent>

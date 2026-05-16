@@ -3,8 +3,10 @@ package io.pravah.execution.api;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
+import io.pravah.execution.api.dto.JobLogsResponse;
 import io.pravah.execution.api.dto.ListExecutionsResponse;
 import io.pravah.execution.application.ExecutionApplicationService;
+import io.pravah.execution.application.JobLogService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
@@ -24,9 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ExecutionController {
 
   private final ExecutionApplicationService executionApplicationService;
+  private final JobLogService jobLogService;
 
-  public ExecutionController(ExecutionApplicationService executionApplicationService) {
+  public ExecutionController(
+      ExecutionApplicationService executionApplicationService, JobLogService jobLogService) {
     this.executionApplicationService = executionApplicationService;
+    this.jobLogService = jobLogService;
   }
 
   @PostMapping
@@ -60,5 +65,14 @@ public class ExecutionController {
   @GetMapping("/{id}")
   public GetExecutionResponse get(@PathVariable UUID id) {
     return executionApplicationService.getExecution(id);
+  }
+
+  /** Per-job logs for run detail (US-02.03). */
+  @GetMapping("/{executionId}/jobs/{jobId}/logs")
+  public JobLogsResponse jobLogs(
+      @PathVariable UUID executionId,
+      @PathVariable UUID jobId,
+      @RequestParam(required = false) String level) {
+    return jobLogService.listLogs(executionId, jobId, level);
   }
 }

@@ -1,5 +1,6 @@
 package io.pravah.execution.application;
 
+import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import java.util.LinkedHashMap;
@@ -19,8 +20,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
 
+  private final JobLogService jobLogService;
+
+  public EchoEmbeddedStageExecutor(JobLogService jobLogService) {
+    this.jobLogService = jobLogService;
+  }
+
   @Override
   public StageExecutionResult execute(JobEntity job, ExecutionEntity execution) {
+    jobLogService.append(
+        job.getId(),
+        JobLogLevel.INFO,
+        "[embedded-echo] Executing stage %s".formatted(job.getStageId()));
+
     Map<String, Object> output = new LinkedHashMap<>();
     output.put("executor", "embedded-echo");
     output.put("stageId", job.getStageId());

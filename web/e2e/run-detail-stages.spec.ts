@@ -27,6 +27,35 @@ test.describe("Run detail stages (US-12.08)", () => {
         body: JSON.stringify(mockPipelineBody()),
       });
     });
+    await page.route(`**/api/v1/executions/${EXECUTION_ID}/jobs/*/logs`, async (route) => {
+      const jobId = route.request().url().split("/jobs/")[1]?.split("/")[0] ?? "";
+      const isFailedJob = jobId === "55555555-5555-4555-8555-555555555555";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          jobId,
+          executionId: EXECUTION_ID,
+          lines: isFailedJob
+            ? [
+                {
+                  id: "log-1",
+                  logTime: "2026-05-16T10:01:00.000Z",
+                  level: "ERROR",
+                  message: "Stage Transform failed with exit code 1",
+                },
+              ]
+            : [
+                {
+                  id: "log-2",
+                  logTime: "2026-05-16T10:00:00.000Z",
+                  level: "INFO",
+                  message: "Stage Extract data completed successfully",
+                },
+              ],
+        }),
+      });
+    });
   });
 
   test("opens stages tab by default when a job failed and shows error log", async ({ page }) => {
@@ -36,7 +65,8 @@ test.describe("Run detail stages (US-12.08)", () => {
       "data-state",
       "active",
     );
-    await expect(page.getByText(/\[error\]/)).toBeVisible();
+    await expect(page.getByText(/\[ERROR\]/)).toBeVisible();
+    await expect(page.getByText(/Stage Transform failed/)).toBeVisible();
     await expect(page.getByRole("button", { name: /Transform/i })).toHaveAttribute(
       "aria-expanded",
       "true",
