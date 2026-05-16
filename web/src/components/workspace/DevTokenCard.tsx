@@ -42,7 +42,7 @@ export function DevTokenCard({ onSaved, className }: DevTokenCardProps) {
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9…"
+          placeholder="Paste output of: make local-dev-token"
           rows={4}
           spellCheck={false}
           autoComplete="off"

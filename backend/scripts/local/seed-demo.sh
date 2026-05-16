@@ -10,7 +10,11 @@ load_env
 PGHOST="${PGHOST:-127.0.0.1}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${DB_USERNAME:-pravah}"
-export PGPASSWORD="${DB_PASSWORD:-pravah}"
+if [[ -z "${DB_PASSWORD:-}" ]]; then
+  echo "Set DB_PASSWORD in backend/.env (match POSTGRES_PASSWORD in docker-compose.yml)." >&2
+  exit 1
+fi
+export PGPASSWORD="${DB_PASSWORD}"
 
 run_psql() {
   if command -v psql >/dev/null 2>&1; then

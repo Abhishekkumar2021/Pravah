@@ -21,6 +21,9 @@ else
 fi
 
 echo ""
+echo "If backend/.env was just created, set DB_USERNAME and DB_PASSWORD to match"
+echo "  POSTGRES_* in backend/docker-compose.yml (or leave empty for Spring defaults)."
+echo ""
 echo "Local env ready. Next:"
 echo "  cd backend && make local-up        # Docker infra + health wait"
 echo "  cd backend && make local-services  # tenant, pipeline, execution, gateway"

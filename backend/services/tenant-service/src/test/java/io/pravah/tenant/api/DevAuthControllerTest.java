@@ -20,6 +20,9 @@ class DevAuthControllerTest {
   private static final UUID TENANT_ID = UUID.fromString("11111111-1111-4111-8111-111111111111");
   private static final UUID USER_ID = UUID.fromString("22222222-2222-4222-8222-222222222222");
 
+  /** Non-production test value only; not a real credential. */
+  private static final String TEST_DEV_GUARD = "unit-test-dev-guard-value";
+
   private JwtTokenIssuer jwtTokenIssuer;
   private MockMvc mockMvc;
 
@@ -65,7 +68,7 @@ class DevAuthControllerTest {
   @Test
   void mintDevToken_whenSecretConfigured_rejectsMissingHeader() throws Exception {
     DevAuthController secured =
-        new DevAuthController(jwtTokenIssuer, TENANT_ID, USER_ID, "local-secret");
+        new DevAuthController(jwtTokenIssuer, TENANT_ID, USER_ID, TEST_DEV_GUARD);
     MockMvc securedMvc = MockMvcBuilders.standaloneSetup(secured).build();
 
     securedMvc
@@ -78,13 +81,13 @@ class DevAuthControllerTest {
     when(jwtTokenIssuer.generateAccessToken(eq(USER_ID), eq(TENANT_ID)))
         .thenReturn("test.jwt.token");
     DevAuthController secured =
-        new DevAuthController(jwtTokenIssuer, TENANT_ID, USER_ID, "local-secret");
+        new DevAuthController(jwtTokenIssuer, TENANT_ID, USER_ID, TEST_DEV_GUARD);
     MockMvc securedMvc = MockMvcBuilders.standaloneSetup(secured).build();
 
     securedMvc
         .perform(
             post("/api/v1/auth/dev-token")
-                .header("X-Pravah-Dev-Secret", "local-secret")
+                .header("X-Pravah-Dev-Secret", TEST_DEV_GUARD)
                 .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessToken").value("test.jwt.token"));
