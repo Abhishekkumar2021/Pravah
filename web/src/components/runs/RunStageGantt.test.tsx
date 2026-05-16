@@ -11,7 +11,7 @@ const jobs: JobSummary[] = [
 describe("RunStageGantt", () => {
   it("renders gantt overview and stage labels", () => {
     render(<RunStageGantt jobs={jobs} />);
-    expect(screen.getByText("Stage progress by status", { hidden: true })).toBeInTheDocument();
+    expect(screen.getByText("Stage progress by status")).toBeInTheDocument();
     expect(screen.getByText("Build")).toBeInTheDocument();
     expect(screen.getByText("Test")).toBeInTheDocument();
   });

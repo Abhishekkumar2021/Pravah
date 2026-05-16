@@ -55,13 +55,17 @@ public class PipelineController {
     return pipelineApplicationService.getPipeline(id);
   }
 
+  private static final int MAX_PAGE_SIZE = 100;
+
   @GetMapping
   public PipelineListResponse list(
       @RequestParam UUID projectId,
       @RequestParam(required = false) String status,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return pipelineApplicationService.listPipelines(projectId, status, page, size);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+    int safePage = Math.max(page, 0);
+    return pipelineApplicationService.listPipelines(projectId, status, safePage, safeSize);
   }
 
   @PutMapping("/{id}")

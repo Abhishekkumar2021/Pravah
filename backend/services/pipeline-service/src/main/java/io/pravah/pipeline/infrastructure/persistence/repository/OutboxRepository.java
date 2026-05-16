@@ -15,6 +15,9 @@ public interface OutboxRepository extends JpaRepository<OutboxEntity, UUID> {
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
-  @Query("SELECT o FROM OutboxEntity o WHERE o.publishedAt IS NULL ORDER BY o.createdAt ASC")
+  @Query(
+      "SELECT o FROM OutboxEntity o WHERE o.publishedAt IS NULL AND o.retryCount < "
+          + io.pravah.pipeline.infrastructure.outbox.OutboxPublishPolicy.MAX_PUBLISH_RETRIES
+          + " ORDER BY o.createdAt ASC")
   List<OutboxEntity> findUnpublishedForUpdate(Pageable pageable);
 }

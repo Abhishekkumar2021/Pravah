@@ -36,7 +36,7 @@ server:
 pravah:
   security:
     jwt:
-      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8081/.well-known/jwks.json}
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
   outbox:
     relay:
       enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
