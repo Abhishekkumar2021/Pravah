@@ -13,6 +13,59 @@
   --color-selection-fg-dark: oklch(0.97 0.015 264);
   --color-caret: oklch(0.5 0.2 264);
   --color-caret-dark: oklch(0.72 0.14 264);
+
+  /* Animations for Radix UI */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-in;
+  --animate-zoom-in: zoom-in 0.2s ease-out;
+  --animate-zoom-out: zoom-out 0.15s ease-in;
+  --animate-slide-in-from-top: slide-in-from-top 0.2s ease-out;
+  --animate-slide-in-from-bottom: slide-in-from-bottom 0.2s ease-out;
+  --animate-slide-in-from-left: slide-in-from-left 0.2s ease-out;
+  --animate-slide-in-from-right: slide-in-from-right 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes zoom-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes zoom-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+  }
+  @keyframes slide-in-from-top {
+    from { transform: translateY(-0.5rem); }
+    to { transform: translateY(0); }
+  }
+  @keyframes slide-in-from-bottom {
+    from { transform: translateY(0.5rem); }
+    to { transform: translateY(0); }
+  }
+  @keyframes slide-in-from-left {
+    from { transform: translateX(-0.5rem); }
+    to { transform: translateX(0); }
+  }
+  @keyframes slide-in-from-right {
+    from { transform: translateX(0.5rem); }
+    to { transform: translateX(0); }
+  }
 }
 
 @layer base {
@@ -117,27 +170,27 @@
 
   /** Dense data grids (runs/workflows tables). */
   .table-data {
-    @apply min-w-full text-left text-[13px] leading-snug tabular-nums text-neutral-800 dark:text-neutral-200;
+    @apply min-w-full text-left text-[13px] leading-snug tabular-nums text-neutral-700 dark:text-neutral-300;
   }
 
   .table-data thead {
-    @apply border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/70;
+    @apply border-b border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/60;
   }
 
   .table-data th {
-    @apply px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400;
+    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400;
   }
 
   .table-data tbody {
-    @apply divide-y divide-neutral-100 dark:divide-neutral-800;
+    @apply divide-y divide-neutral-100 dark:divide-neutral-800/80;
   }
 
   .table-data td {
-    @apply px-4 py-2.5 align-middle;
+    @apply px-4 py-3.5 align-middle;
   }
 
   .table-data tbody tr {
-    @apply transition-colors hover:bg-neutral-50/90 dark:hover:bg-neutral-900/50;
+    @apply transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/60;
   }
 
   /** Page titles stay slightly larger than body copy. */

@@ -24,33 +24,45 @@ export type SelectProps = {
 
 const triggerClass = cn(
   inputBaseClass,
-  "relative flex h-9 w-full min-w-0 cursor-pointer items-center pl-3 pr-9 text-left",
+  "relative flex w-full cursor-pointer items-center pl-3 pr-10 text-left",
 );
 
-const invalidClass =
-  "border-rose-500 focus-visible:border-rose-500 focus-visible:ring-rose-500/20 dark:border-rose-500";
+const invalidClass = cn(
+  "border-rose-500 hover:border-rose-500",
+  "focus-visible:border-rose-500 focus-visible:ring-rose-500/20",
+  "dark:border-rose-500",
+);
 
 const contentClass = cn(
-  "surface-elevated z-50 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1 shadow-lg",
-  "min-w-[var(--radix-select-trigger-width)] w-[var(--radix-select-trigger-width)]",
-  "max-h-[min(16rem,var(--radix-select-content-available-height))]",
-  "dark:border-neutral-800 dark:bg-neutral-950",
-  "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+  "z-50 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl",
+  "min-w-[max(var(--radix-select-trigger-width),5.5rem)] w-[var(--radix-select-trigger-width)]",
+  "max-h-[min(18rem,var(--radix-select-content-available-height))]",
+  "dark:border-neutral-700 dark:bg-neutral-900",
+  "data-[state=open]:animate-in data-[state=closed]:animate-out",
+  "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+  "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+  "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
 );
 
-const viewportClass = cn(
-  "w-full min-w-[var(--radix-select-trigger-width)] p-0.5",
-);
+const viewportClass = "p-1.5";
 
 const itemClass = cn(
-  "relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pr-8 pl-2.5 text-[13px] leading-snug text-neutral-800 outline-none",
-  "focus:bg-blue-50 focus:text-blue-900 data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-900",
+  "relative flex w-full cursor-pointer select-none items-center justify-between rounded-lg py-2.5 pl-3 pr-3 text-[13px] text-neutral-700 outline-none transition-colors",
+  "hover:bg-neutral-100 focus:bg-neutral-100",
+  "data-[highlighted]:bg-neutral-100",
   "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-  "dark:text-neutral-200 dark:focus:bg-blue-950/50 dark:focus:text-blue-100 dark:data-[highlighted]:bg-blue-950/50 dark:data-[highlighted]:text-blue-100",
+  "dark:text-neutral-200 dark:hover:bg-neutral-800 dark:focus:bg-neutral-800 dark:data-[highlighted]:bg-neutral-800",
 );
 
-const chevronClass =
-  "pointer-events-none absolute top-1/2 right-2.5 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500";
+const itemTextClass = "min-w-0 flex-1 truncate pr-3 text-left";
+
+const itemIndicatorClass =
+  "ml-auto flex h-4 w-4 shrink-0 items-center justify-center self-center";
+
+const chevronClass = cn(
+  "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400",
+  "dark:text-neutral-500",
+);
 
 export function Select({
   value,
@@ -72,7 +84,7 @@ export function Select({
         aria-invalid={invalid || undefined}
         className={cn(triggerClass, invalid && invalidClass, className)}
       >
-        <SelectPrimitive.Value placeholder={placeholder} className="block min-w-0 flex-1 truncate text-left" />
+        <SelectPrimitive.Value placeholder={placeholder} className="block min-w-0 flex-1 truncate" />
         <SelectPrimitive.Icon asChild>
           <ChevronDown className={chevronClass} aria-hidden />
         </SelectPrimitive.Icon>
@@ -82,7 +94,7 @@ export function Select({
         <SelectPrimitive.Content
           className={contentClass}
           position="popper"
-          sideOffset={4}
+          sideOffset={6}
           align="start"
         >
           <SelectScrollUpButton />
@@ -94,12 +106,12 @@ export function Select({
                 disabled={option.disabled}
                 className={itemClass}
               >
-                <span className="absolute right-2 flex h-4 w-4 items-center justify-center">
-                  <SelectPrimitive.ItemIndicator>
-                    <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" strokeWidth={2.5} />
-                  </SelectPrimitive.ItemIndicator>
-                </span>
-                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemText className={itemTextClass}>
+                  {option.label}
+                </SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemIndicator className={itemIndicatorClass}>
+                  <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" strokeWidth={2.5} />
+                </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>
@@ -112,7 +124,7 @@ export function Select({
 
 function SelectScrollUpButton() {
   return (
-    <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1 text-neutral-500">
+    <SelectPrimitive.ScrollUpButton className="flex cursor-default items-center justify-center py-1.5 text-neutral-400">
       <ChevronUp className="h-4 w-4" aria-hidden />
     </SelectPrimitive.ScrollUpButton>
   );
@@ -120,7 +132,7 @@ function SelectScrollUpButton() {
 
 function SelectScrollDownButton() {
   return (
-    <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1 text-neutral-500">
+    <SelectPrimitive.ScrollDownButton className="flex cursor-default items-center justify-center py-1.5 text-neutral-400">
       <ChevronDown className="h-4 w-4" aria-hidden />
     </SelectPrimitive.ScrollDownButton>
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { RefreshCw, Search, Workflow } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -14,6 +15,7 @@ import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError, getDevBearerToken, listPipelines, type PipelineResponse } from "@/lib/api";
 import { formatShortDateTime } from "@/lib/format";
 import { getResolvedProjectId } from "@/lib/workspace";
+import { cn } from "@/lib/cn";
 
 export function WorkflowListPage() {
   const [projectNonce, setProjectNonce] = useState(0);
@@ -80,46 +82,32 @@ export function WorkflowListPage() {
   }, [rows, query]);
 
   const showPagination = !loading && rows.length > 0 && totalPages > 1;
-  const emptyTableCopy = useMemo(() => {
-    if (loading || filtered.length > 0) return null;
-    if (rows.length === 0) {
-      return "No workflows for this filter on this page.";
-    }
-    if (query.trim()) {
-      return "No name or description matches on this page. Clear the search or change page.";
-    }
-    return "No workflows match your filters.";
-  }, [loading, filtered.length, rows.length, query]);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      {/* Page header */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title">Workflows</h2>
-          <p className="page-desc">
-            Live data from <span className="font-medium text-neutral-700 dark:text-neutral-300">GET /api/v1/pipelines</span>{" "}
-            when a project id and dev JWT are configured (
-            <span className="font-medium">US-12.04</span>). Start runs via{" "}
-            <span className="font-medium">POST /api/v1/executions</span>.
-          </p>
+          <h1 className="page-title flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25">
+              <Workflow className="h-5 w-5" />
+            </span>
+            Workflows
+          </h1>
+          <p className="page-desc mt-2">Manage and run your automation pipelines</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1 lg:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <Input
               type="search"
-              placeholder="Search by name…"
+              placeholder="Search workflows…"
               aria-label="Search workflows"
-              aria-describedby={totalPages > 1 && !loading && rows.length > 0 ? "workflow-search-scope" : undefined}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="py-2 pl-9"
+              className="pl-9"
             />
-            {totalPages > 1 && !loading && rows.length > 0 ? (
-              <p id="workflow-search-scope" className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                Search applies to this page only.
-              </p>
-            ) : null}
           </div>
           <Select
             aria-label="Filter by status"
@@ -130,15 +118,16 @@ export function WorkflowListPage() {
               { value: "active", label: "Active" },
               { value: "draft", label: "Draft" },
             ]}
-            className="w-full sm:w-[10.5rem]"
+            className="w-full sm:w-36"
           />
           <Button
             type="button"
             variant="secondary"
-            className="h-9"
             disabled={!projectId || !hasToken || loading}
             onClick={() => void load()}
+            className="gap-2"
           >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden />
             Refresh
           </Button>
         </div>
@@ -150,9 +139,13 @@ export function WorkflowListPage() {
       />
 
       {error && (
-        <Card className="border-rose-200 dark:border-rose-900/50">
-          <CardTitle className="text-base text-rose-800 dark:text-rose-200">Could not load pipelines</CardTitle>
-          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">{error}</CardDescription>
+        <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/30">
+          <CardTitle className="text-base text-rose-800 dark:text-rose-200">
+            Could not load workflows
+          </CardTitle>
+          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">
+            {error}
+          </CardDescription>
         </Card>
       )}
 
@@ -161,47 +154,79 @@ export function WorkflowListPage() {
           aria-label="Workflows"
           footer={
             <>
-              {emptyTableCopy ? (
-                <p className="px-4 py-3 text-[13px] text-neutral-500">{emptyTableCopy}</p>
-              ) : null}
-              {showPagination ? (
+              {!loading && rows.length === 0 && (
+                <EmptyState
+                  icon={<Workflow className="h-7 w-7" />}
+                  title="No workflows found"
+                  description={
+                    statusFilter !== "all"
+                      ? `No workflows with status "${statusFilter}" on this page`
+                      : "Create your first workflow to get started"
+                  }
+                  className="border-0 bg-transparent"
+                />
+              )}
+              {!loading && rows.length > 0 && filtered.length === 0 && query.trim() && (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-[13px] text-neutral-500">
+                    No workflows match "<span className="font-medium">{query}</span>" on this page
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="mt-2 text-[12px]"
+                    onClick={() => setQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                </div>
+              )}
+              {showPagination && (
                 <Pagination
                   page={page}
                   totalPages={totalPages}
                   totalElements={totalElements}
                   onPageChange={setPage}
                 />
-              ) : null}
+              )}
             </>
           }
         >
           {loading ? (
             <TableSkeleton headers={["Name", "Status", "Version", "Updated", "Actions"]} rows={8} />
-          ) : (
+          ) : filtered.length > 0 ? (
             <table className="table-data">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Status</th>
-                  <th>Version</th>
-                  <th>Updated</th>
+                  <th className="hidden sm:table-cell">Version</th>
+                  <th className="hidden md:table-cell">Updated</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p) => (
-                  <tr key={p.id}>
-                    <td className="font-medium text-neutral-900 dark:text-neutral-100">
-                      <Link to={`/app/workflows/${p.id}`} className="hover:text-blue-600 dark:hover:text-blue-400">
+                  <tr key={p.id} className="group">
+                    <td>
+                      <Link
+                        to={`/app/workflows/${p.id}`}
+                        className="font-medium text-neutral-900 transition-colors hover:text-blue-600 dark:text-neutral-100 dark:hover:text-blue-400"
+                      >
                         {p.name}
                       </Link>
-                      <p className="mt-0.5 font-mono text-[11px] text-neutral-400">{p.id}</p>
+                      <p className="mt-0.5 font-mono text-[10px] text-neutral-400 transition-opacity group-hover:opacity-100 md:opacity-60">
+                        {p.id}
+                      </p>
                     </td>
                     <td>
                       <StatusBadge status={p.status} />
                     </td>
-                    <td className="text-neutral-600 dark:text-neutral-400">v{p.currentVersion}</td>
-                    <td className="text-neutral-600 dark:text-neutral-400">{formatShortDateTime(p.updatedAt)}</td>
+                    <td className="hidden text-neutral-500 dark:text-neutral-400 sm:table-cell">
+                      v{p.currentVersion}
+                    </td>
+                    <td className="hidden text-neutral-500 dark:text-neutral-400 md:table-cell">
+                      {formatShortDateTime(p.updatedAt)}
+                    </td>
                     <td className="text-right">
                       <TriggerRunButton
                         pipelineId={p.id}
@@ -213,8 +238,14 @@ export function WorkflowListPage() {
                 ))}
               </tbody>
             </table>
-          )}
+          ) : null}
         </DataTable>
+      )}
+
+      {totalPages > 1 && !loading && rows.length > 0 && (
+        <p className="text-center text-[11px] text-neutral-500 dark:text-neutral-400">
+          Search applies to current page only
+        </p>
       )}
     </div>
   );

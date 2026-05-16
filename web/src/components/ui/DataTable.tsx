@@ -2,11 +2,9 @@ import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
 type DataTableProps = {
-  /** Scrollable table region label (SR + browser accessibility). */
   "aria-label"?: string;
   className?: string;
   children: ReactNode;
-  /** Renders below the scroll area with a top border (empty states, hints). */
   footer?: ReactNode;
 };
 
@@ -17,13 +15,16 @@ export function DataTable({
   footer,
 }: DataTableProps) {
   return (
-    <div className={cn("surface-card overflow-hidden", className)}>
-      <div className="overflow-x-auto" role="region" aria-label={ariaLabel}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950",
+        className,
+      )}
+    >
+      <div className="-mx-px overflow-x-auto" role="region" aria-label={ariaLabel}>
         {children}
       </div>
-      {footer !== undefined && footer !== null && (
-        <div className="border-t border-neutral-100 dark:border-neutral-800">{footer}</div>
-      )}
+      {footer !== undefined && footer !== null && <div>{footer}</div>}
     </div>
   );
 }
