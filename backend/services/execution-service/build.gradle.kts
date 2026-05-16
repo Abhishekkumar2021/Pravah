@@ -24,8 +24,12 @@ dependencies {
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Redis pub/sub for multi-instance WebSocket fan-out (US-12.10)
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
     // Security (JWT per ADR-009) — JwtTokenVerifier + ApiTenantJwtFilter from :libs:spring-support
     implementation("org.springframework.boot:spring-boot-starter-security")

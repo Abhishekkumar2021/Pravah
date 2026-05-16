@@ -2,6 +2,7 @@ package io.pravah.execution.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.domain.JobEventTypes;
@@ -13,6 +14,7 @@ import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntity
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventRepository;
+import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +50,8 @@ public class JobCreatedProcessingService {
   private final EmbeddedStageExecutor embeddedStageExecutor;
   private final String jobCreatedTopic;
   private final int maxJobAttempts;
+  private final ApplicationEventPublisher applicationEventPublisher;
+  private final ObjectMapper objectMapper;
 
   public JobCreatedProcessingService(
       ExecutionEntityRepository executionEntityRepository,
@@ -55,7 +60,9 @@ public class JobCreatedProcessingService {
       ProcessedEventRepository processedEventRepository,
       EmbeddedStageExecutor embeddedStageExecutor,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
-      @Value("${pravah.job.max-attempts:3}") int maxJobAttempts) {
+      @Value("${pravah.job.max-attempts:3}") int maxJobAttempts,
+      ApplicationEventPublisher applicationEventPublisher,
+      ObjectMapper objectMapper) {
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
@@ -63,6 +70,8 @@ public class JobCreatedProcessingService {
     this.embeddedStageExecutor = embeddedStageExecutor;
     this.jobCreatedTopic = jobCreatedTopic;
     this.maxJobAttempts = maxJobAttempts;
+    this.applicationEventPublisher = applicationEventPublisher;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional
@@ -104,6 +113,8 @@ public class JobCreatedProcessingService {
       throw new IllegalStateException("Execution tenant mismatch for job.created");
     }
 
+    ExecutionState executionStatusBeforeJob = execution.getStatus();
+
     job.assign(EmbeddedRunnerIds.LOCAL);
 
     EmbeddedStageExecutor.StageExecutionResult result =
@@ -112,6 +123,7 @@ public class JobCreatedProcessingService {
       job.fail(result.exitCode(), "Embedded executor reported non-zero exit", maxJobAttempts);
       finalizeExecutionIfDone(execution);
       recordProcessed(eventId);
+      publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
       return;
     }
 
@@ -129,6 +141,7 @@ public class JobCreatedProcessingService {
 
     finalizeExecutionIfDone(execution);
     recordProcessed(eventId);
+    publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
 
     log.info(
         "Job completed in embedded worker",
@@ -233,5 +246,20 @@ public class JobCreatedProcessingService {
       throw new IllegalArgumentException("Missing required field: " + key);
     }
     return UUID.fromString(v.toString());
+  }
+
+  private void publishExecutionStatusIfChanged(
+      ExecutionState statusBefore, ExecutionEntity execution, UUID tenantId) {
+    if (execution.getStatus() == statusBefore) {
+      return;
+    }
+    ExecutionRealtimeEvents.publishExecutionUpdated(
+        applicationEventPublisher,
+        objectMapper,
+        tenantId,
+        execution.getId(),
+        execution.getStatus().asDatabaseValue(),
+        Instant.now(),
+        execution.getPipelineId());
   }
 }

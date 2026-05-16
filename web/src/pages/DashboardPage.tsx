@@ -18,7 +18,9 @@ import {
   type ExecutionListItem,
   type PipelineResponse,
 } from "@/lib/api";
+import { cn } from "@/lib/cn";
 import { formatExecutionWallDuration, formatShortDateTime } from "@/lib/format";
+import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 import { getResolvedProjectId } from "@/lib/workspace";
 
 export function DashboardPage() {
@@ -77,6 +79,13 @@ export function DashboardPage() {
   });
   const failedRuns = executions.filter((e) => e.status.toLowerCase() === "failed").slice(0, 4);
 
+  const { liveConnected } = useExecutionRealtime({
+    enabled: hasToken && activeRuns.length > 0,
+    onExecutionUpdated: () => {
+      void load();
+    },
+  });
+
   return (
     <div className="space-y-8">
       <div>
@@ -85,9 +94,21 @@ export function DashboardPage() {
         </h2>
         <p className="page-desc">
           Overview wired to REST for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.03</span> when
-          a project id and dev JWT are configured. Use Refresh until live updates ship in{" "}
-          <span className="font-medium">US-12.10</span> (WebSocket).
+          a project id and dev JWT are configured. Active runs refresh over WebSocket (
+          <span className="font-medium">US-12.10</span>) while pending or running.
         </p>
+        {projectId && hasToken && activeRuns.length > 0 && (
+          <span
+            className={cn(
+              "mt-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+              liveConnected
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+            )}
+          >
+            {liveConnected ? "Live" : "Live…"}
+          </span>
+        )}
         {projectId && hasToken && (
           <Button
             type="button"

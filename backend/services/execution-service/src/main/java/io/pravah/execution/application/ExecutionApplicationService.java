@@ -2,6 +2,7 @@ package io.pravah.execution.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.EntityNotFoundException;
@@ -19,6 +20,7 @@ import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -60,6 +63,8 @@ public class ExecutionApplicationService {
   private final OutboxRepository outboxRepository;
   private final EntityManager entityManager;
   private final String executionEventsTopic;
+  private final ApplicationEventPublisher applicationEventPublisher;
+  private final ObjectMapper objectMapper;
 
   public ExecutionApplicationService(
       PipelineCatalog pipelineCatalog,
@@ -67,13 +72,17 @@ public class ExecutionApplicationService {
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
       EntityManager entityManager,
-      @Value("${pravah.outbox.topic.execution-events}") String executionEventsTopic) {
+      @Value("${pravah.outbox.topic.execution-events}") String executionEventsTopic,
+      ApplicationEventPublisher applicationEventPublisher,
+      ObjectMapper objectMapper) {
     this.pipelineCatalog = pipelineCatalog;
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.entityManager = entityManager;
     this.executionEventsTopic = executionEventsTopic;
+    this.applicationEventPublisher = applicationEventPublisher;
+    this.objectMapper = objectMapper;
   }
 
   /**
@@ -171,6 +180,15 @@ public class ExecutionApplicationService {
         kv("job_count", jobResponses.size()),
         kv("event_id", eventId));
 
+    ExecutionRealtimeEvents.publishExecutionUpdated(
+        applicationEventPublisher,
+        objectMapper,
+        tenantId,
+        execution.getId(),
+        execution.getStatus().asDatabaseValue(),
+        Instant.now(),
+        execution.getPipelineId());
+
     return new CreateExecutionResponse(
         execution.getId(),
         execution.getPipelineId(),
@@ -245,6 +263,15 @@ public class ExecutionApplicationService {
         kv("execution_id", execution.getId()),
         kv("event_id", eventId),
         kv("jobs_stopped", jobsStopped));
+
+    ExecutionRealtimeEvents.publishExecutionUpdated(
+        applicationEventPublisher,
+        objectMapper,
+        tenantId,
+        execution.getId(),
+        execution.getStatus().asDatabaseValue(),
+        Instant.now(),
+        execution.getPipelineId());
 
     return toGetExecutionResponse(execution, jobs);
   }

@@ -20,7 +20,8 @@ import org.springframework.test.context.TestPropertySource;
 @ExtendWith(PostgresContainerExtension.class)
 @TestPropertySource(
     properties = {
-      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
+      "pravah.realtime.redis-enabled=false",
       "pravah.outbox.relay.enabled=false",
       "pravah.kafka.execution-created-listener-enabled=false",
       "pravah.kafka.job-worker-listener-enabled=false"

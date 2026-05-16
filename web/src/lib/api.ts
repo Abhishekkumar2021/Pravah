@@ -101,6 +101,32 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+const EXECUTIONS_WS_PATH = "/ws/v1/executions";
+
+/**
+ * WebSocket URL for execution-service realtime stream (tenant-scoped JWT on connect).
+ *
+ * Uses the `access_token` query parameter because browser `WebSocket` cannot set `Authorization`
+ * reliably. Treat tokens as sensitive: they can appear in proxy access logs if the log format
+ * includes the request URI query string—disable or redact at INFO in production.
+ *
+ * In local dev, same host as the SPA with Vite proxying `/ws` to the gateway (see `vite.config.ts`).
+ */
+export function executionsWebSocketUrl(accessToken: string): string {
+  const path = `${EXECUTIONS_WS_PATH}?access_token=${encodeURIComponent(accessToken)}`;
+  const base = import.meta.env.VITE_PRAVAH_API_BASE?.replace(/\/$/, "") ?? "";
+  if (base) {
+    const u = new URL(base);
+    const wsProto = u.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProto}//${u.host}${path}`;
+  }
+  if (typeof window === "undefined") {
+    return `ws://127.0.0.1${path}`;
+  }
+  const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${wsProto}//${window.location.host}${path}`;
+}
+
 export async function getExecution(executionId: string): Promise<ExecutionResponse> {
   const res = await fetch(apiUrl(`/api/v1/executions/${executionId}`), {
     headers: authHeaders(),

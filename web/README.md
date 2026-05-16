@@ -34,6 +34,14 @@ Copy `env.example` to `.env.local` for local overrides (gitignored).
 
 Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 
+## Real-time execution updates (WebSocket)
+
+1. Same dev JWT as REST (`pravah.devBearerToken`).
+2. Vite proxies `/ws` to the gateway → execution-service (`/ws/v1/executions?access_token=…`).
+3. Run detail, runs list, and dashboard subscribe while runs are pending/running and refetch on `execution.updated` frames.
+
+Set `PRAVAH_WS_ALLOWED_ORIGINS` on execution-service if the SPA is not served from `http://localhost:5173`.
+
 ## Product mapping
 
 | Area | Stories |
@@ -45,6 +53,7 @@ Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 | Workflow detail tabs | US-12.05 |
 | Run list | US-12.07 |
 | Run detail + cancel | US-12.08 / US-02.04 |
+| Real-time run status | US-12.10 / US-02.02 |
 
 GraphQL read model (ADR-033) is not implemented yet; pages use REST where noted.
 

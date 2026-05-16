@@ -22,7 +22,8 @@ export function AlphaSetupBanner({ onProjectSaved }: AlphaSetupBannerProps) {
         <CardTitle className="text-base">Alpha setup</CardTitle>
         <CardDescription>
           Complete these steps to browse workflows, start runs via REST, and view execution detail.
-          Live status updates arrive with <span className="font-medium">US-12.10</span> (WebSocket).
+          Run detail, runs list, and dashboard use WebSocket for live status when a JWT is set (
+          <span className="font-medium">US-12.10</span>).
         </CardDescription>
       </CardHeader>
       <ol className="list-decimal space-y-1 pl-5 text-[13px] text-neutral-600 dark:text-neutral-300">
@@ -33,7 +34,7 @@ export function AlphaSetupBanner({ onProjectSaved }: AlphaSetupBannerProps) {
           Open <Link to="/app/runs" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Runs</Link>
           , choose any execution, and paste a gateway JWT in the Dev token panel.
         </li>
-        <li>Start a run from a workflow row or detail page, then refresh to see status changes until WebSocket ships.</li>
+        <li>Start a run from a workflow row or detail page; open run detail to watch live job status.</li>
       </ol>
       {!projectId && (
         <div className="mt-4">
