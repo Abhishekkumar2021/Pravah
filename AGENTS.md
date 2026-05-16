@@ -122,27 +122,29 @@ If you can't write a test for the behavior, you don't understand the requirement
 
 **CRITICAL**: Execute ALL steps in order before EVERY commit. No exceptions.
 
+Full details: `.cursor/rules/12-pre-commit-workflow.mdc`
+
 ### Quick Commands
 
 ```bash
-# Run all checks (do this before every commit)
-cd backend && \
-  ./gradlew spotlessApply --no-daemon && \
-  ./gradlew compileJava compileTestJava --no-daemon && \
-  ./gradlew test --no-daemon && \
-  echo "✅ All checks passed"
+# Run all checks (backend + web + integration + e2e) — do this before every commit
+./scripts/pre-commit.sh
 ```
+
+Requires JDK 21, Docker (integration tests), Node.js 22. Optional: `SKIP_INTEGRATION=1` or `SKIP_E2E=1` for scoped local runs only.
 
 ### Step-by-Step
 
 | Step | Command | Verify |
 |------|---------|--------|
-| 1. Format | `./gradlew spotlessApply` | BUILD SUCCESSFUL |
+| 1. Format | `cd backend && ./gradlew spotlessApply` | BUILD SUCCESSFUL |
 | 2. Compile | `./gradlew compileJava compileTestJava` | No errors/warnings |
-| 3. Test | `./gradlew test` | All tests pass |
-| 4. Lint | Use ReadLints tool | No new errors |
-| 5. Review | `git diff` | No debug/secrets |
-| 6. Self-review | Checklist below | All items checked |
+| 3. Backend unit tests | `./gradlew test` | All pass |
+| 4. Backend integration | `./gradlew integrationTest` | All pass (Docker) |
+| 5. Web | `cd web && npm ci && npm run lint && npm run test && npm run test:e2e && npm run build` | All pass |
+| 6. IDE lint | Use ReadLints tool | No new errors |
+| 7. Review | `git diff` | No debug/secrets |
+| 8. Self-review | Checklist below | All items checked |
 
 ### Self-Review Checklist
 

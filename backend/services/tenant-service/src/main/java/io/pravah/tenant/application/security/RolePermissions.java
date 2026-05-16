@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +35,19 @@ public final class RolePermissions {
     } catch (JsonProcessingException e) {
       log.error("Failed to parse role permissions JSON", kv("json", permissionsJson), e);
       throw new IllegalStateException("Invalid permissions JSON in database: " + e.getMessage(), e);
+    }
+  }
+
+  /** Serializes permission strings to JSON for JSONB storage. */
+  public static String toJson(List<String> permissions) {
+    Objects.requireNonNull(permissions, "permissions");
+    if (permissions.isEmpty()) {
+      throw new IllegalArgumentException("At least one permission is required");
+    }
+    try {
+      return MAPPER.writeValueAsString(permissions);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Failed to serialize permissions", e);
     }
   }
 }

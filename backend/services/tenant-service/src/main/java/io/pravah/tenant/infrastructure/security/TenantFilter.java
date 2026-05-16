@@ -21,18 +21,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Servlet filter that extracts tenant context from JWT tokens.
+ * Servlet filter that extracts tenant context from JWT or API tokens.
  *
  * <p>Per ADR-013 and ADR-009, this filter:
  *
  * <ul>
- *   <li>Extracts the JWT from the Authorization header
- *   <li>Validates the RS256 token using public key from JWKS
- *   <li>Extracts tenant_id claim and populates TenantContext
- *   <li>Clears TenantContext after request completes
+ *   <li>Extracts the bearer credential from the Authorization header
+ *   <li>Validates {@code prv_1_} API tokens (hashed lookup) or RS256 JWTs via JWKS
+ *   <li>Populates {@link TenantContext} and Spring Security authorities
+ *   <li>Clears context after the request completes
  * </ul>
- *
- * <p>The RlsAspect then uses TenantContext to set the PostgreSQL RLS variable.
  *
  * @see TenantContext
  * @see io.pravah.tenant.infrastructure.persistence.RlsAspect
@@ -46,9 +44,12 @@ public class TenantFilter extends OncePerRequestFilter {
   private static final String BEARER_PREFIX = "Bearer ";
 
   private final JwtTokenVerifier jwtTokenVerifier;
+  private final ApiTokenAuthenticator apiTokenAuthenticator;
 
-  public TenantFilter(JwtTokenVerifier jwtTokenVerifier) {
+  public TenantFilter(
+      JwtTokenVerifier jwtTokenVerifier, ApiTokenAuthenticator apiTokenAuthenticator) {
     this.jwtTokenVerifier = jwtTokenVerifier;
+    this.apiTokenAuthenticator = apiTokenAuthenticator;
   }
 
   @Override
@@ -59,24 +60,10 @@ public class TenantFilter extends OncePerRequestFilter {
       String token = extractToken(request);
 
       if (token != null) {
-        try {
-          JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(token);
-          TenantContext.setCurrentUserId(claims.userId());
-          TenantContext.setCurrentTenantId(claims.tenantId());
-
-          var authentication =
-              new UsernamePasswordAuthenticationToken(
-                  claims.userId().toString(),
-                  null,
-                  SecurityAuthorities.fromJwtPermissions(claims.permissions()));
-          SecurityContextHolder.getContext().setAuthentication(authentication);
-
-          log.debug(
-              "Set tenant context and authentication from JWT",
-              kv("user_id", claims.userId()),
-              kv("tenant_id", claims.tenantId()));
-        } catch (JwtVerificationException e) {
-          log.debug("JWT verification failed", kv("error", e.getMessage()));
+        if (ApiTokenGenerator.isApiToken(token)) {
+          authenticateApiToken(token);
+        } else {
+          authenticateJwt(token);
         }
       }
 
@@ -84,6 +71,51 @@ public class TenantFilter extends OncePerRequestFilter {
     } finally {
       TenantContext.clear();
       SecurityContextHolder.clearContext();
+    }
+  }
+
+  private void authenticateApiToken(String rawToken) {
+    apiTokenAuthenticator
+        .authenticate(rawToken)
+        .ifPresent(
+            auth -> {
+              TenantContext.setCurrentUserId(auth.userId());
+              TenantContext.setCurrentTenantId(auth.tenantId());
+
+              var authentication =
+                  new UsernamePasswordAuthenticationToken(
+                      auth.userId().toString(),
+                      null,
+                      SecurityAuthorities.fromJwtPermissions(auth.permissions()));
+              SecurityContextHolder.getContext().setAuthentication(authentication);
+
+              log.debug(
+                  "Authenticated API token",
+                  kv("token_id", auth.tokenId()),
+                  kv("user_id", auth.userId()),
+                  kv("tenant_id", auth.tenantId()));
+            });
+  }
+
+  private void authenticateJwt(String token) {
+    try {
+      JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(token);
+      TenantContext.setCurrentUserId(claims.userId());
+      TenantContext.setCurrentTenantId(claims.tenantId());
+
+      var authentication =
+          new UsernamePasswordAuthenticationToken(
+              claims.userId().toString(),
+              null,
+              SecurityAuthorities.fromJwtPermissions(claims.permissions()));
+      SecurityContextHolder.getContext().setAuthentication(authentication);
+
+      log.debug(
+          "Set tenant context and authentication from JWT",
+          kv("user_id", claims.userId()),
+          kv("tenant_id", claims.tenantId()));
+    } catch (JwtVerificationException e) {
+      log.debug("JWT verification failed", kv("error", e.getMessage()));
     }
   }
 
