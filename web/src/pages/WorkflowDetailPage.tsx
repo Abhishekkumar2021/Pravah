@@ -4,6 +4,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
+import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
 import { ApiError, getDevBearerToken, getPipeline, listExecutions, type PipelineDetailResponse } from "@/lib/api";
 import { formatShortDateTime, formatExecutionWallDuration } from "@/lib/format";
 
@@ -224,12 +225,16 @@ export function WorkflowDetailPage() {
         </TabsContent>
 
         <TabsContent value="Schedule">
-          <Card>
-            <CardHeader>
-              <CardTitle>Schedule</CardTitle>
-              <CardDescription>Content for this tab is not implemented yet.</CardDescription>
-            </CardHeader>
-          </Card>
+          {workflowId && isUuid ? (
+            <WorkflowSchedulePanel pipelineId={workflowId} />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Schedule</CardTitle>
+                <CardDescription>Invalid workflow id.</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="Settings">

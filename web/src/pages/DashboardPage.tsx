@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowUpRight, PlayCircle, TriangleAlert } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle2,
+  Clock,
+  PlayCircle,
+  RefreshCw,
+  TriangleAlert,
+  Workflow,
+  Zap,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { Pill } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +20,7 @@ import {
   DashboardFailuresSkeleton,
   DashboardWorkflowListSkeleton,
 } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
 import {
   ApiError,
@@ -78,6 +90,7 @@ export function DashboardPage() {
     return s === "pending" || s === "running";
   });
   const failedRuns = executions.filter((e) => e.status.toLowerCase() === "failed").slice(0, 4);
+  const succeededCount = executions.filter((e) => e.status.toLowerCase() === "succeeded").length;
 
   const { liveConnected } = useExecutionRealtime({
     enabled: hasToken && activeRuns.length > 0,
@@ -88,38 +101,52 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="page-title">
-          Dashboard
-        </h2>
-        <p className="page-desc">
-          Overview wired to REST for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.03</span> when
-          a project id and dev JWT are configured. Active runs refresh over WebSocket (
-          <span className="font-medium">US-12.10</span>) while pending or running.
-        </p>
-        {projectId && hasToken && activeRuns.length > 0 && (
-          <span
-            className={cn(
-              "mt-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-              liveConnected
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
-            )}
-          >
-            {liveConnected ? "Live" : "Live…"}
-          </span>
-        )}
-        {projectId && hasToken && (
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-3 h-9"
-            disabled={loading}
-            onClick={() => void load()}
-          >
-            Refresh
-          </Button>
-        )}
+      {/* Page header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="page-title flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25">
+              <Activity className="h-5 w-5" />
+            </span>
+            Dashboard
+          </h1>
+          <p className="page-desc mt-2">
+            Real-time overview of your workflows and executions
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {projectId && hasToken && activeRuns.length > 0 && (
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide",
+                liveConnected
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                  : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+              )}
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  liveConnected ? "animate-pulse bg-emerald-500" : "bg-neutral-400",
+                )}
+              />
+              {liveConnected ? "Live" : "Connecting…"}
+            </div>
+          )}
+          {projectId && hasToken && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => void load()}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden />
+              Refresh
+            </Button>
+          )}
+        </div>
       </div>
 
       <AlphaSetupBanner
@@ -128,37 +155,107 @@ export function DashboardPage() {
       />
 
       {error && (
-        <Card className="border-rose-200 dark:border-rose-900/50">
-          <CardTitle className="text-base text-rose-800 dark:text-rose-200">Could not load dashboard data</CardTitle>
-          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">{error}</CardDescription>
+        <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/30">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+              <TriangleAlert className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-[15px] text-rose-800 dark:text-rose-200">
+                Could not load dashboard
+              </CardTitle>
+              <CardDescription className="mt-1 text-rose-700/90 dark:text-rose-300/90">
+                {error}
+              </CardDescription>
+            </div>
+          </div>
         </Card>
+      )}
+
+      {/* Stats row */}
+      {projectId && hasToken && !loading && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            icon={<Workflow className="h-5 w-5" />}
+            label="Workflows"
+            value={workflows.length}
+            iconBg="bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+          />
+          <StatCard
+            icon={<Zap className="h-5 w-5" />}
+            label="Active runs"
+            value={activeRuns.length}
+            iconBg="bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400"
+          />
+          <StatCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            label="Succeeded"
+            value={succeededCount}
+            iconBg="bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400"
+          />
+          <StatCard
+            icon={<TriangleAlert className="h-5 w-5" />}
+            label="Failed"
+            value={failedRuns.length}
+            iconBg="bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400"
+          />
+        </div>
       )}
 
       {loading && hasToken && projectId && <span className="sr-only">Loading dashboard…</span>}
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Recent workflows</CardTitle>
-            <CardDescription>Latest pipelines in the configured project.</CardDescription>
+      {/* Main content grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Recent workflows */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Workflow className="h-4 w-4 text-neutral-400" />
+                Recent workflows
+              </CardTitle>
+              <CardDescription>Latest pipelines in your project</CardDescription>
+            </div>
+            <Button variant="ghost" asChild className="gap-1.5 text-[12px]">
+              <Link to="/app/workflows">
+                View all
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
+
           {loading && hasToken && projectId ? (
             <DashboardWorkflowListSkeleton rows={4} />
           ) : workflows.length === 0 && hasToken && projectId && !loading ? (
-            <p className="text-[13px] text-neutral-500">No workflows yet.</p>
+            <EmptyState
+              icon={<Workflow className="h-7 w-7" />}
+              title="No workflows yet"
+              description="Create your first workflow to start automating tasks"
+              action={
+                <Button variant="primary" asChild>
+                  <Link to="/app/workflows">Browse workflows</Link>
+                </Button>
+              }
+            />
           ) : (
             <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {workflows.slice(0, 6).map((w) => (
-                <li key={w.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
+                <li
+                  key={w.id}
+                  className="flex items-center justify-between gap-4 px-1 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0 flex-1">
                     <Link
                       to={`/app/workflows/${w.id}`}
-                      className="group flex items-center gap-1 font-medium text-neutral-900 dark:text-neutral-100"
+                      className="group flex items-center gap-1.5 font-medium text-neutral-900 transition-colors hover:text-blue-600 dark:text-neutral-100 dark:hover:text-blue-400"
                     >
                       <span className="truncate">{w.name}</span>
-                      <ArrowUpRight className="h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
                     </Link>
-                    <p className="text-xs text-neutral-500">Updated {formatShortDateTime(w.updatedAt)}</p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-neutral-500">
+                      <Clock className="h-3 w-3" />
+                      {formatShortDateTime(w.updatedAt)}
+                    </p>
                   </div>
                   <Pill>{w.status}</Pill>
                 </li>
@@ -167,50 +264,87 @@ export function DashboardPage() {
           )}
         </Card>
 
+        {/* Quick actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-            <CardDescription>US-12.03 entry points.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" />
+              Quick actions
+            </CardTitle>
+            <CardDescription>Jump to common tasks</CardDescription>
           </CardHeader>
           <div className="flex flex-col gap-2">
-            <Button variant="primary" asChild className="w-full justify-center py-2.5">
+            <Button variant="primary" asChild className="w-full justify-between">
               <Link to="/app/workflows">
-                <PlayCircle className="h-4 w-4" aria-hidden />
-                Browse workflows
+                <span className="flex items-center gap-2">
+                  <Workflow className="h-4 w-4" aria-hidden />
+                  Browse workflows
+                </span>
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="secondary" asChild className="w-full justify-center py-2.5">
-              <Link to="/app/runs">View all runs</Link>
+            <Button variant="secondary" asChild className="w-full justify-between">
+              <Link to="/app/runs">
+                <span className="flex items-center gap-2">
+                  <PlayCircle className="h-4 w-4" aria-hidden />
+                  View all runs
+                </span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
           </div>
         </Card>
       </div>
 
+      {/* Active runs and failures */}
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Active runs */}
         <Card>
-          <CardHeader>
-            <CardTitle>Active runs</CardTitle>
-            <CardDescription>Pending and running executions for this tenant.</CardDescription>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                Active runs
+              </CardTitle>
+              <CardDescription>Pending and running executions</CardDescription>
+            </div>
+            {activeRuns.length > 0 && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                {activeRuns.length} active
+              </span>
+            )}
           </CardHeader>
+
           {loading && hasToken && projectId ? (
             <DashboardActiveRunsSkeleton rows={3} />
           ) : activeRuns.length === 0 ? (
-            <p className="text-[13px] text-neutral-500">No active runs.</p>
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                <CheckCircle2 className="h-6 w-6 text-neutral-400" />
+              </div>
+              <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
+                No active runs
+              </p>
+              <p className="mt-1 text-[12px] text-neutral-500">
+                All executions have completed
+              </p>
+            </div>
           ) : (
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               {activeRuns.slice(0, 6).map((r) => (
                 <li key={r.id}>
                   <Link
                     to={`/app/runs/${r.id}`}
-                    className="block rounded-lg border border-neutral-200 p-3 transition-colors hover:border-blue-200 hover:bg-blue-50/50 dark:border-neutral-800 dark:hover:border-blue-900/50 dark:hover:bg-blue-950/20"
+                    className="group block rounded-xl border border-neutral-200 p-3.5 transition-all hover:border-blue-200 hover:bg-blue-50/50 hover:shadow-sm dark:border-neutral-800 dark:hover:border-blue-900/50 dark:hover:bg-blue-950/20"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-neutral-900 dark:text-neutral-100">
+                      <p className="font-medium text-neutral-900 group-hover:text-blue-700 dark:text-neutral-100 dark:group-hover:text-blue-300">
                         {pipelineNames.get(r.pipelineId) ?? "Pipeline"}
                       </p>
                       <Pill>{r.status}</Pill>
                     </div>
-                    <p className="mt-1 text-xs text-neutral-500">
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-neutral-500">
+                      <Clock className="h-3 w-3" />
                       {formatShortDateTime(r.startedAt ?? r.createdAt)} · {formatExecutionWallDuration(r)}
                     </p>
                   </Link>
@@ -220,36 +354,78 @@ export function DashboardPage() {
           )}
         </Card>
 
+        {/* Recent failures */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TriangleAlert className="h-5 w-5 text-amber-500" aria-hidden />
+              <TriangleAlert className="h-4 w-4 text-rose-500" />
               Recent failures
             </CardTitle>
-            <CardDescription>Latest failed runs (US-12.09 adds log drill-down).</CardDescription>
+            <CardDescription>Failed runs requiring attention</CardDescription>
           </CardHeader>
+
           {loading && hasToken && projectId ? (
             <DashboardFailuresSkeleton rows={2} />
           ) : failedRuns.length === 0 ? (
-            <p className="text-sm text-neutral-500">No recent failures.</p>
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/50">
+                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+              </div>
+              <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
+                No recent failures
+              </p>
+              <p className="mt-1 text-[12px] text-neutral-500">
+                All recent executions succeeded
+              </p>
+            </div>
           ) : (
             <ul className="space-y-3">
               {failedRuns.map((f) => (
-                <li
-                  key={f.id}
-                  className="rounded-xl border border-rose-100 bg-rose-50/50 p-3 dark:border-rose-900/40 dark:bg-rose-950/30"
-                >
-                  <Link to={`/app/runs/${f.id}`} className="font-medium text-rose-900 dark:text-rose-200">
-                    {pipelineNames.get(f.pipelineId) ?? "Pipeline"} · {f.id.slice(0, 8)}…
+                <li key={f.id}>
+                  <Link
+                    to={`/app/runs/${f.id}`}
+                    className="group block rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 transition-colors hover:bg-rose-100/50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                  >
+                    <p className="font-medium text-rose-900 dark:text-rose-200">
+                      {pipelineNames.get(f.pipelineId) ?? "Pipeline"}
+                    </p>
+                    <p className="mt-1 text-[12px] text-rose-700/90 dark:text-rose-300/80">
+                      <span className="font-mono">{f.id.slice(0, 8)}…</span>
+                      <span className="mx-1.5">·</span>
+                      {formatShortDateTime(f.completedAt ?? f.startedAt ?? f.createdAt)}
+                    </p>
                   </Link>
-                  <p className="mt-1 text-[13px] text-rose-800/90 dark:text-rose-300/90">
-                    Failed · {formatShortDateTime(f.completedAt ?? f.startedAt ?? f.createdAt)}
-                  </p>
                 </li>
               ))}
             </ul>
           )}
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  iconBg,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  iconBg: string;
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+      <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", iconBg)}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+          {value}
+        </p>
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-400">{label}</p>
       </div>
     </div>
   );

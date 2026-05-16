@@ -11,7 +11,7 @@ export function TabsList({
   return (
     <TabsPrimitive.List
       className={cn(
-        "flex gap-1 overflow-x-auto border-b border-neutral-200 dark:border-neutral-800",
+        "inline-flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800",
         className,
       )}
       {...props}
@@ -26,13 +26,14 @@ export function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        "relative whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
-        "text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950",
-        "data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-300",
-        "after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-blue-500 after:opacity-0 after:transition-opacity dark:after:bg-blue-400",
-        "data-[state=active]:after:opacity-100",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-[13px] font-medium transition-all duration-150",
+        "text-neutral-600 hover:text-neutral-900",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
+        "data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm",
+        "dark:text-neutral-400 dark:hover:text-neutral-200",
+        "dark:data-[state=active]:bg-neutral-900 dark:data-[state=active]:text-neutral-100",
+        "dark:focus-visible:ring-offset-neutral-900",
         className,
       )}
       {...props}
@@ -46,7 +47,49 @@ export function TabsContent({
 }: ComponentPropsWithoutRef<typeof TabsPrimitive.Content>) {
   return (
     <TabsPrimitive.Content
-      className={cn("mt-6 outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20", className)}
+      className={cn(
+        "mt-4 outline-none",
+        "focus-visible:ring-2 focus-visible:ring-blue-500/20 focus-visible:ring-offset-2",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function TabsListUnderline({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      className={cn(
+        "flex gap-1 border-b border-neutral-200 dark:border-neutral-800",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function TabsTriggerUnderline({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      className={cn(
+        "relative whitespace-nowrap px-4 py-3 text-[13px] font-medium transition-colors",
+        "text-neutral-500 hover:text-neutral-800",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:ring-inset",
+        "disabled:pointer-events-none disabled:opacity-50",
+        "data-[state=active]:text-blue-600",
+        "after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-blue-600 after:opacity-0 after:transition-opacity",
+        "data-[state=active]:after:opacity-100",
+        "dark:text-neutral-400 dark:hover:text-neutral-200",
+        "dark:data-[state=active]:text-blue-400 dark:after:bg-blue-400",
+        className,
+      )}
       {...props}
     />
   );

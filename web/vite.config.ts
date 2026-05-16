@@ -19,6 +19,18 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     passWithNoTests: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**"],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        branches: 77,
+        functions: 68,
+      },
+    },
   },
   server: {
     port: 5173,

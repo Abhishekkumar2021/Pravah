@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
@@ -9,7 +10,13 @@ type PaginationProps = {
   className?: string;
 };
 
-export function Pagination({ page, totalPages, totalElements, onPageChange, className }: PaginationProps) {
+export function Pagination({
+  page,
+  totalPages,
+  totalElements,
+  onPageChange,
+  className,
+}: PaginationProps) {
   if (totalPages <= 1) {
     return null;
   }
@@ -18,33 +25,40 @@ export function Pagination({ page, totalPages, totalElements, onPageChange, clas
     <nav
       aria-label="Pagination"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800",
+        "flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 px-4 py-4 dark:border-neutral-800",
         className,
       )}
     >
-      <p className="text-[13px] text-neutral-500">
-        Page {page + 1} of {totalPages} · {totalElements} total
+      <p className="text-[13px] text-neutral-500 dark:text-neutral-400">
+        <span className="font-medium text-neutral-700 dark:text-neutral-300">
+          Page {page + 1}
+        </span>{" "}
+        of {totalPages}
+        <span className="mx-2">·</span>
+        <span className="tabular-nums">{totalElements.toLocaleString()}</span> total
       </p>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button
           type="button"
           variant="secondary"
-          className="h-8 px-3 text-[12px]"
+          size="sm"
           disabled={page <= 0}
           aria-label="Previous page"
           onClick={() => onPageChange(page - 1)}
         >
+          <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
         <Button
           type="button"
           variant="secondary"
-          className="h-8 px-3 text-[12px]"
+          size="sm"
           disabled={page >= totalPages - 1}
           aria-label="Next page"
           onClick={() => onPageChange(page + 1)}
         >
           Next
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </nav>

@@ -2,14 +2,22 @@ import { cn } from "@/lib/cn";
 import { forwardRef, type InputHTMLAttributes } from "react";
 
 export const inputBaseClass = cn(
-  "h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-[13px] leading-snug text-neutral-900 shadow-none outline-none transition-[color,box-shadow,border-color] placeholder:text-neutral-400",
-  "focus-visible:border-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500/15",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus-visible:border-blue-500",
+  "h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-[13px] text-neutral-900",
+  "shadow-sm outline-none transition-all duration-150",
+  "placeholder:text-neutral-400",
+  "hover:border-neutral-300",
+  "focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/20",
+  "disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60",
+  "dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100",
+  "dark:placeholder:text-neutral-500 dark:hover:border-neutral-600",
+  "dark:focus-visible:border-blue-500 dark:disabled:bg-neutral-900",
 );
 
-const invalidClass =
-  "border-rose-500 focus-visible:border-rose-500 focus-visible:ring-rose-500/20 dark:border-rose-500";
+const invalidClass = cn(
+  "border-rose-500 hover:border-rose-500",
+  "focus-visible:border-rose-500 focus-visible:ring-rose-500/20",
+  "dark:border-rose-500",
+);
 
 export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   invalid?: boolean;

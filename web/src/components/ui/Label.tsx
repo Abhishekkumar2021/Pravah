@@ -6,11 +6,25 @@ export function Label({ className, ...props }: ComponentPropsWithoutRef<typeof L
   return (
     <LabelPrimitive.Root
       className={cn(
-        "text-[13px] font-medium text-neutral-700 dark:text-neutral-300",
-        "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
+        "text-[13px] font-medium leading-none text-neutral-700 dark:text-neutral-300",
+        "peer-disabled:cursor-not-allowed peer-disabled:opacity-60",
         className,
       )}
       {...props}
     />
+  );
+}
+
+export function LabelHint({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className={cn("text-[12px] font-normal text-neutral-500 dark:text-neutral-400", className)}>
+      {children}
+    </span>
   );
 }

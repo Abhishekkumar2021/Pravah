@@ -34,13 +34,13 @@ main (protected)
 - No direct pushes allowed
 - Requires pull request with at least 1 approval
 - Requires code owner review
-- Requires passing CI (Build & Test, Code Quality)
+- Requires passing CI (see `.github/workflows/README.md` for job names)
 - Enforces linear history (no merge commits)
 - Force pushes disabled
 
 **`develop` branch:**
 - No direct pushes allowed
-- Requires passing CI (Build & Test)
+- Requires passing CI (backend and/or frontend jobs as applicable)
 - Force pushes disabled
 
 **Important:** The bullets above are **policy**. GitHub will only block direct pushes after rules are configured on the server. Docs alone do not enforce anything.
@@ -59,7 +59,7 @@ Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **ru
 4. **Target branches:** Add targets → **Include by pattern** → enter `main` → add another pattern → `develop`.
 5. Enable at least:
    - **Require a pull request before merging** (set minimum number of approvals and “dismiss stale reviews” as you prefer).
-   - **Require status checks to pass** → add the checks from `.github/workflows/` (e.g. build/test jobs from `ci.yml` / `pr-checks.yml`).
+   - **Require status checks to pass** → add job names from `.github/workflows/` (see `.github/workflows/README.md`; e.g. `Backend · Unit tests`, `Frontend · Lint, test & build`, `PR · Conventional title`).
    - **Block force pushes**.
 6. **Bypass list (solo developer):** enable **Repository admin** (or **Repository role: Admin**) so the owner can bypass when needed. Omit this if you want the strictest possible setup with no bypasses.
 7. Save the ruleset. With PR required and optional admin bypass, normal work goes through PRs; direct pushes stay blocked unless you use bypass (e.g. merge with admin override or adjust rules in Settings).
@@ -174,7 +174,7 @@ make test-int   # Run integration tests
 
 ### PR Title
 
-CI (`.github/workflows/pr-checks.yml`, `amannn/action-semantic-pull-request`) enforces:
+CI (`.github/workflows/pull-request.yml`, `amannn/action-semantic-pull-request`) enforces:
 
 1. **Conventional-commit prefix:** `type(optional-scope): ` where `type` is one of the allowed types (same family as commits: `feat`, `fix`, `docs`, …).
 2. **Subject (text after the colon and space):** must match `^[A-Z].+$` — the first character **must be an uppercase letter** (sentence case / title-style start), not lowercase.

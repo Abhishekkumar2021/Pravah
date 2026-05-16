@@ -1,30 +1,35 @@
-name: Web CI
+# Frontend: TypeScript, Vitest, Playwright E2E, and production build.
+name: Frontend CI
 
 on:
   push:
     branches: [main, develop]
     paths:
       - "web/**"
-      - ".github/workflows/web-ci.yml"
+      - ".github/workflows/frontend-ci.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "web/**"
-      - ".github/workflows/web-ci.yml"
+      - ".github/workflows/frontend-ci.yml"
+
+concurrency:
+  group: frontend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Web Build
+  quality-gates:
+    name: Frontend · Lint, test & build
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up Node.js
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -34,17 +39,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (TypeScript)
+      - name: TypeScript (tsc)
         run: npm run lint
 
-      - name: Test (Vitest + Testing Library)
+      - name: Unit tests (Vitest)
         run: npm run test
 
-      - name: Install Playwright browser
+      - name: Install Playwright (Chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Test (Playwright E2E)
+      - name: E2E tests (Playwright)
         run: npm run test:e2e
 
-      - name: Build
+      - name: Production build (Vite)
         run: npm run build

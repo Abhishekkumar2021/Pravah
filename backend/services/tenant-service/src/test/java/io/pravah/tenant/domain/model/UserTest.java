@@ -107,6 +107,107 @@ class UserTest {
   }
 
   @Nested
+  @DisplayName("MFA")
+  class Mfa {
+
+    @Test
+    @DisplayName("should enable and disable MFA")
+    void shouldToggleMfa() {
+      User user =
+          User.builder()
+              .tenantId(TENANT_ID)
+              .email("test@example.com")
+              .name("Test")
+              .status(User.Status.ACTIVE)
+              .build();
+
+      assertThat(user.isMfaEnabled()).isFalse();
+      user.enableMfa("secret");
+      assertThat(user.isMfaEnabled()).isTrue();
+      user.disableMfa();
+      assertThat(user.isMfaEnabled()).isFalse();
+    }
+  }
+
+  @Nested
+  @DisplayName("account lockout")
+  class AccountLockout {
+
+    @Test
+    @DisplayName("should lock account after max failed attempts")
+    void shouldLockAfterFailedAttempts() {
+      User user =
+          User.builder()
+              .tenantId(TENANT_ID)
+              .email("test@example.com")
+              .name("Test")
+              .status(User.Status.ACTIVE)
+              .build();
+
+      user.recordFailedLogin(3, java.time.Duration.ofMinutes(15));
+      user.recordFailedLogin(3, java.time.Duration.ofMinutes(15));
+      user.recordFailedLogin(3, java.time.Duration.ofMinutes(15));
+
+      assertThat(user.getStatus()).isEqualTo(User.Status.LOCKED);
+      assertThat(user.isAccountLocked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should unlock account and reset counters")
+    void shouldUnlockAccount() {
+      User user =
+          User.builder()
+              .tenantId(TENANT_ID)
+              .email("test@example.com")
+              .name("Test")
+              .status(User.Status.LOCKED)
+              .build();
+      user.recordFailedLogin(1, java.time.Duration.ofMinutes(5));
+      user.unlockAccount();
+
+      assertThat(user.getStatus()).isEqualTo(User.Status.ACTIVE);
+      assertThat(user.getFailedLoginAttempts()).isZero();
+    }
+
+    @Test
+    @DisplayName("should not activate locked user")
+    void shouldNotActivateLockedUser() {
+      User user =
+          User.builder()
+              .tenantId(TENANT_ID)
+              .email("test@example.com")
+              .name("Test")
+              .status(User.Status.LOCKED)
+              .build();
+
+      assertThatThrownBy(user::activate).isInstanceOf(IllegalStateException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("profile updates")
+  class ProfileUpdates {
+
+    @Test
+    @DisplayName("should update name and email")
+    void shouldUpdateProfileFields() {
+      User user =
+          User.builder()
+              .tenantId(TENANT_ID)
+              .email("old@example.com")
+              .name("Old")
+              .status(User.Status.ACTIVE)
+              .build();
+
+      user.updateName("New");
+      user.updateEmail("new@example.com");
+
+      assertThat(user.getName()).isEqualTo("New");
+      assertThat(user.getEmail()).isEqualTo("new@example.com");
+    }
+  }
+
+  @Nested
   @DisplayName("login tracking")
   class LoginTracking {
 

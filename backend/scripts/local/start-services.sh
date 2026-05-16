@@ -35,6 +35,8 @@ start_one() {
     PRAVAH_REALTIME_REDIS_ENABLED="${PRAVAH_REALTIME_REDIS_ENABLED:-true}" \
     PRAVAH_WS_ALLOWED_ORIGINS="${PRAVAH_WS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}" \
     PIPELINE_SERVICE_BASE_URL="${PIPELINE_SERVICE_BASE_URL:-http://localhost:8083}" \
+    EXECUTION_SERVICE_BASE_URL="${EXECUTION_SERVICE_BASE_URL:-http://localhost:8084}" \
+    PRAVAH_INTERNAL_SERVICE_SECRET="${PRAVAH_INTERNAL_SERVICE_SECRET:-pravah-local-internal-secret}" \
   ./gradlew "$gradle_path:bootRun" --no-daemon >"$logfile" 2>&1 &
   echo $! >"$pidfile"
 }
@@ -44,6 +46,7 @@ start_one tenant-service :services:tenant-service
 sleep 3
 start_one pipeline-service :services:pipeline-service
 start_one execution-service :services:execution-service
+start_one scheduler-service :services:scheduler-service
 sleep 3
 start_one gateway :services:gateway
 

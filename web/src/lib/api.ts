@@ -341,6 +341,98 @@ export async function createExecution(
   return handleResponse<CreateExecutionResponse>(res);
 }
 
+export type ScheduleResponse = {
+  id: string;
+  pipelineId: string;
+  name: string;
+  cronExpression: string;
+  timezone: string;
+  active: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
+};
+
+export type CreateScheduleRequest = {
+  pipelineId: string;
+  name: string;
+  cronExpression: string;
+  timezone: string;
+};
+
+export type CronPreviewRequest = {
+  cronExpression: string;
+  timezone: string;
+  after?: string | null;
+  count?: number;
+};
+
+export type CronPreviewResponse = {
+  description: string;
+  nextRuns: string[];
+};
+
+export async function listSchedules(pipelineId: string): Promise<ScheduleResponse[]> {
+  const path = withQuery("/api/v1/schedules", { pipelineId });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<ScheduleResponse[]>(res);
+}
+
+export async function createSchedule(body: CreateScheduleRequest): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl("/api/v1/schedules"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function previewCron(body: CronPreviewRequest): Promise<CronPreviewResponse> {
+  const res = await fetch(apiUrl("/api/v1/schedules/preview"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      cronExpression: body.cronExpression,
+      timezone: body.timezone,
+      after: body.after ?? null,
+      count: body.count ?? 10,
+    }),
+  });
+  return handleResponse<CronPreviewResponse>(res);
+}
+
+export async function pauseSchedule(scheduleId: string): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}/pause`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function resumeSchedule(scheduleId: string): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}/resume`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
 export async function listExecutions(opts?: {
   status?: string;
   pipelineId?: string;

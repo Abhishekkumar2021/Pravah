@@ -57,11 +57,11 @@ cd backend && ./gradlew integrationTest --no-daemon
 
 **Verify**: All integration tests pass. Requires Docker (Testcontainers).
 
-Matches `ci.yml` integration job. Skip only for docs-only commits (see below).
+Matches `backend-ci.yml` integration job. Skip only for docs-only commits (see below).
 
 ## Step 5: Web — Lint, Unit Tests, E2E, Build
 
-Same as `.github/workflows/web-ci.yml`:
+Same as `.github/workflows/frontend-ci.yml`:
 
 ```bash
 cd web && npm ci
