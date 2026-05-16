@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.domain.JobEventTypes;
+import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
@@ -48,6 +49,7 @@ public class JobCreatedProcessingService {
   private final OutboxRepository outboxRepository;
   private final ProcessedEventRepository processedEventRepository;
   private final EmbeddedStageExecutor embeddedStageExecutor;
+  private final JobLogService jobLogService;
   private final String jobCreatedTopic;
   private final int maxJobAttempts;
   private final ApplicationEventPublisher applicationEventPublisher;
@@ -59,6 +61,7 @@ public class JobCreatedProcessingService {
       OutboxRepository outboxRepository,
       ProcessedEventRepository processedEventRepository,
       EmbeddedStageExecutor embeddedStageExecutor,
+      JobLogService jobLogService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
       @Value("${pravah.job.max-attempts:3}") int maxJobAttempts,
       ApplicationEventPublisher applicationEventPublisher,
@@ -68,6 +71,7 @@ public class JobCreatedProcessingService {
     this.outboxRepository = outboxRepository;
     this.processedEventRepository = processedEventRepository;
     this.embeddedStageExecutor = embeddedStageExecutor;
+    this.jobLogService = jobLogService;
     this.jobCreatedTopic = jobCreatedTopic;
     this.maxJobAttempts = maxJobAttempts;
     this.applicationEventPublisher = applicationEventPublisher;
@@ -116,14 +120,26 @@ public class JobCreatedProcessingService {
     ExecutionState executionStatusBeforeJob = execution.getStatus();
 
     job.assign(EmbeddedRunnerIds.LOCAL);
+    jobLogService.append(
+        job.getId(),
+        JobLogLevel.INFO,
+        "Starting stage %s (attempt %d)".formatted(job.getStageName(), job.getAttempt()));
 
     EmbeddedStageExecutor.StageExecutionResult result =
         embeddedStageExecutor.execute(job, execution);
     if (result.exitCode() != 0) {
       JobState statusBeforeFail = job.getStatus();
       job.fail(result.exitCode(), "Embedded executor reported non-zero exit", maxJobAttempts);
+      jobLogService.append(
+          job.getId(),
+          JobLogLevel.ERROR,
+          "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode()));
 
       if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.QUEUED) {
+        jobLogService.append(
+            job.getId(),
+            JobLogLevel.WARN,
+            "Scheduling retry (attempt %d of %d)".formatted(job.getAttempt(), maxJobAttempts));
         Instant retryOccurredAt = Instant.now();
         Map<String, Object> retryPayload =
             buildJobCreatedPayload(retryOccurredAt, tenantId, execution, job);
@@ -150,6 +166,10 @@ public class JobCreatedProcessingService {
     }
 
     job.succeed(result.exitCode(), result.output(), null);
+    jobLogService.append(
+        job.getId(),
+        JobLogLevel.INFO,
+        "Stage %s completed successfully".formatted(job.getStageName()));
 
     Map<String, Object> definition = resolveDefinitionSnapshot(execution);
     Instant occurredAt = Instant.now();

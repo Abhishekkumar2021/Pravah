@@ -43,6 +43,7 @@ class JobCreatedProcessingServiceTest {
   @Mock private OutboxRepository outboxRepository;
   @Mock private ProcessedEventRepository processedEventRepository;
   @Mock private EmbeddedStageExecutor embeddedStageExecutor;
+  @Mock private JobLogService jobLogService;
   @Mock private ApplicationEventPublisher applicationEventPublisher;
 
   private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -58,6 +59,7 @@ class JobCreatedProcessingServiceTest {
             outboxRepository,
             processedEventRepository,
             embeddedStageExecutor,
+            jobLogService,
             JOB_CREATED_TOPIC,
             3,
             applicationEventPublisher,

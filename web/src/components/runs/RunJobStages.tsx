@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { RunLogPanel } from "./RunLogPanel";
 
 type RunJobStagesProps = {
+  executionId: string;
   jobs: JobSummary[];
 };
 
@@ -15,7 +16,7 @@ function initialExpanded(jobs: JobSummary[]): Set<string> {
   return new Set(jobs.filter((j) => isFailedJob(j.status)).map((j) => j.id));
 }
 
-export function RunJobStages({ jobs }: RunJobStagesProps) {
+export function RunJobStages({ executionId, jobs }: RunJobStagesProps) {
   const ordered = sortJobsByStage(jobs);
   const [expanded, setExpanded] = useState<Set<string>>(() => initialExpanded(ordered));
 
@@ -81,7 +82,7 @@ export function RunJobStages({ jobs }: RunJobStagesProps) {
             </div>
             {isOpen ? (
               <div id={panelId} className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-                <RunLogPanel job={job} />
+                <RunLogPanel executionId={executionId} job={job} active />
               </div>
             ) : null}
           </li>

@@ -18,14 +18,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.api.dto.CreateExecutionRequest;
+import io.pravah.execution.application.JobLogService;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
 import io.pravah.execution.domain.ExecutionEventTypes;
+import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.test.security.TestJwtIssuer;
 import io.pravah.test.security.TestSecurityConfiguration;
 import java.sql.Connection;
@@ -69,6 +72,8 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
   @Autowired private JobEntityRepository jobEntityRepository;
 
   @Autowired private DataSource dataSource;
+
+  @Autowired private JobLogService jobLogService;
 
   @BeforeEach
   void resetPipelineCatalogMock() {
@@ -648,6 +653,110 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content.length()").value(0))
         .andExpect(jsonPath("$.totalElements").value(0));
+  }
+
+  @Test
+  void getJobLogs_returnsPersistedLines() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(
+            new PublishedPipelineSnapshot(
+                pipelineId,
+                1,
+                Map.of("stages", List.of(Map.of("id", "extract", "name", "Extract data"))),
+                "active"));
+
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/executions")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            new CreateExecutionRequest(pipelineId, null))))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    UUID executionId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+    UUID jobId =
+        UUID.fromString(
+            objectMapper
+                .readTree(created.getResponse().getContentAsString())
+                .get("jobs")
+                .get(0)
+                .get("id")
+                .asText());
+
+    try {
+      TenantContext.setCurrentTenantId(tenantId);
+      jobLogService.append(jobId, JobLogLevel.INFO, "E2E log line");
+    } finally {
+      TenantContext.clear();
+    }
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions/{executionId}/jobs/{jobId}/logs", executionId, jobId)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.jobId").value(jobId.toString()))
+        .andExpect(jsonPath("$.lines.length()").value(1))
+        .andExpect(jsonPath("$.lines[0].level").value("INFO"))
+        .andExpect(jsonPath("$.lines[0].message").value("E2E log line"));
+  }
+
+  @Test
+  void getJobLogs_invalidLevel_returnsBadRequest() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID pipelineId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    when(pipelineCatalog.resolve(eq(pipelineId), isNull(), anyString()))
+        .thenReturn(
+            new PublishedPipelineSnapshot(
+                pipelineId,
+                1,
+                Map.of("stages", List.of(Map.of("id", "extract", "name", "Extract data"))),
+                "active"));
+
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/executions")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsString(
+                            new CreateExecutionRequest(pipelineId, null))))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+    UUID executionId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
+    UUID jobId =
+        UUID.fromString(
+            objectMapper
+                .readTree(created.getResponse().getContentAsString())
+                .get("jobs")
+                .get(0)
+                .get("id")
+                .asText());
+
+    mockMvc
+        .perform(
+            get("/api/v1/executions/{executionId}/jobs/{jobId}/logs", executionId, jobId)
+                .param("level", "TRACE")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isBadRequest());
   }
 
   @TestConfiguration

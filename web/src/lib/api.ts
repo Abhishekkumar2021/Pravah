@@ -142,6 +142,32 @@ export async function getExecution(executionId: string): Promise<ExecutionRespon
   return handleResponse<ExecutionResponse>(res);
 }
 
+export type JobLogLine = {
+  id: string;
+  logTime: string;
+  level: string;
+  message: string;
+};
+
+export type JobLogsResponse = {
+  jobId: string;
+  executionId: string;
+  lines: JobLogLine[];
+};
+
+/** Per-job logs for run detail (US-02.03 / US-12.09). */
+export async function getJobLogs(
+  executionId: string,
+  jobId: string,
+  opts?: { level?: string },
+): Promise<JobLogsResponse> {
+  const path = withQuery(`/api/v1/executions/${executionId}/jobs/${jobId}/logs`, {
+    level: opts?.level,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<JobLogsResponse>(res);
+}
+
 export async function cancelExecution(executionId: string): Promise<ExecutionResponse> {
   const res = await fetch(apiUrl(`/api/v1/executions/${executionId}/cancel`), {
     method: "POST",
