@@ -109,6 +109,36 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export type AuthUserResponse = {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export type AuthTokenResponse = {
+  accessToken: string;
+  userId: string;
+  tenantId: string;
+  expiresAt: string;
+  user: AuthUserResponse;
+};
+
+/** Email/password login (US-10.01). Stores JWT for subsequent API calls. */
+export async function login(email: string, password: string): Promise<AuthTokenResponse> {
+  const res = await fetch(apiUrl("/api/v1/auth/login"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await handleResponse<AuthTokenResponse>(res);
+  setDevBearerToken(body.accessToken);
+  return body;
+}
+
 const EXECUTIONS_WS_PATH = "/ws/v1/executions";
 
 /**
