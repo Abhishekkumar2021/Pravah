@@ -59,15 +59,40 @@ async function handleResponse<T>(res: Response): Promise<T> {
   throw new ApiError(message, res.status, errorCode);
 }
 
+const DEV_BEARER_STORAGE_KEY = "pravah.devBearerToken";
+const DEV_BEARER_CHANGED_EVENT = "pravah:dev-bearer-token-changed";
+
 export function getDevBearerToken(): string | undefined {
-  return localStorage.getItem("pravah.devBearerToken") ?? undefined;
+  return localStorage.getItem(DEV_BEARER_STORAGE_KEY) ?? undefined;
+}
+
+/** Subscribe to dev JWT changes (same-tab saves + other tabs via `storage`). */
+export function subscribeDevBearerToken(listener: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === DEV_BEARER_STORAGE_KEY || e.key === null) {
+      listener();
+    }
+  };
+  const onLocal = () => listener();
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(DEV_BEARER_CHANGED_EVENT, onLocal);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(DEV_BEARER_CHANGED_EVENT, onLocal);
+  };
 }
 
 export function setDevBearerToken(token: string | null) {
   if (token) {
-    localStorage.setItem("pravah.devBearerToken", token);
+    localStorage.setItem(DEV_BEARER_STORAGE_KEY, token);
   } else {
-    localStorage.removeItem("pravah.devBearerToken");
+    localStorage.removeItem(DEV_BEARER_STORAGE_KEY);
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(DEV_BEARER_CHANGED_EVENT));
   }
 }
 
@@ -148,6 +173,9 @@ export type ListExecutionsResponse = {
   last: boolean;
 };
 
+const PIPELINE_ID_UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 function withQuery(path: string, params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -177,6 +205,50 @@ export async function getPipeline(pipelineId: string): Promise<PipelineDetailRes
     headers: authHeaders(),
   });
   return handleResponse<PipelineDetailResponse>(res);
+}
+
+export type CreateExecutionRequest = {
+  pipelineId: string;
+  pipelineVersion?: number | null;
+};
+
+export type CreateExecutionJobResponse = {
+  id: string;
+  stageId: string;
+  stageName: string;
+  status: string;
+};
+
+export type CreateExecutionResponse = {
+  id: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: string;
+  jobs: CreateExecutionJobResponse[];
+};
+
+/** Start a manual execution (POST /api/v1/executions). */
+export async function createExecution(
+  pipelineId: string,
+  pipelineVersion?: number | null,
+): Promise<CreateExecutionResponse> {
+  const id = pipelineId.trim();
+  if (!PIPELINE_ID_UUID_RE.test(id)) {
+    throw new ApiError("Pipeline id must be a UUID", 400, "INVALID_INPUT");
+  }
+  const body: CreateExecutionRequest = {
+    pipelineId: id,
+    pipelineVersion: pipelineVersion ?? null,
+  };
+  const res = await fetch(apiUrl("/api/v1/executions"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CreateExecutionResponse>(res);
 }
 
 export async function listExecutions(opts?: {

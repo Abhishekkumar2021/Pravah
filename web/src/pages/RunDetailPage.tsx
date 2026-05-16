@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Ban, ChevronRight, KeyRound } from "lucide-react";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import {
+  ApiError,
   cancelExecution,
   getDevBearerToken,
   getExecution,
@@ -28,6 +29,12 @@ function isCancellable(status: string) {
   return s === "pending" || s === "running";
 }
 
+function formatLoadError(e: unknown): string {
+  if (e instanceof ApiError) return e.message;
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
 export function RunDetailPage() {
   const { executionId } = useParams();
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -39,34 +46,36 @@ export function RunDetailPage() {
   const [tokenDraft, setTokenDraft] = useState(getDevBearerToken() ?? "");
   const [showToken, setShowToken] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
+  const reloadGeneration = useRef(0);
 
-  useEffect(() => {
+  const reload = useCallback(async () => {
     if (!executionId) {
       return;
     }
-    let cancelled = false;
+    const gen = ++reloadGeneration.current;
     setLoading(true);
     setError(null);
-    void getExecution(executionId)
-      .then((d) => {
-        if (!cancelled) {
-          setData(d);
-        }
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const d = await getExecution(executionId);
+      if (gen !== reloadGeneration.current) {
+        return;
+      }
+      setData(d);
+    } catch (e: unknown) {
+      if (gen !== reloadGeneration.current) {
+        return;
+      }
+      setError(formatLoadError(e));
+    } finally {
+      if (gen === reloadGeneration.current) {
+        setLoading(false);
+      }
+    }
   }, [executionId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   useEffect(() => {
     if (!data?.pipelineId || !getDevBearerToken()) {
@@ -101,7 +110,7 @@ export function RunDetailPage() {
       setData(next);
       setCancelOpen(false);
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : String(e));
+      setActionError(formatLoadError(e));
     } finally {
       setCancelling(false);
     }
@@ -110,13 +119,7 @@ export function RunDetailPage() {
   function saveToken() {
     setDevBearerToken(tokenDraft.trim() || null);
     setShowToken(false);
-    if (executionId) {
-      setLoading(true);
-      void getExecution(executionId)
-        .then(setData)
-        .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-        .finally(() => setLoading(false));
-    }
+    void reload();
   }
 
   if (!executionId) {
@@ -146,7 +149,8 @@ export function RunDetailPage() {
           </h2>
           <p className="page-desc max-w-2xl">
             Layout for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.08</span> (timeline,
-            logs, retry/cancel). Cancel calls the gateway when a bearer token is configured—see dev panel.
+            logs, retry/cancel). Refresh for status until <span className="font-medium">US-12.10</span> WebSocket.
+            Cancel calls the gateway when a bearer token is configured—see dev panel.
             {data && (
               <>
                 {" "}
@@ -162,6 +166,9 @@ export function RunDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" disabled={loading} onClick={() => void reload()}>
+            Refresh
+          </Button>
           <Button type="button" variant="secondary" onClick={() => setShowToken((s) => !s)}>
             <KeyRound className="h-4 w-4" aria-hidden />
             Dev token

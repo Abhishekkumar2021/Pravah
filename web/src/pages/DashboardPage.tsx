@@ -9,7 +9,7 @@ import {
   DashboardFailuresSkeleton,
   DashboardWorkflowListSkeleton,
 } from "@/components/ui/Skeleton";
-import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
+import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
 import {
   ApiError,
   getDevBearerToken,
@@ -85,22 +85,23 @@ export function DashboardPage() {
         </h2>
         <p className="page-desc">
           Overview wired to REST for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.03</span> when
-          a project id and dev JWT are configured. Real-time updates follow in{" "}
-          <span className="font-medium">US-12.10</span>.
+          a project id and dev JWT are configured. Use Refresh until live updates ship in{" "}
+          <span className="font-medium">US-12.10</span> (WebSocket).
         </p>
+        {projectId && hasToken && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3 h-9"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            Refresh
+          </Button>
+        )}
       </div>
 
-      {!projectId && <ProjectScopeCard onSaved={() => setProjectNonce((n) => n + 1)} />}
-
-      {projectId && !hasToken && (
-        <Card className="border-blue-200/80 dark:border-blue-900/50">
-          <CardTitle className="text-base">JWT required</CardTitle>
-          <CardDescription>
-            Add a development JWT from <span className="font-medium">Runs → Dev token</span> to populate this
-            dashboard.
-          </CardDescription>
-        </Card>
-      )}
+      <AlphaSetupBanner onProjectSaved={() => setProjectNonce((n) => n + 1)} />
 
       {error && (
         <Card className="border-rose-200 dark:border-rose-900/50">

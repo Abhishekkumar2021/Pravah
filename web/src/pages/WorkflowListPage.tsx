@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
+import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
+import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
+import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { TableSkeleton } from "@/components/ui/Skeleton";
@@ -20,6 +22,10 @@ export function WorkflowListPage() {
   const [rows, setRows] = useState<PipelineResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 20;
 
   const projectId = getResolvedProjectId();
   const hasToken = Boolean(getDevBearerToken());
@@ -29,6 +35,8 @@ export function WorkflowListPage() {
     const token = getDevBearerToken();
     if (!pid || !token) {
       setRows([]);
+      setTotalPages(0);
+      setTotalElements(0);
       setLoading(false);
       setError(null);
       return;
@@ -36,15 +44,27 @@ export function WorkflowListPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await listPipelines(pid, { page: 0, size: 100 });
+      const res = await listPipelines(pid, {
+        page,
+        size: pageSize,
+        status: statusFilter === "all" ? undefined : statusFilter,
+      });
       setRows(res.content);
+      setTotalPages(res.totalPages);
+      setTotalElements(res.totalElements);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
       setRows([]);
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, statusFilter]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter]);
 
   useEffect(() => {
     void load();
@@ -52,15 +72,24 @@ export function WorkflowListPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (!q) return rows;
     return rows.filter((p) => {
-      if (statusFilter !== "all" && p.status.toLowerCase() !== statusFilter) {
-        return false;
-      }
-      if (!q) return true;
       const desc = p.description?.toLowerCase() ?? "";
       return p.name.toLowerCase().includes(q) || desc.includes(q);
     });
-  }, [rows, query, statusFilter]);
+  }, [rows, query]);
+
+  const showPagination = !loading && rows.length > 0 && totalPages > 1;
+  const emptyTableCopy = useMemo(() => {
+    if (loading || filtered.length > 0) return null;
+    if (rows.length === 0) {
+      return "No workflows for this filter on this page.";
+    }
+    if (query.trim()) {
+      return "No name or description matches on this page. Clear the search or change page.";
+    }
+    return "No workflows match your filters.";
+  }, [loading, filtered.length, rows.length, query]);
 
   return (
     <div className="space-y-6">
@@ -70,7 +99,8 @@ export function WorkflowListPage() {
           <p className="page-desc">
             Live data from <span className="font-medium text-neutral-700 dark:text-neutral-300">GET /api/v1/pipelines</span>{" "}
             when a project id and dev JWT are configured (
-            <span className="font-medium">US-12.04</span>).
+            <span className="font-medium">US-12.04</span>). Start runs via{" "}
+            <span className="font-medium">POST /api/v1/executions</span>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -80,10 +110,16 @@ export function WorkflowListPage() {
               type="search"
               placeholder="Search by name…"
               aria-label="Search workflows"
+              aria-describedby={totalPages > 1 && !loading && rows.length > 0 ? "workflow-search-scope" : undefined}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="py-2 pl-9"
             />
+            {totalPages > 1 && !loading && rows.length > 0 ? (
+              <p id="workflow-search-scope" className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                Search applies to this page only.
+              </p>
+            ) : null}
           </div>
           <Select
             aria-label="Filter by status"
@@ -96,23 +132,19 @@ export function WorkflowListPage() {
             ]}
             className="w-full sm:w-[10.5rem]"
           />
-          <Button variant="secondary" disabled title="US-02.01">
-            New run
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9"
+            disabled={!projectId || !hasToken || loading}
+            onClick={() => void load()}
+          >
+            Refresh
           </Button>
         </div>
       </div>
 
-      {!projectId && <ProjectScopeCard onSaved={() => setProjectNonce((n) => n + 1)} />}
-
-      {projectId && !hasToken && (
-        <Card className="border-blue-200/80 dark:border-blue-900/50">
-          <CardTitle className="text-base">JWT required</CardTitle>
-          <CardDescription>
-            Paste a gateway JWT using the <span className="font-medium">Dev token</span> panel on any run detail page,
-            then return here to load pipelines.
-          </CardDescription>
-        </Card>
-      )}
+      <AlphaSetupBanner onProjectSaved={() => setProjectNonce((n) => n + 1)} />
 
       {error && (
         <Card className="border-rose-200 dark:border-rose-900/50">
@@ -125,9 +157,19 @@ export function WorkflowListPage() {
         <DataTable
           aria-label="Workflows"
           footer={
-            !loading && filtered.length === 0 ? (
-              <p className="px-4 py-3 text-[13px] text-neutral-500">No workflows match your filters.</p>
-            ) : null
+            <>
+              {emptyTableCopy ? (
+                <p className="px-4 py-3 text-[13px] text-neutral-500">{emptyTableCopy}</p>
+              ) : null}
+              {showPagination ? (
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  totalElements={totalElements}
+                  onPageChange={setPage}
+                />
+              ) : null}
+            </>
           }
         >
           {loading ? (
@@ -158,9 +200,11 @@ export function WorkflowListPage() {
                     <td className="text-neutral-600 dark:text-neutral-400">v{p.currentVersion}</td>
                     <td className="text-neutral-600 dark:text-neutral-400">{formatShortDateTime(p.updatedAt)}</td>
                     <td className="text-right">
-                      <Button variant="ghost" className="h-8 px-3 text-[12px]" disabled>
-                        Run
-                      </Button>
+                      <TriggerRunButton
+                        pipelineId={p.id}
+                        pipelineVersion={p.currentVersion}
+                        disabled={p.status.toLowerCase() !== "active"}
+                      />
                     </td>
                   </tr>
                 ))}
