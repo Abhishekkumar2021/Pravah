@@ -2,6 +2,7 @@ package io.pravah.spring.web;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
@@ -32,6 +33,24 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class PravahRestExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(PravahRestExceptionHandler.class);
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+    log.debug(
+        "Access denied",
+        kv("resource", ex.getResource()),
+        kv("action", ex.getAction()),
+        kv("message", ex.getMessage()));
+    ProblemDetail pd =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
+    pd.setTitle("Forbidden");
+    pd.setType(URI.create("about:blank"));
+    pd.setProperty("errorCode", ex.getErrorCode());
+    pd.setProperty("resource", ex.getResource());
+    pd.setProperty("action", ex.getAction());
+    return pd;
+  }
 
   @ExceptionHandler(AuthenticationException.class)
   public ProblemDetail handleAuthentication(AuthenticationException ex) {

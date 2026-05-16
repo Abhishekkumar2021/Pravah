@@ -11,6 +11,7 @@ import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.api.dto.ListExecutionsResponse;
+import io.pravah.execution.api.dto.TriggerPipelineRunRequest;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
 import io.pravah.execution.domain.ExecutionEventTypes;
@@ -26,6 +27,7 @@ import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ public class ExecutionApplicationService {
 
   public static final String TRIGGER_MANUAL = "manual";
   public static final String TRIGGER_SCHEDULED = "scheduled";
+  public static final String TRIGGER_API = "api";
 
   private static final String AGGREGATE_EXECUTION = "execution";
 
@@ -108,7 +111,28 @@ public class ExecutionApplicationService {
         pipelineCatalog.resolve(
             request.pipelineId(), request.pipelineVersion(), authorizationHeader);
 
-    return materializeExecution(tenantId, userId, TRIGGER_MANUAL, snapshot);
+    return materializeExecution(
+        tenantId, userId, TRIGGER_MANUAL, snapshot, normalizeParameters(request.parameters()));
+  }
+
+  /**
+   * Creates an API-triggered execution (US-03.08).
+   *
+   * @param pipelineId pipeline to run (from path)
+   * @param request optional version, parameters, and async flag (handled by controller)
+   * @param authorizationHeader forwarded to pipeline catalog lookup
+   */
+  @Transactional
+  public CreateExecutionResponse startApiExecution(
+      UUID pipelineId, TriggerPipelineRunRequest request, String authorizationHeader) {
+    UUID tenantId = requireTenantId();
+    UUID userId = requireUserId();
+
+    PublishedPipelineSnapshot snapshot =
+        pipelineCatalog.resolve(pipelineId, request.pipelineVersion(), authorizationHeader);
+
+    return materializeExecution(
+        tenantId, userId, TRIGGER_API, snapshot, normalizeParameters(request.parameters()));
   }
 
   @Transactional
@@ -121,11 +145,22 @@ public class ExecutionApplicationService {
         kv("tenant_id", tenantId),
         kv("pipeline_id", pipelineId),
         kv("schedule_id", scheduleId));
-    return materializeExecution(tenantId, null, TRIGGER_SCHEDULED, snapshot);
+    return materializeExecution(tenantId, null, TRIGGER_SCHEDULED, snapshot, Map.of());
+  }
+
+  private static Map<String, Object> normalizeParameters(Map<String, Object> parameters) {
+    if (parameters == null || parameters.isEmpty()) {
+      return Map.of();
+    }
+    return Collections.unmodifiableMap(new LinkedHashMap<>(parameters));
   }
 
   private CreateExecutionResponse materializeExecution(
-      UUID tenantId, UUID triggeredBy, String triggerType, PublishedPipelineSnapshot snapshot) {
+      UUID tenantId,
+      UUID triggeredBy,
+      String triggerType,
+      PublishedPipelineSnapshot snapshot,
+      Map<String, Object> parameters) {
     if (!"active".equalsIgnoreCase(snapshot.pipelineStatus())) {
       throw new IllegalArgumentException(
           "Pipeline must be active to run; current status: " + snapshot.pipelineStatus());
@@ -143,6 +178,7 @@ public class ExecutionApplicationService {
             .pipelineVersion(snapshot.pipelineVersion())
             .triggerType(triggerType)
             .triggeredBy(triggeredBy)
+            .parameters(parameters)
             .definitionSnapshot(snapshot.definition())
             .build();
 

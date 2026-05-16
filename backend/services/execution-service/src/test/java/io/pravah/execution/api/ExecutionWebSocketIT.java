@@ -93,7 +93,7 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(
                       objectMapper.writeValueAsString(
-                          new CreateExecutionRequest(pipelineId, null))))
+                          new CreateExecutionRequest(pipelineId, null, null))))
           .andExpect(status().isCreated());
 
       assertThat(messageLatch.await(WS_TIMEOUT.toSeconds(), TimeUnit.SECONDS))
@@ -157,7 +157,7 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
                       .contentType(MediaType.APPLICATION_JSON)
                       .content(
                           objectMapper.writeValueAsString(
-                              new CreateExecutionRequest(pipelineId, null))))
+                              new CreateExecutionRequest(pipelineId, null, null))))
               .andExpect(status().isCreated())
               .andReturn();
 
@@ -214,7 +214,7 @@ class ExecutionWebSocketIT extends AbstractExecutionPostgresIT {
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(
                       objectMapper.writeValueAsString(
-                          new CreateExecutionRequest(pipelineId, null))))
+                          new CreateExecutionRequest(pipelineId, null, null))))
           .andExpect(status().isCreated());
 
       assertThat(messageLatch.await(2, TimeUnit.SECONDS))

@@ -105,7 +105,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.pipelineId").value(pipelineId.toString()))
             .andExpect(jsonPath("$.pipelineVersion").value(1))
@@ -157,7 +157,8 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    objectMapper.writeValueAsString(new CreateExecutionRequest(pipelineId, null))))
+                    objectMapper.writeValueAsString(
+                        new CreateExecutionRequest(pipelineId, null, null))))
         .andExpect(status().isBadRequest());
   }
 
@@ -177,7 +178,8 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    objectMapper.writeValueAsString(new CreateExecutionRequest(pipelineId, null))))
+                    objectMapper.writeValueAsString(
+                        new CreateExecutionRequest(pipelineId, null, null))))
         .andExpect(status().isBadRequest());
   }
 
@@ -207,7 +209,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -248,7 +250,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -292,7 +294,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -331,7 +333,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -374,7 +376,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -423,7 +425,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -473,7 +475,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -539,7 +541,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(
                                 objectMapper.writeValueAsString(
-                                    new CreateExecutionRequest(pipelineId, null))))
+                                    new CreateExecutionRequest(pipelineId, null, null))))
                     .andExpect(status().isCreated())
                     .andReturn()
                     .getResponse()
@@ -557,7 +559,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(
                                 objectMapper.writeValueAsString(
-                                    new CreateExecutionRequest(pipelineId, null))))
+                                    new CreateExecutionRequest(pipelineId, null, null))))
                     .andExpect(status().isCreated())
                     .andReturn()
                     .getResponse()
@@ -645,7 +647,8 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                 .header("Authorization", "Bearer " + tokenA)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    objectMapper.writeValueAsString(new CreateExecutionRequest(pipelineId, null))))
+                    objectMapper.writeValueAsString(
+                        new CreateExecutionRequest(pipelineId, null, null))))
         .andExpect(status().isCreated());
 
     mockMvc
@@ -678,7 +681,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -735,7 +738,7 @@ class ExecutionManualRunIT extends AbstractExecutionPostgresIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
