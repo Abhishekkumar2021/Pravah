@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "lint": "tsc -b",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
@@ -49,6 +50,7 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "jsdom": "^26.0.0",
     "tailwindcss": "^4.1.7",
     "typescript": "~5.8.3",

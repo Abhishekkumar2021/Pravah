@@ -305,7 +305,7 @@ export function ScheduleList({ schedules, loading, onChanged, onError }: Schedul
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary">
                 Cancel

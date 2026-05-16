@@ -63,6 +63,35 @@ describe("useExecutionRealtime", () => {
     expect(onExecutionUpdated).toHaveBeenCalledWith("exec-a");
   });
 
+  it("ignores invalid JSON and non-matching message types", async () => {
+    const onExecutionUpdated = vi.fn();
+    renderHook(() =>
+      useExecutionRealtime({
+        executionId: "exec-a",
+        enabled: true,
+        onExecutionUpdated,
+      }),
+    );
+
+    await waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+    const socket = MockWebSocket.instances[0]!;
+    act(() => {
+      socket.onmessage?.({ data: "not-json" });
+      socket.onmessage?.({ data: JSON.stringify({ type: "other", executionId: "exec-a" }) });
+    });
+    expect(onExecutionUpdated).not.toHaveBeenCalled();
+  });
+
+  it("does not connect when disabled", () => {
+    renderHook(() =>
+      useExecutionRealtime({
+        enabled: false,
+        onExecutionUpdated: vi.fn(),
+      }),
+    );
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
   it("notifies for any execution when executionId is omitted", async () => {
     const onExecutionUpdated = vi.fn();
     renderHook(() =>

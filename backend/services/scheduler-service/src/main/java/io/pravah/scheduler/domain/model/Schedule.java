@@ -9,6 +9,8 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** Cron schedule for a pipeline (US-03.01). */
 @Entity
@@ -32,6 +34,7 @@ public class Schedule {
   @Column(nullable = false)
   private String timezone;
 
+  @JdbcTypeCode(SqlTypes.JSON)
   @Column(columnDefinition = "jsonb", nullable = false)
   private String parameters;
 
