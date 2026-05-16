@@ -49,10 +49,14 @@ class JobCreatedProcessingServiceTest {
 
   private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
+  private JobFailureService jobFailureService;
   private JobCreatedProcessingService service;
 
   @BeforeEach
   void setUp() {
+    jobFailureService =
+        new JobFailureService(
+            jobEntityRepository, outboxRepository, jobLogService, JOB_CREATED_TOPIC, 3);
     service =
         new JobCreatedProcessingService(
             executionEntityRepository,
@@ -61,8 +65,8 @@ class JobCreatedProcessingServiceTest {
             processedEventRepository,
             embeddedStageExecutor,
             jobLogService,
+            jobFailureService,
             JOB_CREATED_TOPIC,
-            3,
             applicationEventPublisher,
             objectMapper);
   }

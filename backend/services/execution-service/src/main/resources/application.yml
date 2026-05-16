@@ -64,6 +64,8 @@ pravah:
       allowed-origins: ${PRAVAH_WS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   job:
     max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
+    timeout:
+      check-interval-ms: ${PRAVAH_JOB_TIMEOUT_CHECK_INTERVAL_MS:5000}
   security:
     jwt:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}

@@ -1,8 +1,11 @@
 package io.pravah.execution.application;
 
+import io.pravah.common.domain.StageTimeout;
+import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,12 +14,8 @@ import org.springframework.stereotype.Component;
 /**
  * MVP executor: records stage id without running external processes.
  *
- * <p>Always returns exitCode=0 so the happy-path DAG scheduling can be exercised. For failure-path
- * testing, provide a test-only implementation that can simulate non-zero exits based on stage
- * configuration or test fixtures.
- *
- * <p>Future implementations will read stage configuration from the pipeline definition and execute
- * actual work (shell commands, container invocations, remote worker dispatch).
+ * <p>Supports optional {@code simulate_exit_code} and {@code simulate_sleep_seconds} on stages for
+ * local verification of retry and timeout (US-02.06, US-02.07).
  */
 @Component
 public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
@@ -34,12 +33,21 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
         JobLogLevel.INFO,
         "[embedded-echo] Executing stage %s".formatted(job.getStageId()));
 
+    Map<String, Object> definition = execution.getDefinitionSnapshot();
     Map<String, Object> output = new LinkedHashMap<>();
     output.put("executor", "embedded-echo");
     output.put("stageId", job.getStageId());
     output.put("executionId", execution.getId().toString());
 
-    int exitCode = resolveSimulateExitCode(execution.getDefinitionSnapshot(), job.getStageId());
+    int sleepSeconds = resolveSimulateSleepSeconds(definition, job.getStageId());
+    if (sleepSeconds > 0) {
+      int timeoutExit = sleepWithTimeout(job, definition, job.getStageId(), sleepSeconds);
+      if (timeoutExit != 0) {
+        return new StageExecutionResult(timeoutExit, output);
+      }
+    }
+
+    int exitCode = resolveSimulateExitCode(definition, job.getStageId());
     if (exitCode != 0) {
       jobLogService.append(
           job.getId(),
@@ -49,11 +57,47 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
     return new StageExecutionResult(exitCode, output);
   }
 
-  /**
-   * Optional stage field {@code simulate_exit_code} in the pipeline definition (local / MVP testing
-   * only). Enables API verification of auto-retry without real runners.
-   */
+  private int sleepWithTimeout(
+      JobEntity job, Map<String, Object> definition, String stageId, int sleepSeconds) {
+    StageTimeout timeout = StageTimeoutParser.resolveForStage(definition, stageId);
+    Instant deadline =
+        timeout.isConfigured() && job.getStartedAt() != null
+            ? job.getStartedAt().plusSeconds(timeout.timeoutSeconds())
+            : null;
+
+    jobLogService.append(
+        job.getId(),
+        JobLogLevel.INFO,
+        "[embedded-echo] Simulating sleep %ds (local test hook)".formatted(sleepSeconds));
+
+    for (int i = 0; i < sleepSeconds; i++) {
+      if (deadline != null && !Instant.now().isBefore(deadline)) {
+        jobLogService.append(
+            job.getId(),
+            JobLogLevel.ERROR,
+            "Stage timed out after %d seconds".formatted(timeout.timeoutSeconds()));
+        return JobFailureService.EXIT_CODE_TIMEOUT;
+      }
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return JobFailureService.EXIT_CODE_TIMEOUT;
+      }
+    }
+    return 0;
+  }
+
   private static int resolveSimulateExitCode(Map<String, Object> definition, String stageId) {
+    return resolveStageIntField(definition, stageId, "simulate_exit_code");
+  }
+
+  private static int resolveSimulateSleepSeconds(Map<String, Object> definition, String stageId) {
+    return resolveStageIntField(definition, stageId, "simulate_sleep_seconds");
+  }
+
+  private static int resolveStageIntField(
+      Map<String, Object> definition, String stageId, String field) {
     if (definition == null) {
       return 0;
     }
@@ -65,9 +109,9 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
       if (o instanceof Map<?, ?> stage) {
         Object id = stage.get("id");
         if (id != null && stageId.equals(id.toString())) {
-          Object code = stage.get("simulate_exit_code");
-          if (code instanceof Number n) {
-            return n.intValue();
+          Object value = stage.get(field);
+          if (value instanceof Number n) {
+            return Math.max(n.intValue(), 0);
           }
           return 0;
         }
