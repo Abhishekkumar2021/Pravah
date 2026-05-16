@@ -6,8 +6,8 @@ import * as api from "@/lib/api";
 import { RunJobStages } from "./RunJobStages";
 
 const jobs: JobSummary[] = [
-  { id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1 },
-  { id: "j-bad", stageId: "deploy", stageName: "Deploy", status: "failed", attempt: 2 },
+  { id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1, maxAttempts: 3 },
+  { id: "j-bad", stageId: "deploy", stageName: "Deploy", status: "failed", attempt: 2, maxAttempts: 3 },
 ];
 
 describe("RunJobStages", () => {
@@ -26,6 +26,11 @@ describe("RunJobStages", () => {
     }));
   });
 
+  it("shows attempt of maxAttempts", () => {
+    render(<RunJobStages executionId="exec-1" jobs={jobs} />);
+    expect(screen.getByText("attempt 2 of 3")).toBeInTheDocument();
+  });
+
   it("auto-expands failed stages and loads logs", async () => {
     render(<RunJobStages executionId="exec-1" jobs={jobs} />);
     await waitFor(() => {
@@ -38,7 +43,9 @@ describe("RunJobStages", () => {
     const { rerender } = render(
       <RunJobStages
         executionId="exec-1"
-        jobs={[{ id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1 }]}
+        jobs={[
+          { id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1, maxAttempts: 3 },
+        ]}
       />,
     );
     expect(screen.queryByText(/Stage failed/)).not.toBeInTheDocument();

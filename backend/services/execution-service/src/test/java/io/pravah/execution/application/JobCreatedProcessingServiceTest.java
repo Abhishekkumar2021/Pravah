@@ -21,6 +21,7 @@ import io.pravah.execution.infrastructure.persistence.repository.OutboxRepositor
 import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -210,6 +211,118 @@ class JobCreatedProcessingServiceTest {
                     JOB_CREATED_TOPIC.equals(row.getTopic())
                         && JobEventTypes.JOB_CREATED.equals(row.getEventType())
                         && jobId.equals(row.getAggregateId())));
+  }
+
+  @Test
+  void process_failureWithNonRetryableExitCode_marksJobFailed() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID eventId = UUID.randomUUID();
+    UUID jobId = UUID.randomUUID();
+    UUID execId = UUID.randomUUID();
+
+    TenantContext.setCurrentTenantId(tenantId);
+    when(processedEventRepository.existsByEventId(eventId)).thenReturn(false);
+
+    Map<String, Object> definition =
+        Map.of(
+            "retry",
+            Map.of("max_attempts", 3, "retry_on_exit_codes", List.of(1)),
+            "stages",
+            List.of(Map.of("id", "a", "name", "A")));
+
+    ExecutionEntity execution =
+        ExecutionEntity.builder()
+            .tenantId(tenantId)
+            .pipelineId(UUID.randomUUID())
+            .pipelineVersion(1)
+            .triggerType(ExecutionApplicationService.TRIGGER_MANUAL)
+            .definitionSnapshot(definition)
+            .build();
+    setId(execution, execId);
+    execution.start();
+
+    JobEntity job = JobEntity.builder().executionId(execId).stageId("a").stageName("A").build();
+    setId(job, jobId);
+    job.queue();
+
+    when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
+    when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
+    when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
+    when(embeddedStageExecutor.execute(job, execution))
+        .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(99, Map.of()));
+
+    service.processJobCreated(
+        Map.of(
+            "eventId",
+            eventId.toString(),
+            "tenantId",
+            tenantId.toString(),
+            "jobId",
+            jobId.toString(),
+            "executionId",
+            execId.toString()));
+
+    assertThat(job.getStatus()).isEqualTo(JobState.FAILED);
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
+  void process_failureWithRetryDelay_schedulesFutureOutboxRow() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID eventId = UUID.randomUUID();
+    UUID jobId = UUID.randomUUID();
+    UUID execId = UUID.randomUUID();
+
+    TenantContext.setCurrentTenantId(tenantId);
+    when(processedEventRepository.existsByEventId(eventId)).thenReturn(false);
+
+    Map<String, Object> definition =
+        Map.of(
+            "retry",
+            Map.of("max_attempts", 3, "delay_seconds", 30),
+            "stages",
+            List.of(Map.of("id", "a", "name", "A")));
+
+    ExecutionEntity execution =
+        ExecutionEntity.builder()
+            .tenantId(tenantId)
+            .pipelineId(UUID.randomUUID())
+            .pipelineVersion(1)
+            .triggerType(ExecutionApplicationService.TRIGGER_MANUAL)
+            .definitionSnapshot(definition)
+            .build();
+    setId(execution, execId);
+    execution.start();
+
+    JobEntity job = JobEntity.builder().executionId(execId).stageId("a").stageName("A").build();
+    setId(job, jobId);
+    job.queue();
+
+    when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
+    when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
+    when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
+    when(embeddedStageExecutor.execute(job, execution))
+        .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(1, Map.of()));
+
+    Instant before = Instant.now();
+    service.processJobCreated(
+        Map.of(
+            "eventId",
+            eventId.toString(),
+            "tenantId",
+            tenantId.toString(),
+            "jobId",
+            jobId.toString(),
+            "executionId",
+            execId.toString()));
+
+    assertThat(job.getStatus()).isEqualTo(JobState.QUEUED);
+    verify(outboxRepository)
+        .save(
+            argThat(
+                (OutboxEntity row) ->
+                    row.getCreatedAt().isAfter(before.plusSeconds(25))
+                        && row.getCreatedAt().isBefore(before.plusSeconds(35))));
   }
 
   private static void setId(Object entity, UUID id) throws Exception {

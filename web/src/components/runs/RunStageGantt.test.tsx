@@ -4,8 +4,8 @@ import type { JobSummary } from "@/lib/api";
 import { RunStageGantt } from "./RunStageGantt";
 
 const jobs: JobSummary[] = [
-  { id: "j1", stageId: "build", stageName: "Build", status: "running", attempt: 1 },
-  { id: "j2", stageId: "test", stageName: "Test", status: "pending", attempt: 1 },
+  { id: "j1", stageId: "build", stageName: "Build", status: "running", attempt: 1, maxAttempts: 3 },
+  { id: "j2", stageId: "test", stageName: "Test", status: "pending", attempt: 1, maxAttempts: 3 },
 ];
 
 describe("RunStageGantt", () => {

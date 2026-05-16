@@ -4,6 +4,7 @@ import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +38,41 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
     output.put("executor", "embedded-echo");
     output.put("stageId", job.getStageId());
     output.put("executionId", execution.getId().toString());
-    return new StageExecutionResult(0, output);
+
+    int exitCode = resolveSimulateExitCode(execution.getDefinitionSnapshot(), job.getStageId());
+    if (exitCode != 0) {
+      jobLogService.append(
+          job.getId(),
+          JobLogLevel.WARN,
+          "[embedded-echo] Simulating exit code %d (local test hook)".formatted(exitCode));
+    }
+    return new StageExecutionResult(exitCode, output);
+  }
+
+  /**
+   * Optional stage field {@code simulate_exit_code} in the pipeline definition (local / MVP testing
+   * only). Enables API verification of auto-retry without real runners.
+   */
+  private static int resolveSimulateExitCode(Map<String, Object> definition, String stageId) {
+    if (definition == null) {
+      return 0;
+    }
+    Object stages = definition.get("stages");
+    if (!(stages instanceof List<?> list)) {
+      return 0;
+    }
+    for (Object o : list) {
+      if (o instanceof Map<?, ?> stage) {
+        Object id = stage.get("id");
+        if (id != null && stageId.equals(id.toString())) {
+          Object code = stage.get("simulate_exit_code");
+          if (code instanceof Number n) {
+            return n.intValue();
+          }
+          return 0;
+        }
+      }
+    }
+    return 0;
   }
 }

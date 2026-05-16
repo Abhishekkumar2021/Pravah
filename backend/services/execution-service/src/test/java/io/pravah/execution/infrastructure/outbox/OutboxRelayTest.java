@@ -48,7 +48,7 @@ class OutboxRelayTest {
 
   @Test
   void publishPending_emptyBatch_doesNothing() {
-    when(outboxRepository.findUnpublishedForUpdate(any(Pageable.class)))
+    when(outboxRepository.findUnpublishedForUpdate(any(Instant.class), any(Pageable.class)))
         .thenReturn(Collections.emptyList());
 
     outboxRelay.publishPending();
@@ -73,7 +73,8 @@ class OutboxRelayTest {
             payload,
             Instant.now());
 
-    when(outboxRepository.findUnpublishedForUpdate(any(Pageable.class))).thenReturn(List.of(row));
+    when(outboxRepository.findUnpublishedForUpdate(any(Instant.class), any(Pageable.class)))
+        .thenReturn(List.of(row));
 
     CompletableFuture<SendResult<String, Object>> future = new CompletableFuture<>();
     future.complete(sendResult(EXECUTION_TOPIC));
@@ -84,6 +85,16 @@ class OutboxRelayTest {
 
     verify(kafkaTemplate).send(EXECUTION_TOPIC, executionId.toString(), payload);
     assertThat(row.getPublishedAt()).isNotNull();
+  }
+
+  @Test
+  void publishPending_futureCreatedAt_excludedByQuery() {
+    when(outboxRepository.findUnpublishedForUpdate(any(Instant.class), any(Pageable.class)))
+        .thenReturn(Collections.emptyList());
+
+    outboxRelay.publishPending();
+
+    verify(kafkaTemplate, never()).send(any(), any(), any());
   }
 
   @Test
@@ -104,7 +115,8 @@ class OutboxRelayTest {
             payload,
             Instant.now());
 
-    when(outboxRepository.findUnpublishedForUpdate(any(Pageable.class))).thenReturn(List.of(row));
+    when(outboxRepository.findUnpublishedForUpdate(any(Instant.class), any(Pageable.class)))
+        .thenReturn(List.of(row));
 
     CompletableFuture<SendResult<String, Object>> future = new CompletableFuture<>();
     future.complete(sendResult(JOB_TOPIC));

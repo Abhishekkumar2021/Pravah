@@ -19,6 +19,7 @@ export type JobSummary = {
   stageName: string;
   status: string;
   attempt: number;
+  maxAttempts: number;
 };
 
 export type ExecutionResponse = {

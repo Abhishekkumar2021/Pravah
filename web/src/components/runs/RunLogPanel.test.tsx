@@ -10,6 +10,7 @@ const job: JobSummary = {
   stageName: "Build",
   status: "succeeded",
   attempt: 1,
+  maxAttempts: 3,
 };
 
 describe("RunLogPanel", () => {

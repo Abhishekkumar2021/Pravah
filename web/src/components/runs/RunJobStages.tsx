@@ -77,7 +77,9 @@ export function RunJobStages({ executionId, jobs }: RunJobStagesProps) {
                 <span className="font-medium">{job.stageName}</span>
               </Button>
               <StatusBadge status={job.status} />
-              <span className="text-xs text-neutral-500">attempt {job.attempt}</span>
+              <span className="text-xs text-neutral-500">
+                attempt {job.attempt} of {job.maxAttempts}
+              </span>
               <span className="ms-auto font-mono text-xs text-neutral-500">{job.stageId}</span>
             </div>
             {isOpen ? (

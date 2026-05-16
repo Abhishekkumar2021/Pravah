@@ -149,7 +149,7 @@ VALUES
     'dddddddd-dddd-4ddd-8ddd-dddddddddd01',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001',
     1,
-    '{"stages":[{"id":"extract","name":"Extract data","type":"sql"},{"id":"transform","name":"Transform","type":"transform"},{"id":"load","name":"Load to warehouse","type":"sql"}]}'::jsonb,
+    '{"retry":{"max_attempts":3,"delay_seconds":1,"backoff_multiplier":2},"stages":[{"id":"extract","name":"Extract data","type":"sql"},{"id":"transform","name":"Transform","type":"transform","retry":{"max_attempts":2,"retry_on_exit_codes":[1]}},{"id":"load","name":"Load to warehouse","type":"sql"}]}'::jsonb,
     now() - interval '7 days',
     '22222222-2222-4222-8222-222222222222'
   ),

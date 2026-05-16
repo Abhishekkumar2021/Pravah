@@ -5,6 +5,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
+import io.pravah.common.domain.RetryPolicy;
+import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -17,6 +19,7 @@ import io.pravah.execution.infrastructure.persistence.repository.OutboxRepositor
 import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventRepository;
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -129,20 +132,33 @@ public class JobCreatedProcessingService {
         embeddedStageExecutor.execute(job, execution);
     if (result.exitCode() != 0) {
       JobState statusBeforeFail = job.getStatus();
-      job.fail(result.exitCode(), "Embedded executor reported non-zero exit", maxJobAttempts);
+      Map<String, Object> definition = resolveDefinitionSnapshot(execution);
+      RetryPolicy retryPolicy = resolveRetryPolicy(definition, job.getStageId());
+      Instant now = Instant.now();
+      Instant retryWindowStart =
+          job.getQueuedAt() != null ? job.getQueuedAt() : execution.getCreatedAt();
+      boolean scheduleRetry =
+          retryPolicy.shouldScheduleRetry(
+              job.getAttempt(), result.exitCode(), retryWindowStart, now);
+      job.fail(result.exitCode(), "Embedded executor reported non-zero exit", scheduleRetry);
       jobLogService.append(
           job.getId(),
           JobLogLevel.ERROR,
           "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode()));
 
       if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.QUEUED) {
+        Duration delay = retryPolicy.delayBeforeAttempt(job.getAttempt());
+        Instant retryPublishAt = now.plus(delay);
         jobLogService.append(
             job.getId(),
             JobLogLevel.WARN,
-            "Scheduling retry (attempt %d of %d)".formatted(job.getAttempt(), maxJobAttempts));
-        Instant retryOccurredAt = Instant.now();
+            "Scheduling retry (attempt %d of %d)%s"
+                .formatted(
+                    job.getAttempt(),
+                    retryPolicy.maxAttempts(),
+                    delay.isZero() ? "" : " after %ds".formatted(delay.getSeconds())));
         Map<String, Object> retryPayload =
-            buildJobCreatedPayload(retryOccurredAt, tenantId, execution, job);
+            buildJobCreatedPayload(retryPublishAt, tenantId, execution, job);
         outboxRepository.save(
             new OutboxEntity(
                 AGGREGATE_JOB,
@@ -151,12 +167,20 @@ public class JobCreatedProcessingService {
                 jobCreatedTopic,
                 execution.getId().toString(),
                 retryPayload,
-                retryOccurredAt));
+                retryPublishAt));
         log.info(
             "Scheduled job retry",
             kv("job_id", job.getId()),
             kv("attempt", job.getAttempt()),
-            kv("max_attempts", maxJobAttempts));
+            kv("max_attempts", retryPolicy.maxAttempts()),
+            kv("delay_seconds", delay.getSeconds()),
+            kv("scheduled_at", retryPublishAt.toString()));
+      } else if (statusBeforeFail == JobState.RUNNING && job.getStatus() == JobState.FAILED) {
+        jobLogService.append(
+            job.getId(),
+            JobLogLevel.ERROR,
+            "No further retries (max attempts %d reached or exit code not retryable)"
+                .formatted(retryPolicy.maxAttempts()));
       }
 
       finalizeExecutionIfDone(execution);
@@ -280,6 +304,17 @@ public class JobCreatedProcessingService {
 
   private static Map<String, Object> resolveDefinitionSnapshot(ExecutionEntity execution) {
     return execution.getDefinitionSnapshot();
+  }
+
+  private RetryPolicy resolveRetryPolicy(Map<String, Object> definition, String stageId) {
+    if (definition == null || definition.isEmpty()) {
+      return fallbackRetryPolicy();
+    }
+    return RetryPolicyParser.resolveForStage(definition, stageId);
+  }
+
+  private RetryPolicy fallbackRetryPolicy() {
+    return new RetryPolicy(maxJobAttempts, 0, 1.0, java.util.Set.of(), null);
   }
 
   private static UUID requireUuid(Map<String, Object> payload, String key) {

@@ -4,6 +4,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
+import io.pravah.common.domain.RetryPolicy;
+import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
@@ -483,16 +485,20 @@ public class ExecutionApplicationService {
 
   private GetExecutionResponse toGetExecutionResponse(
       ExecutionEntity execution, List<JobEntity> jobs) {
+    Map<String, Object> definition = execution.getDefinitionSnapshot();
     List<GetExecutionResponse.JobSummary> jobSummaries =
         jobs.stream()
             .map(
-                j ->
-                    new GetExecutionResponse.JobSummary(
-                        j.getId(),
-                        j.getStageId(),
-                        j.getStageName(),
-                        j.getStatus().asDatabaseValue(),
-                        j.getAttempt()))
+                j -> {
+                  RetryPolicy retry = resolveRetryPolicyForJob(definition, j.getStageId());
+                  return new GetExecutionResponse.JobSummary(
+                      j.getId(),
+                      j.getStageId(),
+                      j.getStageName(),
+                      j.getStatus().asDatabaseValue(),
+                      j.getAttempt(),
+                      retry.maxAttempts());
+                })
             .toList();
     return new GetExecutionResponse(
         execution.getId(),
@@ -503,6 +509,14 @@ public class ExecutionApplicationService {
         execution.getTriggeredBy(),
         execution.getCreatedAt(),
         jobSummaries);
+  }
+
+  private static RetryPolicy resolveRetryPolicyForJob(
+      Map<String, Object> definition, String stageId) {
+    if (definition == null || definition.isEmpty()) {
+      return RetryPolicy.DEFAULT;
+    }
+    return RetryPolicyParser.resolveForStage(definition, stageId);
   }
 
   private static UUID requireTenantId() {
