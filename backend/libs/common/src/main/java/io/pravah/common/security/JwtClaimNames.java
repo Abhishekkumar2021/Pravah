@@ -26,4 +26,10 @@ public final class JwtClaimNames {
 
   /** Standard JWT expiration claim. Unix timestamp when token expires. */
   public static final String EXPIRATION = "exp";
+
+  /** Tenant-scoped role names, e.g. {@code ["editor"]}. Per ADR-009. */
+  public static final String ROLES = "roles";
+
+  /** Resolved permission strings from the user's role, e.g. {@code ["pipelines:read"]}. */
+  public static final String PERMISSIONS = "permissions";
 }

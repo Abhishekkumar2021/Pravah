@@ -8,7 +8,9 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import io.pravah.common.security.JwtClaimNames;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,21 @@ class JwtTokenIssuerTest {
     assertThat(claims.getJWTID()).isNotBlank();
     assertThat(claims.getIssueTime()).isNotNull();
     assertThat(claims.getExpirationTime()).isNotNull();
+  }
+
+  @Test
+  void generateAccessToken_includesRolesAndPermissions() throws Exception {
+    UUID userId = UUID.randomUUID();
+    UUID tenantId = UUID.randomUUID();
+
+    String token =
+        jwtTokenIssuer.generateAccessToken(
+            userId, tenantId, List.of("editor"), List.of("pipelines:write"));
+
+    JWTClaimsSet claims = validateAndGetClaims(token);
+    assertThat(claims.getStringListClaim(JwtClaimNames.ROLES)).containsExactly("editor");
+    assertThat(claims.getStringListClaim(JwtClaimNames.PERMISSIONS))
+        .containsExactly("pipelines:write");
   }
 
   @Test

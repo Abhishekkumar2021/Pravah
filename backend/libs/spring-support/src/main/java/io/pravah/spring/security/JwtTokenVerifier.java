@@ -20,6 +20,8 @@ import java.net.URI;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -216,15 +218,53 @@ public class JwtTokenVerifier {
           tenantId,
           claimsSet.getJWTID(),
           claimsSet.getIssueTime() != null ? claimsSet.getIssueTime().toInstant() : null,
-          claimsSet.getExpirationTime() != null ? claimsSet.getExpirationTime().toInstant() : null);
+          claimsSet.getExpirationTime() != null ? claimsSet.getExpirationTime().toInstant() : null,
+          parseStringListClaim(claimsSet, JwtClaimNames.ROLES),
+          parseStringListClaim(claimsSet, JwtClaimNames.PERMISSIONS));
     } catch (IllegalArgumentException e) {
       throw new JwtVerificationException("Invalid UUID in JWT claims", e);
     }
   }
 
+  @SuppressWarnings("unchecked")
+  private static List<String> parseStringListClaim(JWTClaimsSet claimsSet, String claimName) {
+    Object raw = claimsSet.getClaim(claimName);
+    if (raw == null) {
+      return List.of();
+    }
+    if (raw instanceof List<?> list) {
+      return list.stream().map(Object::toString).toList();
+    }
+    return List.of(raw.toString());
+  }
+
   /** Validated JWT claims. */
   public record JwtClaims(
-      UUID userId, UUID tenantId, String jwtId, Instant issuedAt, Instant expiresAt) {}
+      UUID userId,
+      UUID tenantId,
+      String jwtId,
+      Instant issuedAt,
+      Instant expiresAt,
+      List<String> roles,
+      List<String> permissions) {
+
+    public JwtClaims {
+      roles = roles != null ? List.copyOf(roles) : List.of();
+      permissions = permissions != null ? List.copyOf(permissions) : List.of();
+    }
+
+    public JwtClaims(
+        UUID userId, UUID tenantId, String jwtId, Instant issuedAt, Instant expiresAt) {
+      this(
+          userId,
+          tenantId,
+          jwtId,
+          issuedAt,
+          expiresAt,
+          Collections.emptyList(),
+          Collections.emptyList());
+    }
+  }
 
   /** Exception thrown when JWT verification fails. */
   public static class JwtVerificationException extends RuntimeException {

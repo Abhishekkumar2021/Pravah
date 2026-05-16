@@ -3,6 +3,7 @@ package io.pravah.tenant.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,6 +12,8 @@ import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
+import io.pravah.tenant.application.dto.UserRoleSummary;
+import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.TenantMember;
 import io.pravah.tenant.domain.model.User;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
@@ -19,6 +22,7 @@ import io.pravah.tenant.infrastructure.config.AuthProperties;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +43,7 @@ class AuthServiceTest {
   @Mock private TenantMemberRepository memberRepository;
   @Mock private JwtTokenIssuer jwtTokenIssuer;
   @Mock private AuthRlsHelper authRlsHelper;
+  @Mock private RoleService roleService;
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private AuthService authService;
@@ -54,15 +59,22 @@ class AuthServiceTest {
             passwordEncoder,
             jwtTokenIssuer,
             properties,
-            authRlsHelper);
+            authRlsHelper,
+            roleService);
     passwordHash = passwordEncoder.encode("PravahDev1!");
+    lenient()
+        .when(roleService.resolveAuthorization(TENANT_ID, USER_ID))
+        .thenReturn(
+            new RoleService.UserAuthorization(
+                new UserRoleSummary(Role.OWNER_ROLE_ID, "owner"), List.of("*")));
   }
 
   @Test
   void login_validCredentials_returnsToken() {
     User user = activeUser();
     when(userRepository.findByEmail("dev@localhost.pravah")).thenReturn(Optional.of(user));
-    when(jwtTokenIssuer.generateAccessToken(USER_ID, TENANT_ID)).thenReturn("jwt-token");
+    when(jwtTokenIssuer.generateAccessToken(USER_ID, TENANT_ID, List.of("owner"), List.of("*")))
+        .thenReturn("jwt-token");
 
     var response = authService.login(new LoginRequest("dev@localhost.pravah", "PravahDev1!"));
 
@@ -83,7 +95,7 @@ class AuthServiceTest {
 
     verify(userRepository).save(user);
     assertThat(user.getFailedLoginAttempts()).isEqualTo(1);
-    verify(jwtTokenIssuer, never()).generateAccessToken(any(), any());
+    verify(jwtTokenIssuer, never()).generateAccessToken(any(), any(), any(), any());
   }
 
   @Test
@@ -114,7 +126,8 @@ class AuthServiceTest {
                   .status(u.getStatus())
                   .build();
             });
-    when(jwtTokenIssuer.generateAccessToken(USER_ID, TENANT_ID)).thenReturn("jwt-token");
+    when(jwtTokenIssuer.generateAccessToken(USER_ID, TENANT_ID, List.of("owner"), List.of("*")))
+        .thenReturn("jwt-token");
 
     var response =
         authService.register(

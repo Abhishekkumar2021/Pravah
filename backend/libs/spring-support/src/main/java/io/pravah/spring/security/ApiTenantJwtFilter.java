@@ -10,11 +10,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -82,7 +80,7 @@ public class ApiTenantJwtFilter extends OncePerRequestFilter {
           new UsernamePasswordAuthenticationToken(
               claims.userId().toString(),
               null,
-              Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+              SecurityAuthorities.fromJwtPermissions(claims.permissions()));
       SecurityContextHolder.getContext().setAuthentication(authentication);
 
       log.debug(

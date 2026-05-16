@@ -82,6 +82,12 @@ public class JwtTokenIssuer {
    * @return the signed JWT string
    */
   public String generateAccessToken(UUID userId, UUID tenantId) {
+    return generateAccessToken(userId, tenantId, List.of(), List.of());
+  }
+
+  /** Generates an access token including role and permission claims for authorization (ADR-009). */
+  public String generateAccessToken(
+      UUID userId, UUID tenantId, List<String> roles, List<String> permissions) {
     Instant now = Instant.now();
     Instant expiry = now.plus(ACCESS_TOKEN_LIFETIME);
     String jti = UUID.randomUUID().toString();
@@ -90,6 +96,8 @@ public class JwtTokenIssuer {
         new JWTClaimsSet.Builder()
             .subject(userId.toString())
             .claim(JwtClaimNames.TENANT_ID, tenantId.toString())
+            .claim(JwtClaimNames.ROLES, roles)
+            .claim(JwtClaimNames.PERMISSIONS, permissions)
             .jwtID(jti)
             .issuer(issuer)
             .issueTime(Date.from(now))
