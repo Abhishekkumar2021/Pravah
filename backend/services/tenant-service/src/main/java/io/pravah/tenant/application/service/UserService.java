@@ -220,6 +220,11 @@ public class UserService {
    * @throws ValidationException if current password is incorrect
    */
   public void updatePassword(UUID userId, String currentPassword, String newPassword) {
+    UUID currentUserId = TenantContext.getCurrentUserId();
+    if (currentUserId == null || !currentUserId.equals(userId)) {
+      throw ValidationException.of("userId", "You can only change your own password");
+    }
+
     User user =
         userRepository
             .findById(userId)

@@ -33,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxRelay {
 
   private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
-  private static final int MAX_PUBLISH_RETRIES = 10;
   private static final Instant DEAD_LETTER_MARKER = Instant.EPOCH;
 
   private final OutboxRepository outboxRepository;
@@ -69,7 +68,7 @@ public class OutboxRelay {
         break;
       } catch (ExecutionException | TimeoutException e) {
         row.incrementRetryCount();
-        if (row.getRetryCount() >= MAX_PUBLISH_RETRIES) {
+        if (row.getRetryCount() >= OutboxPublishPolicy.MAX_PUBLISH_RETRIES) {
           row.setPublishedAt(DEAD_LETTER_MARKER);
           log.error(
               "Dead-lettered outbox event after max retries",

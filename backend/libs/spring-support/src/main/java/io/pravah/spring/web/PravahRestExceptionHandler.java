@@ -67,7 +67,8 @@ public class PravahRestExceptionHandler {
 
   @ExceptionHandler(ValidationException.class)
   public ProblemDetail handleValidation(ValidationException ex) {
-    log.debug("Validation error", kv("errors", ex.getFieldErrors()), kv("message", ex.getMessage()));
+    log.debug(
+        "Validation error", kv("errors", ex.getFieldErrors()), kv("message", ex.getMessage()));
     ProblemDetail pd =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.valueOf(ex.suggestedHttpStatus()), ex.getMessage());
