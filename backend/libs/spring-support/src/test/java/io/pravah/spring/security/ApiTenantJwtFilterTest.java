@@ -70,6 +70,22 @@ class ApiTenantJwtFilterTest {
   }
 
   @Test
+  void shouldNotFilter_publicAuthPath_returnsTrue() {
+    when(request.getRequestURI()).thenReturn("/api/v1/auth/dev-token");
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
+
+    when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
+  }
+
+  @Test
+  void shouldNotFilter_tenantRegistrationPost_returnsTrue() {
+    when(request.getRequestURI()).thenReturn("/api/v1/tenants");
+    when(request.getMethod()).thenReturn("POST");
+    assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
+  }
+
+  @Test
   void doFilterInternal_validToken_setsTenantContextAndContinues() throws Exception {
     UUID userId = UUID.randomUUID();
     UUID tenantId = UUID.randomUUID();

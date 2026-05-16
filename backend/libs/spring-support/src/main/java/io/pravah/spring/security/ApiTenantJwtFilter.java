@@ -13,11 +13,9 @@ import java.io.IOException;
 import java.util.Collections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -25,15 +23,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * {@code SecurityContext}.
  *
  * <p>Per ADR-009, tokens are validated using RS256 with public keys fetched from the JWKS endpoint.
- *
- * <p>Services that expose public or mixed-auth routes (e.g. registration) should not use this
- * filter for those paths — use a service-specific filter instead.
+ * Registered explicitly per service {@code SecurityConfig} (pipeline, execution) — not a
+ * {@code @Component} so tenant-service can expose public {@code /api/v1/auth/**} routes using
+ * service-specific filters and {@code permitAll} rules.
  *
  * @see JwtTokenVerifier
  * @see io.pravah.spring.multitenancy.TenantContext
  */
-@Component
-@Order(1)
 public class ApiTenantJwtFilter extends OncePerRequestFilter {
 
   private static final Logger log = LoggerFactory.getLogger(ApiTenantJwtFilter.class);
@@ -49,7 +45,14 @@ public class ApiTenantJwtFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
-    return !path.startsWith("/api/");
+    if (!path.startsWith("/api/")) {
+      return true;
+    }
+    // Public auth and tenant registration (tenant-service SecurityConfig permitAll).
+    if (path.startsWith("/api/v1/auth/")) {
+      return true;
+    }
+    return "POST".equalsIgnoreCase(request.getMethod()) && "/api/v1/tenants".equals(path);
   }
 
   @Override
