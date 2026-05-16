@@ -213,15 +213,15 @@ public class JobEntity {
   }
 
   /**
-   * Handles job failure with optional retry.
+   * Handles job failure with optional automatic retry (US-02.06).
    *
    * @param exitCode the exit code
    * @param errorMessage the error message
-   * @param maxAttempts maximum retry attempts allowed
+   * @param scheduleRetry when true and the state machine allows, re-queue for another attempt
    * @throws IllegalStateException if transition is not allowed
    */
-  public void fail(int exitCode, String errorMessage, int maxAttempts) {
-    boolean canRetry = this.attempt < maxAttempts;
+  public void fail(int exitCode, String errorMessage, boolean scheduleRetry) {
+    boolean canRetry = scheduleRetry;
     this.status = this.status.onFailure(canRetry);
     this.exitCode = exitCode;
     this.errorMessage = errorMessage;

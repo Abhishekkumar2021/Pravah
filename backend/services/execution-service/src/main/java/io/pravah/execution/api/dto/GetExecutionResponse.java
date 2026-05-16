@@ -14,5 +14,6 @@ public record GetExecutionResponse(
     Instant createdAt,
     List<JobSummary> jobs) {
 
-  public record JobSummary(UUID id, String stageId, String stageName, String status, int attempt) {}
+  public record JobSummary(
+      UUID id, String stageId, String stageName, String status, int attempt, int maxAttempts) {}
 }

@@ -205,12 +205,12 @@ export function RunDetailPage() {
                   Retry
                 </Button>
                 <span className="text-[10px] leading-none text-neutral-500 dark:text-neutral-400">
-                  US-02.06
+                  US-02.05
                 </span>
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              Retry from failed stage is planned for US-02.06 (not in alpha yet).
+              Manual retry from a failed stage is planned for US-02.05 (not in alpha yet).
             </TooltipContent>
           </Tooltip>
           <Button

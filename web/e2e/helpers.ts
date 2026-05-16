@@ -24,6 +24,7 @@ export type MockJob = {
   stageName: string;
   status: string;
   attempt: number;
+  maxAttempts: number;
 };
 
 export function mockExecutionBody(status: string, jobs: MockJob[] = defaultJobs(status)) {
@@ -47,6 +48,7 @@ export function mockMultiStageExecutionBody(status = "failed") {
       stageName: "Extract data",
       status: "succeeded",
       attempt: 1,
+      maxAttempts: 3,
     },
     {
       id: "55555555-5555-4555-8555-555555555555",
@@ -54,6 +56,7 @@ export function mockMultiStageExecutionBody(status = "failed") {
       stageName: "Transform",
       status: "failed",
       attempt: 2,
+      maxAttempts: 2,
     },
   ]);
 }
@@ -72,6 +75,7 @@ function defaultJobs(executionStatus: string): MockJob[] {
       stageName: "Extract data",
       status: jobStatus,
       attempt: 1,
+      maxAttempts: 3,
     },
   ];
 }

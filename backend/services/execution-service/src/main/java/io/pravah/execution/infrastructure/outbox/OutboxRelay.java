@@ -53,8 +53,9 @@ public class OutboxRelay {
   @Scheduled(fixedDelayString = "${pravah.outbox.relay.fixed-delay-ms:2000}")
   @Transactional
   public void publishPending() {
+    Instant now = Instant.now();
     List<OutboxEntity> batch =
-        outboxRepository.findUnpublishedForUpdate(PageRequest.of(0, batchSize));
+        outboxRepository.findUnpublishedForUpdate(now, PageRequest.of(0, batchSize));
     for (OutboxEntity row : batch) {
       String topic = row.getTopic();
       String partitionKey = row.getPartitionKey();

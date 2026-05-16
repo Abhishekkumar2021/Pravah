@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.PipelineId;
 import io.pravah.common.domain.ProjectId;
+import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.CreatePipelineRequest;
@@ -507,7 +508,10 @@ public class PipelineApplicationService {
       }
       @SuppressWarnings("unchecked")
       Map<String, Object> map = (Map<String, Object>) root;
-      return objectMapper.convertValue(map, new TypeReference<Map<String, Object>>() {});
+      Map<String, Object> definition =
+          objectMapper.convertValue(map, new TypeReference<Map<String, Object>>() {});
+      RetryPolicyParser.validateDefinition(definition);
+      return definition;
     } catch (YAMLException e) {
       throw new IllegalArgumentException("Invalid YAML: " + e.getMessage(), e);
     }
