@@ -33,14 +33,17 @@ public class UserService {
 
   private final UserRepository userRepository;
   private final TenantMemberRepository memberRepository;
+  private final RoleService roleService;
   private final PasswordEncoder passwordEncoder;
 
   public UserService(
       UserRepository userRepository,
       TenantMemberRepository memberRepository,
+      RoleService roleService,
       PasswordEncoder passwordEncoder) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
+    this.roleService = roleService;
     this.passwordEncoder = passwordEncoder;
   }
 
@@ -82,7 +85,18 @@ public class UserService {
         kv("email", user.getEmail()),
         kv("tenant_id", tenantId),
         kv("role_id", roleId));
-    return UserResponse.from(user);
+    return toUserResponse(user);
+  }
+
+  /**
+   * Assigns a built-in (or tenant custom) role to a user.
+   *
+   * @param userId the user to update
+   * @param roleId the new role ID
+   */
+  public UserResponse assignRole(UUID userId, UUID roleId) {
+    roleService.assignRole(userId, roleId);
+    return getUser(userId);
   }
 
   /**
@@ -98,7 +112,7 @@ public class UserService {
         userRepository
             .findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User", userId));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -115,7 +129,7 @@ public class UserService {
         userRepository
             .findByTenantIdAndEmail(tenantId, email)
             .orElseThrow(() -> new EntityNotFoundException("User with email: " + email));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -126,7 +140,7 @@ public class UserService {
   @Transactional(readOnly = true)
   public List<UserResponse> listUsers() {
     UUID tenantId = requireTenantContext();
-    return userRepository.findByTenantId(tenantId).stream().map(UserResponse::from).toList();
+    return userRepository.findByTenantId(tenantId).stream().map(this::toUserResponse).toList();
   }
 
   /**
@@ -151,7 +165,7 @@ public class UserService {
         kv("user_id", userId),
         kv("old_name", oldName),
         kv("new_name", newName));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -170,7 +184,7 @@ public class UserService {
     user = userRepository.save(user);
 
     log.info("Activated user", kv("user_id", userId));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -189,7 +203,7 @@ public class UserService {
     user = userRepository.save(user);
 
     log.info("Deactivated user", kv("user_id", userId));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -208,7 +222,7 @@ public class UserService {
     user = userRepository.save(user);
 
     log.info("Locked user", kv("user_id", userId), kv("reason", "manual_lock"));
-    return UserResponse.from(user);
+    return toUserResponse(user);
   }
 
   /**
@@ -256,6 +270,11 @@ public class UserService {
     userRepository.save(user);
 
     log.debug("Recorded login", kv("user_id", userId));
+  }
+
+  private UserResponse toUserResponse(User user) {
+    UUID tenantId = requireTenantContext();
+    return UserResponse.from(user, roleService.getUserRoleSummary(tenantId, user.getId()));
   }
 
   private UUID requireTenantContext() {

@@ -78,28 +78,7 @@ public class TestJwtIssuer {
     Instant expiry = now.plus(ACCESS_TOKEN_LIFETIME);
     String jti = UUID.randomUUID().toString();
 
-    JWTClaimsSet claims =
-        new JWTClaimsSet.Builder()
-            .subject(userId.toString())
-            .claim(JwtClaimNames.TENANT_ID, tenantId.toString())
-            .jwtID(jti)
-            .issuer(issuer)
-            .issueTime(Date.from(now))
-            .expirationTime(Date.from(expiry))
-            .build();
-
-    JWSHeader header =
-        new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(signingKey.getKeyID()).build();
-
-    SignedJWT signedJwt = new SignedJWT(header, claims);
-
-    try {
-      signedJwt.sign(signer);
-    } catch (JOSEException e) {
-      throw new IllegalStateException("Failed to sign test JWT", e);
-    }
-
-    return signedJwt.serialize();
+    return signToken(userId, tenantId, now, expiry, jti, List.of("owner"), List.of("*"));
   }
 
   /**
@@ -115,10 +94,32 @@ public class TestJwtIssuer {
     Instant expiry = now.plus(validFor);
     String jti = UUID.randomUUID().toString();
 
+    return signToken(userId, tenantId, now, expiry, jti, List.of("owner"), List.of("*"));
+  }
+
+  /** Generates a token with explicit roles and permissions (for authorization tests). */
+  public String generateAccessToken(
+      UUID userId, UUID tenantId, List<String> roles, List<String> permissions) {
+    Instant now = Instant.now();
+    Instant expiry = now.plus(ACCESS_TOKEN_LIFETIME);
+    String jti = UUID.randomUUID().toString();
+    return signToken(userId, tenantId, now, expiry, jti, roles, permissions);
+  }
+
+  private String signToken(
+      UUID userId,
+      UUID tenantId,
+      Instant now,
+      Instant expiry,
+      String jti,
+      List<String> roles,
+      List<String> permissions) {
     JWTClaimsSet claims =
         new JWTClaimsSet.Builder()
             .subject(userId.toString())
             .claim(JwtClaimNames.TENANT_ID, tenantId.toString())
+            .claim(JwtClaimNames.ROLES, roles)
+            .claim(JwtClaimNames.PERMISSIONS, permissions)
             .jwtID(jti)
             .issuer(issuer)
             .issueTime(Date.from(now))

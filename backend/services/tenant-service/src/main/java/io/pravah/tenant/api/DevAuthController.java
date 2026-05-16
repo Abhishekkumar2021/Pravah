@@ -1,7 +1,9 @@
 package io.pravah.tenant.api;
 
+import io.pravah.tenant.application.service.RoleService;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,16 +34,19 @@ public class DevAuthController {
   private static final String DEV_SECRET_HEADER = "X-Pravah-Dev-Secret";
 
   private final JwtTokenIssuer jwtTokenIssuer;
+  private final RoleService roleService;
   private final UUID defaultTenantId;
   private final UUID defaultUserId;
   private final String tokenSecret;
 
   public DevAuthController(
       JwtTokenIssuer jwtTokenIssuer,
+      RoleService roleService,
       @Value("${pravah.dev.tenant-id}") UUID defaultTenantId,
       @Value("${pravah.dev.user-id}") UUID defaultUserId,
       @Value("${pravah.dev.token-secret:}") String tokenSecret) {
     this.jwtTokenIssuer = jwtTokenIssuer;
+    this.roleService = roleService;
     this.defaultTenantId = defaultTenantId;
     this.defaultUserId = defaultUserId;
     this.tokenSecret = tokenSecret;
@@ -61,7 +66,11 @@ public class DevAuthController {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "tenantId and userId are required when defaults are unset");
     }
-    String accessToken = jwtTokenIssuer.generateAccessToken(userId, tenantId);
+    RoleService.UserAuthorization authorization =
+        roleService.resolveAuthorization(tenantId, userId);
+    String accessToken =
+        jwtTokenIssuer.generateAccessToken(
+            userId, tenantId, List.of(authorization.role().name()), authorization.permissions());
     Instant expiresAt = Instant.now().plusSeconds(15 * 60);
     return new DevTokenResponse(accessToken, userId, tenantId, expiresAt);
   }

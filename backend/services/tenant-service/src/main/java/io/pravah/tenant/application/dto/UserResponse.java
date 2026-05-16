@@ -11,16 +11,18 @@ public record UserResponse(
     String email,
     String name,
     User.Status status,
+    UserRoleSummary role,
     Instant lastLoginAt,
     Instant createdAt) {
 
-  public static UserResponse from(User user) {
+  public static UserResponse from(User user, UserRoleSummary role) {
     return new UserResponse(
         user.getId(),
         user.getTenantId(),
         user.getEmail(),
         user.getName(),
         user.getStatus(),
+        role,
         user.getLastLoginAt(),
         user.getCreatedAt());
   }

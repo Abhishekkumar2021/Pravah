@@ -18,6 +18,7 @@ import io.pravah.tenant.infrastructure.config.AuthProperties;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -40,6 +41,7 @@ public class AuthService {
   private final JwtTokenIssuer jwtTokenIssuer;
   private final AuthProperties authProperties;
   private final AuthRlsHelper authRlsHelper;
+  private final RoleService roleService;
 
   public AuthService(
       UserRepository userRepository,
@@ -47,13 +49,15 @@ public class AuthService {
       PasswordEncoder passwordEncoder,
       JwtTokenIssuer jwtTokenIssuer,
       AuthProperties authProperties,
-      AuthRlsHelper authRlsHelper) {
+      AuthRlsHelper authRlsHelper,
+      RoleService roleService) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
     this.jwtTokenIssuer = jwtTokenIssuer;
     this.authProperties = authProperties;
     this.authRlsHelper = authRlsHelper;
+    this.roleService = roleService;
   }
 
   /**
@@ -108,9 +112,17 @@ public class AuthService {
     UUID tenantId = authProperties.registrationTenantId();
     String email = normalizeEmail(request.email());
 
-    if (userRepository.existsByTenantIdAndEmail(tenantId, email)) {
+    // Enable RLS bypass for duplicate check (no tenant context set during registration)
+    authRlsHelper.enableAuthLookup();
+    boolean exists = userRepository.existsByTenantIdAndEmail(tenantId, email);
+    authRlsHelper.disableAuthLookup();
+
+    if (exists) {
       throw ValidationException.of("email", "User with this email already exists");
     }
+
+    // Set tenant context for user creation and subsequent operations
+    TenantContext.setCurrentTenantId(tenantId);
 
     User user =
         User.builder()
@@ -125,6 +137,8 @@ public class AuthService {
 
     TenantMember membership = new TenantMember(tenantId, user.getId(), Role.VIEWER_ROLE_ID);
     memberRepository.save(membership);
+
+    TenantContext.setCurrentUserId(user.getId());
 
     user.recordLogin();
     userRepository.save(user);
@@ -157,10 +171,21 @@ public class AuthService {
   }
 
   private AuthTokenResponse issueToken(User user) {
-    String accessToken = jwtTokenIssuer.generateAccessToken(user.getId(), user.getTenantId());
+    RoleService.UserAuthorization authorization =
+        roleService.resolveAuthorization(user.getTenantId(), user.getId());
+    String accessToken =
+        jwtTokenIssuer.generateAccessToken(
+            user.getId(),
+            user.getTenantId(),
+            List.of(authorization.role().name()),
+            authorization.permissions());
     Instant expiresAt = Instant.now().plusSeconds(15 * 60);
     return new AuthTokenResponse(
-        accessToken, user.getId(), user.getTenantId(), expiresAt, UserResponse.from(user));
+        accessToken,
+        user.getId(),
+        user.getTenantId(),
+        expiresAt,
+        UserResponse.from(user, authorization.role()));
   }
 
   private static String normalizeEmail(String email) {

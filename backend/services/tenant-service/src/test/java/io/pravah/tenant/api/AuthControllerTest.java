@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.UserResponse;
+import io.pravah.tenant.application.dto.UserRoleSummary;
 import io.pravah.tenant.application.service.AuthService;
+import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.User;
 import java.time.Instant;
 import java.util.UUID;
@@ -52,6 +54,7 @@ class AuthControllerTest {
                     "dev@localhost.pravah",
                     "Dev",
                     User.Status.ACTIVE,
+                    new UserRoleSummary(Role.OWNER_ROLE_ID, "owner"),
                     null,
                     Instant.parse("2026-01-01T00:00:00Z"))));
 
