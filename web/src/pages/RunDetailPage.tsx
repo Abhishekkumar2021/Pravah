@@ -23,6 +23,7 @@ import {
   type ExecutionResponse,
 } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 
 function isCancellable(status: string) {
   const s = status.toLowerCase();
@@ -48,12 +49,14 @@ export function RunDetailPage() {
   const [pipelineName, setPipelineName] = useState<string | null>(null);
   const reloadGeneration = useRef(0);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!executionId) {
       return;
     }
     const gen = ++reloadGeneration.current;
-    setLoading(true);
+    if (!opts?.soft) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const d = await getExecution(executionId);
@@ -65,9 +68,11 @@ export function RunDetailPage() {
       if (gen !== reloadGeneration.current) {
         return;
       }
-      setError(formatLoadError(e));
+      if (!opts?.soft) {
+        setError(formatLoadError(e));
+      }
     } finally {
-      if (gen === reloadGeneration.current) {
+      if (gen === reloadGeneration.current && !opts?.soft) {
         setLoading(false);
       }
     }
@@ -76,6 +81,15 @@ export function RunDetailPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const liveWsEnabled = Boolean(data && isCancellable(data.status));
+  const { liveConnected } = useExecutionRealtime({
+    executionId,
+    enabled: liveWsEnabled,
+    onExecutionUpdated: () => {
+      void reload({ soft: true });
+    },
+  });
 
   useEffect(() => {
     if (!data?.pipelineId || !getDevBearerToken()) {
@@ -149,7 +163,8 @@ export function RunDetailPage() {
           </h2>
           <p className="page-desc max-w-2xl">
             Layout for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.08</span> (timeline,
-            logs, retry/cancel). Refresh for status until <span className="font-medium">US-12.10</span> WebSocket.
+            logs, retry/cancel). While the run is pending or running, status updates stream over WebSocket (
+            <span className="font-medium">US-12.10</span>) when a dev bearer token is set.
             Cancel calls the gateway when a bearer token is configured—see dev panel.
             {data && (
               <>
@@ -195,7 +210,8 @@ export function RunDetailPage() {
             <CardDescription>
               Stored in <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">localStorage</code> as{" "}
               <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">pravah.devBearerToken</code>. Required for
-              live API calls through the Vite proxy.
+              live API calls through the Vite proxy. The live WebSocket receives execution updates for your entire tenant;
+              this page only applies updates that match this run&apos;s id.
             </CardDescription>
           </CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -226,6 +242,23 @@ export function RunDetailPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={data.status} />
+            {liveWsEnabled && (
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+                  liveConnected
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+                )}
+                title={
+                  liveConnected
+                    ? "Connected to execution updates (WebSocket)"
+                    : "Connecting to execution updates…"
+                }
+              >
+                {liveConnected ? "Live" : "Live…"}
+              </span>
+            )}
             <span className="text-sm text-neutral-500 dark:text-neutral-400">
               Pipeline <span className="font-mono text-neutral-700 dark:text-neutral-300">{data.pipelineId}</span> · v
               {data.pipelineVersion}

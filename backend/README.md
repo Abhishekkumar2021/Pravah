@@ -95,6 +95,17 @@ Test utilities:
 - `KafkaContainerExtension` - Shared Kafka container
 - Fixture classes for test data generation
 
+## Execution real-time (US-12.10)
+
+`execution-service` exposes `GET /ws/v1/executions` for ephemeral `execution.updated` frames (see [LLD](../docs/lld/07-execution-realtime-websocket.md)).
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PRAVAH_REALTIME_REDIS_ENABLED` | `true` | Set `false` for single-pod local runs without Redis (tests use this) |
+| `PRAVAH_WS_ALLOWED_ORIGINS` | `http://localhost:5173,...` | SPA origins allowed for WebSocket handshake |
+
+Start Redis from `docker-compose.yml` when running execution-service with defaults. Gateway routes `/ws/**` to execution-service.
+
 ## Service Ports
 
 | Service | HTTP Port | gRPC Port |
@@ -118,3 +129,4 @@ Test utilities:
 - [Database ERD](../docs/lld/02-database-erd.md)
 - [State Machines](../docs/lld/03-state-machines.md)
 - [Design Patterns](../docs/lld/01-design-patterns.md)
+- [Execution WebSocket](../docs/lld/07-execution-realtime-websocket.md)

@@ -27,6 +27,11 @@ spring:
     locations: classpath:db/migration
     schemas: public
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -46,7 +51,17 @@ spring:
 server:
   port: 8084
 
+# Realtime (US-12.10): WebSocket + optional Redis pub/sub for multi-instance fan-out.
 pravah:
+  realtime:
+    # When true (default), Redis must be reachable. Integration tests and single-node local runs
+    # often set PRAVAH_REALTIME_REDIS_ENABLED=false to use in-process fan-out only.
+    redis-enabled: ${PRAVAH_REALTIME_REDIS_ENABLED:true}
+    websocket:
+      # Comma-separated browser origins allowed for the WebSocket handshake (SockJS-free API).
+      # Production: set PRAVAH_WS_ALLOWED_ORIGINS to every SPA origin (scheme + host + port) or
+      # handshakes will fail with no JSON error body.
+      allowed-origins: ${PRAVAH_WS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   job:
     max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
   security:

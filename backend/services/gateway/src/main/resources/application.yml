@@ -19,7 +19,13 @@ spring:
           uri: lb://execution-service
           predicates:
             - Path=/api/v1/runs/**,/api/v1/jobs/**,/api/v1/executions/**
-        
+
+        # Native WebSocket upgrade (US-12.10); requires compatible load-balancer timeouts in prod.
+        - id: execution-service-ws
+          uri: lb://execution-service
+          predicates:
+            - Path=/ws/**
+
         - id: tenant-service
           uri: lb://tenant-service
           predicates:

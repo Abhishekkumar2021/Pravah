@@ -14,6 +14,7 @@ This directory contains detailed low-level design documentation for Pravah. Use 
 | [04-sequence-diagrams.md](04-sequence-diagrams.md) | 8 key flows: create pipeline, trigger run, etc. | ⭐⭐⭐ High |
 | [05-class-diagrams.md](05-class-diagrams.md) | Domain models for each service | ⭐⭐ Medium |
 | [06-scalability-failure-analysis.md](06-scalability-failure-analysis.md) | Bottlenecks, failure modes, DR strategy | ⭐⭐⭐ High |
+| [07-execution-realtime-websocket.md](07-execution-realtime-websocket.md) | Browser WebSocket fan-out for execution status (US-12.10) | ⭐⭐ Medium |
 
 ---
 

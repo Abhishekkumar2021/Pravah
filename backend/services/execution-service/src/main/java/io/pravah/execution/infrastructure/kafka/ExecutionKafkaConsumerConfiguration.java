@@ -24,7 +24,6 @@ public class ExecutionKafkaConsumerConfiguration {
       name = "pravah.kafka.execution-created-listener-enabled",
       havingValue = "true",
       matchIfMissing = true)
-  @SuppressWarnings("unchecked")
   public ConsumerFactory<String, Map<String, Object>> executionEventsKafkaConsumerFactory(
       @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
       @Value("${spring.kafka.consumer.group-id}") String groupId) {
@@ -44,7 +43,6 @@ public class ExecutionKafkaConsumerConfiguration {
 
   @Bean
   @ConditionalOnProperty(name = "pravah.kafka.job-worker-listener-enabled", havingValue = "true")
-  @SuppressWarnings("unchecked")
   public ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory(
       @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
       @Value("${pravah.kafka.job-worker.consumer-group-id}") String groupId) {

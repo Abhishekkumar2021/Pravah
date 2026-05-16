@@ -22,6 +22,12 @@ build/
 node_modules/
 .next/
 
+# Playwright (web/e2e)
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+
 # Env / secrets
 .env
 .env.*

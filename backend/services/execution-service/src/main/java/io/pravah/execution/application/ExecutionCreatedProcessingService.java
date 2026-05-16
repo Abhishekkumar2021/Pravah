@@ -2,6 +2,7 @@ package io.pravah.execution.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.domain.ExecutionEventTypes;
@@ -14,6 +15,7 @@ import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntity
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
 import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventRepository;
+import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -23,6 +25,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,18 +56,24 @@ public class ExecutionCreatedProcessingService {
   private final OutboxRepository outboxRepository;
   private final ProcessedEventRepository processedEventRepository;
   private final String jobCreatedTopic;
+  private final ApplicationEventPublisher applicationEventPublisher;
+  private final ObjectMapper objectMapper;
 
   public ExecutionCreatedProcessingService(
       ExecutionEntityRepository executionEntityRepository,
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
       ProcessedEventRepository processedEventRepository,
-      @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic) {
+      @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
+      ApplicationEventPublisher applicationEventPublisher,
+      ObjectMapper objectMapper) {
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.processedEventRepository = processedEventRepository;
     this.jobCreatedTopic = jobCreatedTopic;
+    this.applicationEventPublisher = applicationEventPublisher;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional
@@ -143,6 +152,14 @@ public class ExecutionCreatedProcessingService {
     recordProcessed(eventId);
 
     if (anyNewlyQueued) {
+      ExecutionRealtimeEvents.publishExecutionUpdated(
+          applicationEventPublisher,
+          objectMapper,
+          tenantId,
+          execution.getId(),
+          execution.getStatus().asDatabaseValue(),
+          Instant.now(),
+          execution.getPipelineId());
       log.info(
           "Queued root jobs for execution",
           kv("execution_id", executionId),

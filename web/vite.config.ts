@@ -27,6 +27,11 @@ export default defineConfig({
         target: process.env.VITE_DEV_PROXY_TARGET ?? "http://localhost:8080",
         changeOrigin: true,
       },
+      "/ws": {
+        target: process.env.VITE_DEV_PROXY_TARGET ?? "http://localhost:8080",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

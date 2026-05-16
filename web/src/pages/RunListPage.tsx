@@ -10,6 +10,8 @@ import { Select } from "@/components/ui/Select";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { ApiError, getDevBearerToken, listExecutions, listPipelines, type ExecutionListItem } from "@/lib/api";
 import { formatExecutionWallDuration, formatShortDateTime } from "@/lib/format";
+import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
+import { cn } from "@/lib/cn";
 import { getResolvedProjectId } from "@/lib/workspace";
 
 export function RunListPage() {
@@ -80,6 +82,18 @@ export function RunListPage() {
     void load();
   }, [load, projectNonce]);
 
+  const hasActiveRuns = rows.some((r) => {
+    const s = r.status.toLowerCase();
+    return s === "pending" || s === "running";
+  });
+
+  const { liveConnected } = useExecutionRealtime({
+    enabled: hasToken && hasActiveRuns,
+    onExecutionUpdated: () => {
+      void load();
+    },
+  });
+
   const statusOptions = useMemo(
     () => [
       { value: "all", label: "All statuses" },
@@ -99,11 +113,29 @@ export function RunListPage() {
           <h2 className="page-title">Runs</h2>
           <p className="page-desc">
             Live data from <span className="font-medium">POST/GET /api/v1/executions</span> (
-            <span className="font-medium">US-12.07</span>). Refresh to see status changes until{" "}
-            <span className="font-medium">US-12.10</span> WebSocket delivery.
+            <span className="font-medium">US-12.07</span>). While runs are pending or running, status
+            updates stream over WebSocket (<span className="font-medium">US-12.10</span>) when a dev
+            bearer token is set.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {hasToken && hasActiveRuns && (
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+                liveConnected
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+              )}
+              title={
+                liveConnected
+                  ? "Connected to execution updates (WebSocket)"
+                  : "Connecting to execution updates…"
+              }
+            >
+              {liveConnected ? "Live" : "Live…"}
+            </span>
+          )}
           <Button
             type="button"
             variant="secondary"

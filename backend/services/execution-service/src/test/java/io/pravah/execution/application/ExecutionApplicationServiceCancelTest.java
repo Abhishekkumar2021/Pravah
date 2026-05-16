@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ExecutionApplicationServiceCancelTest {
@@ -34,6 +36,9 @@ class ExecutionApplicationServiceCancelTest {
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private EntityManager entityManager;
+  @Mock private ApplicationEventPublisher applicationEventPublisher;
+
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   private ExecutionApplicationService service;
 
@@ -46,7 +51,9 @@ class ExecutionApplicationServiceCancelTest {
             jobEntityRepository,
             outboxRepository,
             entityManager,
-            EXECUTION_EVENTS_TOPIC);
+            EXECUTION_EVENTS_TOPIC,
+            applicationEventPublisher,
+            objectMapper);
   }
 
   @AfterEach

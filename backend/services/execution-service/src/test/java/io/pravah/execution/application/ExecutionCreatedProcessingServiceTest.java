@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.domain.JobEventTypes;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ExecutionCreatedProcessingServiceTest {
@@ -40,6 +43,9 @@ class ExecutionCreatedProcessingServiceTest {
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private ProcessedEventRepository processedEventRepository;
+  @Mock private ApplicationEventPublisher applicationEventPublisher;
+
+  private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
   private ExecutionCreatedProcessingService service;
 
@@ -51,7 +57,9 @@ class ExecutionCreatedProcessingServiceTest {
             jobEntityRepository,
             outboxRepository,
             processedEventRepository,
-            JOB_CREATED_TOPIC);
+            JOB_CREATED_TOPIC,
+            applicationEventPublisher,
+            objectMapper);
   }
 
   @AfterEach

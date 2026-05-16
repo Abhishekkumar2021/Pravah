@@ -47,7 +47,6 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       docs: ${{ steps.filter.outputs.docs }}
       workflows: ${{ steps.filter.outputs.workflows }}
-      web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -61,10 +60,6 @@ jobs:
               - '*.md'
             workflows:
               - '.github/workflows/**'
-            web:
-              - 'web/**'
-              - '.github/workflows/web-ci.yml'
-              - '.github/workflows/pr-checks.yml'
 
   # ============================================================================
   # Build Check (only if backend changed)
@@ -108,40 +103,7 @@ jobs:
             exit 1
           fi
 
-  # ============================================================================
-  # Web UI (only if web/ changed)
-  # ============================================================================
-  web-check:
-    name: Web Check
-    needs: changes
-    if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint (TypeScript)
-        run: npm run lint
-
-      - name: Test (Vitest + Testing Library)
-        run: npm run test
-
-      - name: Build
-        run: npm run build
+  # Web UI checks: see .github/workflows/web-ci.yml (avoids duplicate runs with pr-checks)
 
   # ============================================================================
   # Documentation Check

@@ -30,6 +30,8 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/actuator/health/**", "/actuator/info")
                     .permitAll()
+                    .requestMatchers("/ws/**")
+                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(apiTenantJwtFilter, UsernamePasswordAuthenticationFilter.class)
