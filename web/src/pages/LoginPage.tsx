@@ -26,7 +26,17 @@ export function LoginPage() {
       await login(email.trim(), password);
       navigate("/app/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : "Sign in failed");
+      if (err instanceof ApiError && err.status === 500) {
+        setError(
+          "Auth service unavailable. Run: make local-services-stop && make local-services (in backend/), then make local-seed.",
+        );
+      } else if (err instanceof ApiError && err.status === 401) {
+        setError(
+          "Invalid email or password. After make local-seed use dev@localhost.pravah / PravahDev1!",
+        );
+      } else {
+        setError(err instanceof ApiError ? err.message : "Sign in failed");
+      }
     } finally {
       setSubmitting(false);
     }
