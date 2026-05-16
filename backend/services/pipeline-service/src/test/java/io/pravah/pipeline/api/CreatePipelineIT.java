@@ -401,6 +401,35 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   }
 
   @Test
+  void validateDefinition_undefinedVariableReference_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    ValidatePipelineRequest body =
+        new ValidatePipelineRequest(
+            """
+            variables:
+              known:
+                type: string
+                default: x
+            stages:
+              - id: extract
+                type: echo
+                config:
+                  message: "${var.unknown}"
+            """);
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void validateDefinition_invalidRetryBlock_returns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();

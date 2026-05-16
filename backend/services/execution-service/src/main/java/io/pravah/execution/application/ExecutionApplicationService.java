@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
+import io.pravah.common.domain.PipelineDefinitionResolver;
 import io.pravah.common.domain.RetryPolicy;
 import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.exception.AccessDeniedException;
@@ -168,7 +169,18 @@ public class ExecutionApplicationService {
           "Pipeline must be active to run; current status: " + snapshot.pipelineStatus());
     }
 
-    List<StagePlanner.PlannedJob> planned = StagePlanner.plan(snapshot.definition());
+    UUID executionId = UUID.randomUUID();
+    Instant materializedAt = Instant.now();
+    Map<String, Object> resolvedDefinition =
+        PipelineDefinitionResolver.resolveForExecution(
+            snapshot.definition(),
+            parameters,
+            snapshot.pipelineId(),
+            snapshot.pipelineVersion(),
+            executionId,
+            materializedAt);
+
+    List<StagePlanner.PlannedJob> planned = StagePlanner.plan(resolvedDefinition);
     if (planned.isEmpty()) {
       throw new IllegalArgumentException("Pipeline definition has no executable stages");
     }
@@ -181,7 +193,7 @@ public class ExecutionApplicationService {
             .triggerType(triggerType)
             .triggeredBy(triggeredBy)
             .parameters(parameters)
-            .definitionSnapshot(snapshot.definition())
+            .definitionSnapshot(resolvedDefinition)
             .build();
 
     execution = executionEntityRepository.save(execution);
