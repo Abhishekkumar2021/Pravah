@@ -300,6 +300,17 @@ export async function getPipeline(pipelineId: string): Promise<PipelineDetailRes
 export type CreateExecutionRequest = {
   pipelineId: string;
   pipelineVersion?: number | null;
+  parameters?: Record<string, unknown> | null;
+};
+
+export type TriggerPipelineRunRequest = {
+  pipelineVersion?: number | null;
+  parameters?: Record<string, unknown> | null;
+  async?: boolean | null;
+};
+
+export type TriggerPipelineRunResponse = {
+  id: string;
 };
 
 export type CreateExecutionJobResponse = {
@@ -329,6 +340,7 @@ export async function createExecution(
   const body: CreateExecutionRequest = {
     pipelineId: id,
     pipelineVersion: pipelineVersion ?? null,
+    parameters: null,
   };
   const res = await fetch(apiUrl("/api/v1/executions"), {
     method: "POST",
@@ -338,6 +350,38 @@ export async function createExecution(
     },
     body: JSON.stringify(body),
   });
+  return handleResponse<CreateExecutionResponse>(res);
+}
+
+/** Trigger a pipeline run via API (POST /api/v1/pipelines/{id}/runs, US-03.08). */
+export async function triggerPipelineRun(
+  pipelineId: string,
+  options?: {
+    pipelineVersion?: number | null;
+    parameters?: Record<string, unknown> | null;
+    async?: boolean;
+  },
+): Promise<CreateExecutionResponse | TriggerPipelineRunResponse> {
+  const id = pipelineId.trim();
+  if (!PIPELINE_ID_UUID_RE.test(id)) {
+    throw new ApiError("Pipeline id must be a UUID", 400, "INVALID_INPUT");
+  }
+  const body: TriggerPipelineRunRequest = {
+    pipelineVersion: options?.pipelineVersion ?? null,
+    parameters: options?.parameters ?? null,
+    async: options?.async ?? false,
+  };
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${encodeURIComponent(id)}/runs`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  if (options?.async) {
+    return handleResponse<TriggerPipelineRunResponse>(res);
+  }
   return handleResponse<CreateExecutionResponse>(res);
 }
 

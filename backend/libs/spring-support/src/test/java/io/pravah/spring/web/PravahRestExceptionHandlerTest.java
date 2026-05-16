@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
@@ -21,6 +22,15 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 class PravahRestExceptionHandlerTest {
 
   private final PravahRestExceptionHandler handler = new PravahRestExceptionHandler();
+
+  @Test
+  void handleAccessDenied_returnsForbidden() {
+    var pd = handler.handleAccessDenied(new AccessDeniedException("execution", "cancel"));
+
+    assertThat(pd.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
+    assertThat(pd.getProperties()).containsEntry("resource", "execution");
+    assertThat(pd.getProperties()).containsEntry("action", "cancel");
+  }
 
   @Test
   void handleAuthentication_returnsUnauthorized() {

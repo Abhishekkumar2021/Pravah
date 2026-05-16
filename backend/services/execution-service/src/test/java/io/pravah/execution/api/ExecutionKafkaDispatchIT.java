@@ -143,7 +143,7 @@ class ExecutionKafkaDispatchIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -206,7 +206,7 @@ class ExecutionKafkaDispatchIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         objectMapper.writeValueAsString(
-                            new CreateExecutionRequest(pipelineId, null))))
+                            new CreateExecutionRequest(pipelineId, null, null))))
             .andExpect(status().isCreated())
             .andReturn();
 

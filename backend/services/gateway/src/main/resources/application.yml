@@ -10,6 +10,12 @@ spring:
           predicates:
             - Path=/graphql/**
         
+        # US-03.08: pipeline runs are owned by execution-service (must precede pipeline-service).
+        - id: execution-service-pipeline-runs
+          uri: lb://execution-service
+          predicates:
+            - Path=/api/v1/pipelines/*/runs
+
         - id: pipeline-service
           uri: lb://pipeline-service
           predicates:
