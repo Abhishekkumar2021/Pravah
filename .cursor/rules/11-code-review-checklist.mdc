@@ -66,7 +66,7 @@ Refs: US-01.01
 
 ## Pull request title (before opening / updating a PR)
 
-CI runs `amannn/action-semantic-pull-request` (see `.github/workflows/pr-checks.yml`). The PR title must:
+CI runs `amannn/action-semantic-pull-request` (see `.github/workflows/pull-request.yml`). The PR title must:
 
 - Use conventional form: `type(optional-scope): Subject here`
 - Have the **subject start with an uppercase letter** (regex `^[A-Z].+$` on the subject only)

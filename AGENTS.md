@@ -185,7 +185,7 @@ Prefer **topic branches and pull requests** into `main` or `develop` instead of 
 
 ### PR title (semantic PR check)
 
-PR titles are linted like conventional commits, with an extra rule: the **subject** (the part after `type(scope): `) **must start with an uppercase letter** (`subjectPattern: ^[A-Z].+$` in `pr-checks.yml`). Use sentence-style wording after the colon, e.g. `feat(execution-service): Cancel execution API (US-02.04)`, not `...: cancel ...`.
+PR titles are linted like conventional commits, with an extra rule: the **subject** (the part after `type(scope): `) **must start with an uppercase letter** (`subjectPattern: ^[A-Z].+$` in `pull-request.yml`). Use sentence-style wording after the colon, e.g. `feat(execution-service): Cancel execution API (US-02.04)`, not `...: cancel ...`.
 
 ---
 

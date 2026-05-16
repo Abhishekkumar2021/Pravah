@@ -1,38 +1,36 @@
+# Release: manual workflow to tag a version and create a GitHub Release (triggers Deploy).
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 0.1.0)'
+        description: "Release version (e.g. 0.1.0)"
         required: true
         type: string
       prerelease:
-        description: 'Is this a pre-release?'
+        description: "Mark as pre-release"
         required: false
         type: boolean
         default: false
 
 env:
-  JAVA_VERSION: '21'
+  JAVA_VERSION: "21"
 
 jobs:
-  # ============================================================================
-  # Validate and Prepare Release
-  # ============================================================================
-  prepare:
-    name: Prepare Release
+  validate:
+    name: Release · Validate version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Validate version format
+      - name: Validate semver and tag availability
         id: version
         run: |
           VERSION="${{ github.event.inputs.version }}"
@@ -40,35 +38,29 @@ jobs:
             echo "::error::Invalid version format: $VERSION"
             exit 1
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check if tag exists
-        run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "::error::Tag v${{ steps.version.outputs.version }} already exists"
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists"
             exit 1
           fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-  # ============================================================================
-  # Build and Test
-  # ============================================================================
-  build-test:
-    name: Build and Test
-    needs: prepare
+  verify:
+    name: Release · Build & test
+    needs: validate
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v6
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
+          distribution: temurin
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -76,69 +68,61 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Update version
+      - name: Set version in build.gradle.kts
         run: |
-          sed -i "s/version = \".*\"/version = \"${{ needs.prepare.outputs.version }}\"/" build.gradle.kts
+          sed -i "s/version = \".*\"/version = \"${{ needs.validate.outputs.version }}\"/" build.gradle.kts
 
       - name: Build
         run: ./gradlew build --no-daemon
 
-      - name: Run all tests
+      - name: Run tests
         run: ./gradlew test integrationTest --no-daemon
-        continue-on-error: true
 
-  # ============================================================================
-  # Create Release
-  # ============================================================================
-  create-release:
-    name: Create Release
-    needs: [prepare, build-test]
+  publish:
+    name: Release · Tag & publish
+    needs: [validate, verify]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Generate changelog
-        id: changelog
         run: |
-          # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
+
           if [ -z "$PREVIOUS_TAG" ]; then
             COMMITS=$(git log --oneline --pretty=format:"- %s (%h)" | head -50)
           else
             COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --oneline --pretty=format:"- %s (%h)")
           fi
-          
-          # Create changelog
+
           cat << EOF > CHANGELOG.md
           ## What's Changed
-          
+
           $COMMITS
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...v${{ needs.prepare.outputs.version }}
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...v${{ needs.validate.outputs.version }}
           EOF
-          
-          echo "Generated changelog:"
+
           cat CHANGELOG.md
 
-      - name: Create Git Tag
+      - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ needs.prepare.outputs.version }}" -m "Release v${{ needs.prepare.outputs.version }}"
-          git push origin "v${{ needs.prepare.outputs.version }}"
+          git tag -a "v${{ needs.validate.outputs.version }}" -m "Release v${{ needs.validate.outputs.version }}"
+          git push origin "v${{ needs.validate.outputs.version }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.prepare.outputs.version }}
-          name: Pravah v${{ needs.prepare.outputs.version }}
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Pravah v${{ needs.validate.outputs.version }}
           body_path: CHANGELOG.md
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}

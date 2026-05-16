@@ -1,0 +1,35 @@
+# GitHub Actions
+
+| Workflow | File | When it runs | Purpose |
+|----------|------|--------------|---------|
+| **Backend CI** | `backend-ci.yml` | PR/push to `main`/`develop` (backend paths) | Unit tests, Spotless, static analysis, integration tests, OWASP scan |
+| **Frontend CI** | `frontend-ci.yml` | PR/push to `main`/`develop` (web paths) | TypeScript, Vitest, Playwright E2E, Vite build |
+| **Pull Request** | `pull-request.yml` | Every PR | Conventional title, doc link check, size guard |
+| **Deploy** | `deploy.yml` | Push to `main`, GitHub Release published | Build & push service/runner images to GHCR |
+| **Release** | `release.yml` | Manual (`workflow_dispatch`) | Tag version, changelog, GitHub Release (then Deploy) |
+
+## Required status checks (branch protection)
+
+After this layout, prefer these **job names** in rulesets:
+
+**Backend changes**
+
+- `Backend · Unit tests`
+- `Backend · Format & lint`
+- `Backend · Integration tests` (optional if Docker not available on forks)
+
+**Frontend changes**
+
+- `Frontend · Lint, test & build`
+
+**All PRs**
+
+- `PR · Conventional title`
+
+Remove stale entries such as `Build & Test`, `Code Quality`, `Web Build`, or `Build Check` from older workflows.
+
+## Local parity
+
+```bash
+./scripts/pre-commit.sh
+```
