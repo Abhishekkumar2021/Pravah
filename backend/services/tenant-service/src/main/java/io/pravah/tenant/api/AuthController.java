@@ -13,7 +13,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Public authentication endpoints (US-10.01). */
+/**
+ * Public authentication endpoints (US-10.01).
+ *
+ * <p>Rate limiting is handled at the API Gateway level per ADR-012 (Redis token bucket). These
+ * endpoints contain no rate limiting logic.
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {

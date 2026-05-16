@@ -16,6 +16,7 @@ import io.pravah.tenant.domain.model.User;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import io.pravah.tenant.infrastructure.config.AuthProperties;
+import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Duration;
 import java.util.Optional;
@@ -37,6 +38,7 @@ class AuthServiceTest {
   @Mock private UserRepository userRepository;
   @Mock private TenantMemberRepository memberRepository;
   @Mock private JwtTokenIssuer jwtTokenIssuer;
+  @Mock private AuthRlsHelper authRlsHelper;
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private AuthService authService;
@@ -47,7 +49,12 @@ class AuthServiceTest {
     AuthProperties properties = new AuthProperties(5, Duration.ofMinutes(15), TENANT_ID);
     authService =
         new AuthService(
-            userRepository, memberRepository, passwordEncoder, jwtTokenIssuer, properties);
+            userRepository,
+            memberRepository,
+            passwordEncoder,
+            jwtTokenIssuer,
+            properties,
+            authRlsHelper);
     passwordHash = passwordEncoder.encode("PravahDev1!");
   }
 

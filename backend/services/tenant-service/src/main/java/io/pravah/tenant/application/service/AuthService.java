@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ValidationException;
+import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
@@ -14,6 +15,7 @@ import io.pravah.tenant.domain.model.User;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import io.pravah.tenant.infrastructure.config.AuthProperties;
+import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Instant;
 import java.util.Locale;
@@ -37,30 +39,50 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtTokenIssuer jwtTokenIssuer;
   private final AuthProperties authProperties;
+  private final AuthRlsHelper authRlsHelper;
 
   public AuthService(
       UserRepository userRepository,
       TenantMemberRepository memberRepository,
       PasswordEncoder passwordEncoder,
       JwtTokenIssuer jwtTokenIssuer,
-      AuthProperties authProperties) {
+      AuthProperties authProperties,
+      AuthRlsHelper authRlsHelper) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
     this.jwtTokenIssuer = jwtTokenIssuer;
     this.authProperties = authProperties;
+    this.authRlsHelper = authRlsHelper;
   }
 
-  @Transactional(readOnly = true)
+  /**
+   * Authenticates a user by email and password.
+   *
+   * <p>Uses RLS bypass for the initial email lookup (user's tenant is unknown until we find them).
+   * After finding the user, sets tenant context for subsequent operations like recording login
+   * attempts.
+   */
+  @Transactional
   public AuthTokenResponse login(LoginRequest request) {
     String email = normalizeEmail(request.email());
+
+    // Enable RLS bypass for email lookup (tenant unknown at this point)
+    authRlsHelper.enableAuthLookup();
     User user =
         userRepository
             .findByEmail(email)
             .orElseThrow(() -> new AuthenticationException(INVALID_CREDENTIALS));
 
+    // Now we know the tenant - set context for subsequent operations
+    authRlsHelper.disableAuthLookup();
+    TenantContext.setCurrentTenantId(user.getTenantId());
+    TenantContext.setCurrentUserId(user.getId());
+
+    // Use generic message for all auth failures to prevent user enumeration
     if (user.isAccountLocked()) {
-      throw new AuthenticationException("Account is temporarily locked. Try again later.");
+      log.debug("Login attempt on locked account", kv("user_id", user.getId()));
+      throw new AuthenticationException(INVALID_CREDENTIALS);
     }
     if (!user.isActive()) {
       throw new AuthenticationException(INVALID_CREDENTIALS);
@@ -114,10 +136,17 @@ public class AuthService {
     return issueToken(user);
   }
 
-  /** Accepts reset requests without revealing whether the email exists (alpha stub). */
+  /**
+   * Accepts reset requests without revealing whether the email exists (alpha stub).
+   *
+   * <p>Always returns success to prevent email enumeration.
+   */
   @Transactional(readOnly = true)
   public void requestPasswordReset(String email) {
     String normalized = normalizeEmail(email);
+
+    // Enable RLS bypass for email lookup
+    authRlsHelper.enableAuthLookup();
     userRepository
         .findByEmail(normalized)
         .ifPresent(
