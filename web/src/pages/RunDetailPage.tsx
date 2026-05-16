@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Ban, ChevronRight, KeyRound } from "lucide-react";
+import { Ban, ChevronRight, KeyRound, RotateCcw } from "lucide-react";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -12,17 +12,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/Dialog";
-import { Input } from "@/components/ui/Input";
+import { DevTokenCard } from "@/components/workspace/DevTokenCard";
 import {
   ApiError,
   cancelExecution,
   getDevBearerToken,
   getExecution,
   getPipeline,
-  setDevBearerToken,
   type ExecutionResponse,
 } from "@/lib/api";
+import { RunJobStages } from "@/components/runs/RunJobStages";
+import { RunStageGantt } from "@/components/runs/RunStageGantt";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
+import { isFailedJob } from "@/lib/jobStatus";
 import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 
 function isCancellable(status: string) {
@@ -44,10 +48,11 @@ export function RunDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [tokenDraft, setTokenDraft] = useState(getDevBearerToken() ?? "");
   const [showToken, setShowToken] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("timeline");
   const reloadGeneration = useRef(0);
+  const tabInitializedForExecution = useRef<string | null>(null);
 
   const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!executionId) {
@@ -81,6 +86,19 @@ export function RunDetailPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    tabInitializedForExecution.current = null;
+    setActiveTab("timeline");
+  }, [executionId]);
+
+  useEffect(() => {
+    if (!data || tabInitializedForExecution.current === data.id) {
+      return;
+    }
+    tabInitializedForExecution.current = data.id;
+    setActiveTab(data.jobs.some((j) => isFailedJob(j.status)) ? "stages" : "timeline");
+  }, [data]);
 
   const liveWsEnabled = Boolean(data && isCancellable(data.status));
   const { liveConnected } = useExecutionRealtime({
@@ -130,12 +148,6 @@ export function RunDetailPage() {
     }
   }
 
-  function saveToken() {
-    setDevBearerToken(tokenDraft.trim() || null);
-    setShowToken(false);
-    void reload();
-  }
-
   if (!executionId) {
     return <p className="text-sm text-neutral-500">Missing execution id.</p>;
   }
@@ -162,10 +174,7 @@ export function RunDetailPage() {
             {pipelineName ? `Run · ${pipelineName}` : "Run detail"}
           </h2>
           <p className="page-desc max-w-2xl">
-            Layout for <span className="font-medium text-neutral-700 dark:text-neutral-300">US-12.08</span> (timeline,
-            logs, retry/cancel). While the run is pending or running, status updates stream over WebSocket (
-            <span className="font-medium">US-12.10</span>) when a dev bearer token is set.
-            Cancel calls the gateway when a bearer token is configured—see dev panel.
+            Stage timeline, per-job status, and expandable log panels. Live status uses WebSocket when a dev token is set.
             {data && (
               <>
                 {" "}
@@ -188,6 +197,22 @@ export function RunDetailPage() {
             <KeyRound className="h-4 w-4" aria-hidden />
             Dev token
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex flex-col items-center gap-0.5">
+                <Button type="button" variant="secondary" disabled aria-disabled="true">
+                  <RotateCcw className="h-4 w-4" aria-hidden />
+                  Retry
+                </Button>
+                <span className="text-[10px] leading-none text-neutral-500 dark:text-neutral-400">
+                  US-02.06
+                </span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Retry from failed stage is planned for US-02.06 (not in alpha yet).
+            </TooltipContent>
+          </Tooltip>
           <Button
             type="button"
             variant="danger"
@@ -204,30 +229,12 @@ export function RunDetailPage() {
       </div>
 
       {showToken && (
-        <Card className="border-blue-200/80 dark:border-blue-900/50">
-          <CardHeader>
-            <CardTitle className="text-base">Local development token</CardTitle>
-            <CardDescription>
-              Stored in <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">localStorage</code> as{" "}
-              <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">pravah.devBearerToken</code>. Required for
-              live API calls through the Vite proxy. The live WebSocket receives execution updates for your entire tenant;
-              this page only applies updates that match this run&apos;s id.
-            </CardDescription>
-          </CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              type="password"
-              value={tokenDraft}
-              onChange={(e) => setTokenDraft(e.target.value)}
-              placeholder="Paste JWT from your auth setup"
-              className="min-h-10 flex-1 font-mono text-[12px]"
-              autoComplete="off"
-            />
-            <Button type="button" onClick={saveToken}>
-              Save &amp; reload
-            </Button>
-          </div>
-        </Card>
+        <DevTokenCard
+          onSaved={() => {
+            setShowToken(false);
+            void reload();
+          }}
+        />
       )}
 
       {loading && <p className="text-sm text-neutral-500">Loading execution…</p>}
@@ -274,39 +281,38 @@ export function RunDetailPage() {
             </span>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Stage timeline</CardTitle>
-              <CardDescription>
-                Gantt-style chart can replace this vertical timeline. Errors surface per job for US-12.08/12.09.
-              </CardDescription>
-            </CardHeader>
-            <ol className="relative ms-3 border-s border-neutral-200 dark:border-neutral-800">
-              {data.jobs.map((job) => (
-                <li key={job.id} className="mb-8 ms-8 last:mb-2">
-                  <span
-                    className={cn(
-                      "absolute -start-1.5 mt-1.5 flex h-3 w-3 rounded-full border border-white dark:border-neutral-950",
-                      job.status.toLowerCase() === "succeeded" && "bg-emerald-500",
-                      job.status.toLowerCase() === "failed" && "bg-rose-500",
-                      job.status.toLowerCase() === "running" && "bg-blue-500",
-                      job.status.toLowerCase() === "cancelled" && "bg-amber-500",
-                      !["succeeded", "failed", "running", "cancelled"].includes(job.status.toLowerCase()) &&
-                        "bg-neutral-400",
-                    )}
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-neutral-900 dark:text-neutral-100">{job.stageName}</p>
-                    <StatusBadge status={job.status} />
-                    <span className="text-xs text-neutral-500">attempt {job.attempt}</span>
-                  </div>
-                  <p className="mt-1 font-mono text-xs text-neutral-500">
-                    {job.stageId} · {job.id}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </Card>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList aria-label="Run detail sections">
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="stages">Stages &amp; logs</TabsTrigger>
+            </TabsList>
+            <TabsContent value="timeline">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Stage timeline</CardTitle>
+                  <CardDescription>
+                    Gantt overview by stage. Bar lengths are equal until start/end timestamps are available from the API.
+                  </CardDescription>
+                </CardHeader>
+                <div className="px-6 pb-6">
+                  <RunStageGantt jobs={data.jobs} />
+                </div>
+              </Card>
+            </TabsContent>
+            <TabsContent value="stages">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Stages</CardTitle>
+                  <CardDescription>
+                    Expand a stage for logs. Failed stages are highlighted; log streaming ships with US-02.03.
+                  </CardDescription>
+                </CardHeader>
+                <div className="px-6 pb-6">
+                  <RunJobStages jobs={data.jobs} />
+                </div>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </>
       )}
 
