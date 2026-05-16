@@ -18,6 +18,7 @@ import io.pravah.pipeline.api.dto.ValidatePipelineRequest;
 import io.pravah.pipeline.api.dto.ValidatePipelineResponse;
 import io.pravah.pipeline.domain.Pipeline;
 import io.pravah.pipeline.domain.PipelineEventTypes;
+import io.pravah.pipeline.domain.PipelineState;
 import io.pravah.pipeline.domain.repository.PipelineRepository;
 import io.pravah.pipeline.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.pipeline.infrastructure.persistence.entity.PipelineEventEntity;
@@ -145,6 +146,36 @@ public class PipelineApplicationService {
 
     parseYamlDefinition(request.definitionYaml());
     return new ValidatePipelineResponse(true);
+  }
+
+  /** Resolves the current published version for scheduled or internal execution triggers. */
+  @Transactional(readOnly = true)
+  public PublishedPipelineSnapshot resolvePublishedForExecution(UUID pipelineId) {
+    requireTenantId();
+
+    Pipeline pipeline = findPipelineOrThrow(PipelineId.of(pipelineId));
+    if (pipeline.getState() != PipelineState.ACTIVE) {
+      throw new IllegalArgumentException(
+          "Pipeline must be active to run; current status: "
+              + pipeline.getState().asDatabaseValue());
+    }
+    int version = pipeline.getCurrentVersion();
+    if (version < 1) {
+      throw new IllegalArgumentException("Pipeline has no published version");
+    }
+
+    PipelineVersionEntity entity =
+        pipelineVersionRepository
+            .findByPipelineIdAndVersion(pipelineId, version)
+            .orElseThrow(
+                () -> new EntityNotFoundException("PipelineVersion", pipelineId + ":v" + version));
+
+    return new PublishedPipelineSnapshot(
+        pipelineId,
+        entity.getVersion(),
+        objectMapper.convertValue(
+            entity.getDefinition(), new TypeReference<Map<String, Object>>() {}),
+        pipeline.getState().asDatabaseValue());
   }
 
   @Transactional(readOnly = true)

@@ -20,6 +20,7 @@ import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.execution.infrastructure.pipeline.InternalHttpPipelineCatalog;
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
@@ -54,10 +55,12 @@ public class ExecutionApplicationService {
   private static final Logger log = LoggerFactory.getLogger(ExecutionApplicationService.class);
 
   public static final String TRIGGER_MANUAL = "manual";
+  public static final String TRIGGER_SCHEDULED = "scheduled";
 
   private static final String AGGREGATE_EXECUTION = "execution";
 
   private final PipelineCatalog pipelineCatalog;
+  private final InternalHttpPipelineCatalog internalPipelineCatalog;
   private final ExecutionEntityRepository executionEntityRepository;
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
@@ -68,6 +71,7 @@ public class ExecutionApplicationService {
 
   public ExecutionApplicationService(
       PipelineCatalog pipelineCatalog,
+      InternalHttpPipelineCatalog internalPipelineCatalog,
       ExecutionEntityRepository executionEntityRepository,
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
@@ -76,6 +80,7 @@ public class ExecutionApplicationService {
       ApplicationEventPublisher applicationEventPublisher,
       ObjectMapper objectMapper) {
     this.pipelineCatalog = pipelineCatalog;
+    this.internalPipelineCatalog = internalPipelineCatalog;
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
@@ -103,6 +108,24 @@ public class ExecutionApplicationService {
         pipelineCatalog.resolve(
             request.pipelineId(), request.pipelineVersion(), authorizationHeader);
 
+    return materializeExecution(tenantId, userId, TRIGGER_MANUAL, snapshot);
+  }
+
+  @Transactional
+  public CreateExecutionResponse startScheduledExecution(
+      UUID tenantId, UUID pipelineId, UUID scheduleId) {
+    PublishedPipelineSnapshot snapshot =
+        internalPipelineCatalog.resolvePublished(tenantId, pipelineId);
+    log.debug(
+        "Resolved pipeline for scheduled run",
+        kv("tenant_id", tenantId),
+        kv("pipeline_id", pipelineId),
+        kv("schedule_id", scheduleId));
+    return materializeExecution(tenantId, null, TRIGGER_SCHEDULED, snapshot);
+  }
+
+  private CreateExecutionResponse materializeExecution(
+      UUID tenantId, UUID triggeredBy, String triggerType, PublishedPipelineSnapshot snapshot) {
     if (!"active".equalsIgnoreCase(snapshot.pipelineStatus())) {
       throw new IllegalArgumentException(
           "Pipeline must be active to run; current status: " + snapshot.pipelineStatus());
@@ -118,8 +141,8 @@ public class ExecutionApplicationService {
             .tenantId(tenantId)
             .pipelineId(snapshot.pipelineId())
             .pipelineVersion(snapshot.pipelineVersion())
-            .triggerType(TRIGGER_MANUAL)
-            .triggeredBy(userId)
+            .triggerType(triggerType)
+            .triggeredBy(triggeredBy)
             .definitionSnapshot(snapshot.definition())
             .build();
 
@@ -172,8 +195,9 @@ public class ExecutionApplicationService {
             occurredAt));
 
     log.info(
-        "Manual execution created",
+        "Execution created",
         kv("tenant_id", tenantId),
+        kv("trigger_type", triggerType),
         kv("execution_id", execution.getId()),
         kv("pipeline_id", execution.getPipelineId()),
         kv("pipeline_version", execution.getPipelineVersion()),

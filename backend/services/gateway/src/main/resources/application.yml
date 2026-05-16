@@ -26,6 +26,11 @@ spring:
           predicates:
             - Path=/ws/**
 
+        - id: scheduler-service
+          uri: lb://scheduler-service
+          predicates:
+            - Path=/api/v1/schedules/**
+
         - id: tenant-service
           uri: lb://tenant-service
           predicates:

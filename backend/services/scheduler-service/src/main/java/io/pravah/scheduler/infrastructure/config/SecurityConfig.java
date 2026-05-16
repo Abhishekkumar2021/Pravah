@@ -1,12 +1,9 @@
-package io.pravah.execution.infrastructure.config;
+package io.pravah.scheduler.infrastructure.config;
 
 import io.pravah.spring.security.ApiTenantJwtFilter;
-import io.pravah.spring.security.InternalServiceAuthFilter;
 import io.pravah.spring.security.JwtTokenVerifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,7 +12,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
   @Bean
@@ -24,17 +20,8 @@ public class SecurityConfig {
   }
 
   @Bean
-  public InternalServiceAuthFilter internalServiceAuthFilter(
-      @Value("${pravah.internal-service.secret:}") String internalSecret) {
-    return new InternalServiceAuthFilter(internalSecret);
-  }
-
-  @Bean
   public SecurityFilterChain securityFilterChain(
-      HttpSecurity http,
-      InternalServiceAuthFilter internalServiceAuthFilter,
-      ApiTenantJwtFilter apiTenantJwtFilter)
-      throws Exception {
+      HttpSecurity http, ApiTenantJwtFilter apiTenantJwtFilter) throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -42,13 +29,8 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/actuator/health/**", "/actuator/info")
                     .permitAll()
-                    .requestMatchers("/ws/**")
-                    .permitAll()
-                    .requestMatchers("/api/v1/internal/**")
-                    .permitAll()
                     .anyRequest()
                     .authenticated())
-        .addFilterBefore(internalServiceAuthFilter, UsernamePasswordAuthenticationFilter.class)
         .addFilterBefore(apiTenantJwtFilter, UsernamePasswordAuthenticationFilter.class)
         .build();
   }

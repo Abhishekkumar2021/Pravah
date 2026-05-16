@@ -69,6 +69,8 @@ pravah:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
   pipeline-service:
     base-url: ${PIPELINE_SERVICE_BASE_URL:http://localhost:8083}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
   outbox:
     relay:
       enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}

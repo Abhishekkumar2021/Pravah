@@ -2,6 +2,7 @@ package io.pravah.scheduler;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Scheduler Service Application Entry Point.
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/lld/02-database-erd.md">Database ERD - Scheduler Domain</a>
  */
 @SpringBootApplication
+@EnableScheduling
 public class SchedulerServiceApplication {
 
   public static void main(String[] args) {

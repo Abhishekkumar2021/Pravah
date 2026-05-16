@@ -1,7 +1,7 @@
 spring:
   application:
     name: scheduler-service
-  
+
   datasource:
     url: jdbc:postgresql://localhost:5432/pravah_scheduler
     username: ${DB_USERNAME:pravah}
@@ -9,33 +9,30 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
-  
+
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-  
+
   flyway:
     enabled: true
     locations: classpath:db/migration
-  
-  quartz:
-    job-store-type: jdbc
-    jdbc:
-      initialize-schema: never
-    properties:
-      org.quartz.scheduler.instanceId: AUTO
-      org.quartz.jobStore.isClustered: true
-      org.quartz.jobStore.clusterCheckinInterval: 10000
-
-grpc:
-  client:
-    execution-service:
-      address: static://localhost:9090
-      negotiation-type: plaintext
 
 server:
   port: 8085
+
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+  execution-service:
+    base-url: ${EXECUTION_SERVICE_BASE_URL:http://localhost:8084}
+  scheduler:
+    evaluation-interval-ms: ${PRAVAH_SCHEDULER_EVALUATION_INTERVAL_MS:60000}
+    leader-lock-ttl-seconds: ${PRAVAH_SCHEDULER_LEADER_LOCK_TTL_SECONDS:90}
 
 management:
   endpoints:

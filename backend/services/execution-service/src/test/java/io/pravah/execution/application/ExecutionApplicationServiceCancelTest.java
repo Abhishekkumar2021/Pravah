@@ -13,6 +13,7 @@ import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.execution.infrastructure.pipeline.InternalHttpPipelineCatalog;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import java.lang.reflect.Field;
@@ -32,6 +33,7 @@ class ExecutionApplicationServiceCancelTest {
   private static final String EXECUTION_EVENTS_TOPIC = "pravah.execution.execution.events";
 
   @Mock private PipelineCatalog pipelineCatalog;
+  @Mock private InternalHttpPipelineCatalog internalPipelineCatalog;
   @Mock private ExecutionEntityRepository executionEntityRepository;
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
@@ -47,6 +49,7 @@ class ExecutionApplicationServiceCancelTest {
     service =
         new ExecutionApplicationService(
             pipelineCatalog,
+            internalPipelineCatalog,
             executionEntityRepository,
             jobEntityRepository,
             outboxRepository,
