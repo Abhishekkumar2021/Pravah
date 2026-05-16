@@ -32,6 +32,7 @@ describe("DashboardPage", () => {
           projectId: PROJECT_ID,
           name: "ETL",
           description: null,
+          currentVersion: 1,
           status: "active",
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-01T00:00:00Z",

@@ -30,7 +30,10 @@ describe("RunListPage", () => {
         {
           id: "run-1",
           pipelineId: "pipe-1",
+          pipelineVersion: 1,
           status: "succeeded",
+          triggerType: "manual",
+          triggeredBy: "user-1",
           createdAt: "2026-01-01T00:00:00Z",
           startedAt: "2026-01-01T00:01:00Z",
           completedAt: "2026-01-01T00:05:00Z",
@@ -49,6 +52,7 @@ describe("RunListPage", () => {
           projectId: PROJECT_ID,
           name: "ETL",
           description: null,
+          currentVersion: 1,
           status: "active",
           createdAt: "2026-01-01T00:00:00Z",
           updatedAt: "2026-01-01T00:00:00Z",
