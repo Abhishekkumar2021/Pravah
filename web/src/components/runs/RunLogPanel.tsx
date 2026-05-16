@@ -57,7 +57,11 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
       setLoading(true);
       setError(null);
       try {
-        const res = await getJobLogs(executionId, job.id);
+        const res = await getJobLogs(
+          executionId,
+          job.id,
+          levelFilter !== "ALL" ? { level: levelFilter } : undefined,
+        );
         if (!cancelled) {
           setLines(res.lines);
         }
@@ -83,7 +87,7 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [active, executionId, job.id, isRunning]);
+  }, [active, executionId, job.id, isRunning, levelFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

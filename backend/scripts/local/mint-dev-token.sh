@@ -17,16 +17,20 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-SECRET_HEADER=()
+curl_args=(
+  -sS
+  -w "\n%{http_code}"
+  -X POST "$GATEWAY/api/v1/auth/dev-token"
+  -H "Content-Type: application/json"
+)
 if [[ -n "${PRAVAH_DEV_TOKEN_SECRET:-}" ]]; then
-  SECRET_HEADER=(-H "X-Pravah-Dev-Secret: $PRAVAH_DEV_TOKEN_SECRET")
+  curl_args+=(-H "X-Pravah-Dev-Secret: $PRAVAH_DEV_TOKEN_SECRET")
 fi
+curl_args+=(-d "$body")
 
-response="$(curl -sS -w "\n%{http_code}" -X POST "$GATEWAY/api/v1/auth/dev-token" \
-  -H "Content-Type: application/json" \
-  "${SECRET_HEADER[@]}" \
-  -d "$body")" || {
+response="$(curl "${curl_args[@]}")" || {
   echo "Failed to reach gateway at $GATEWAY" >&2
+  echo "Run: make local-status  (gateway should listen on 8080)" >&2
   exit 1
 }
 
