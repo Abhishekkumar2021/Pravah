@@ -8,7 +8,24 @@ alwaysApply: true
 **CRITICAL**: Before creating ANY commit, you MUST execute ALL steps in order.
 Do NOT skip steps. Do NOT commit if any step fails.
 
-## Step 1: Format Code
+**One command (recommended)** — runs backend + web checks aligned with CI:
+
+```bash
+./scripts/pre-commit.sh
+```
+
+Requires: JDK 21, Docker (for backend `integrationTest`), Node.js 22, `npm` in `web/`.
+
+Optional faster path when you know scope (use sparingly):
+
+```bash
+SKIP_INTEGRATION=1 ./scripts/pre-commit.sh   # skip Testcontainers integration tests
+SKIP_E2E=1 ./scripts/pre-commit.sh           # skip Playwright e2e
+```
+
+---
+
+## Step 1: Format Code (backend)
 
 ```bash
 cd backend && ./gradlew spotlessApply --no-daemon
@@ -16,7 +33,7 @@ cd backend && ./gradlew spotlessApply --no-daemon
 
 **Verify**: Command exits with `BUILD SUCCESSFUL`
 
-## Step 2: Compile and Check for Warnings
+## Step 2: Compile and Check for Warnings (backend)
 
 ```bash
 cd backend && ./gradlew compileJava compileTestJava --no-daemon
@@ -24,7 +41,7 @@ cd backend && ./gradlew compileJava compileTestJava --no-daemon
 
 **Verify**: No compilation errors, review any warnings
 
-## Step 3: Run Unit Tests
+## Step 3: Run Backend Unit Tests
 
 ```bash
 cd backend && ./gradlew test --no-daemon
@@ -32,7 +49,34 @@ cd backend && ./gradlew test --no-daemon
 
 **Verify**: All tests pass. If tests fail, FIX THEM before proceeding.
 
-## Step 4: Check for Lint Issues
+## Step 4: Run Backend Integration Tests
+
+```bash
+cd backend && ./gradlew integrationTest --no-daemon
+```
+
+**Verify**: All integration tests pass. Requires Docker (Testcontainers).
+
+Matches `ci.yml` integration job. Skip only for docs-only commits (see below).
+
+## Step 5: Web — Lint, Unit Tests, E2E, Build
+
+Same as `.github/workflows/web-ci.yml`:
+
+```bash
+cd web && npm ci
+cd web && npm run lint          # TypeScript (tsc -b)
+cd web && npm run test          # Vitest + Testing Library
+cd web && npx playwright install chromium
+cd web && npm run test:e2e      # Playwright E2E
+cd web && npm run build         # tsc + vite build
+```
+
+**Verify**: Each command exits 0.
+
+First-time Playwright: `npx playwright install chromium` (or `--with-deps chromium` on Linux CI).
+
+## Step 6: Check for Lint Issues (IDE)
 
 ```bash
 # Use ReadLints tool on modified files
@@ -40,7 +84,7 @@ cd backend && ./gradlew test --no-daemon
 
 **Verify**: No new linter errors introduced
 
-## Step 5: Review Changes
+## Step 7: Review Changes
 
 Before staging, review what you're committing:
 
@@ -56,7 +100,7 @@ git diff  # Review actual changes
 - [ ] No unintended file changes
 - [ ] All new files are intentional
 
-## Step 6: Self Code Review
+## Step 8: Self Code Review
 
 Ask yourself:
 - [ ] Does this code match the design in `docs/lld/`?
@@ -65,7 +109,7 @@ Ask yourself:
 - [ ] Is there test coverage for new code?
 - [ ] Are there any TODOs without issue links?
 
-## Step 7: Stage and Commit
+## Step 9: Stage and Commit
 
 Only after ALL above steps pass:
 
@@ -82,7 +126,7 @@ EOF
 )"
 ```
 
-## Step 8: Post-Commit Verification
+## Step 10: Post-Commit Verification
 
 ```bash
 git log -1  # Verify commit message looks correct
@@ -94,32 +138,57 @@ git status  # Verify working directory is clean
 ## Quick Reference Commands
 
 ```bash
-# Full pre-commit check (copy-paste this)
+# Full pre-commit (backend + web + integration + e2e)
+./scripts/pre-commit.sh
+
+# Manual equivalent
 cd backend && \
   ./gradlew spotlessApply --no-daemon && \
   ./gradlew compileJava compileTestJava --no-daemon && \
   ./gradlew test --no-daemon && \
+  ./gradlew integrationTest --no-daemon && \
+  cd ../web && npm ci && npm run lint && npm run test && \
+  npx playwright install chromium && npm run test:e2e && npm run build && \
   echo "✅ All checks passed - safe to commit"
 ```
 
 ## When to Skip (NEVER for production code)
 
 The ONLY acceptable reasons to skip steps:
-- Documentation-only changes (skip Steps 1-3, still do 5-8)
-- Config file changes (still run Step 1 for formatting)
+
+| Change type | Skip |
+|-------------|------|
+| Documentation only (`docs/**`, `*.md`) | Steps 1–5; still do 7–10 |
+| Backend only, no web | Step 5 (web) |
+| Web only, no backend | Steps 1–4 (backend) |
+| Config / formatting only | Step 3–4 if no Java logic changed; still run Step 1 |
+
+Do **not** skip web or backend tests on cross-cutting or security changes.
 
 ## Common Issues and Fixes
 
 ### Spotless Fails
 ```bash
-./gradlew spotlessApply --no-daemon  # Auto-fix
+cd backend && ./gradlew spotlessApply --no-daemon  # Auto-fix
 ```
 
-### Tests Fail
+### Backend Tests Fail
 - Read the failure message
 - Fix the code or test
 - Re-run tests
 - Do NOT bypass with `@Disabled`
+
+### Integration Tests Fail
+- Ensure Docker is running
+- Re-run: `cd backend && ./gradlew integrationTest --no-daemon`
+
+### Web: `npm ci` Fails
+- Use Node.js 22 (same as CI)
+- Delete `web/node_modules` and re-run `npm ci`
+
+### Playwright E2E Fails Locally
+- Install browser: `cd web && npx playwright install chromium`
+- If port 5173 is in use, stop other dev servers or let Playwright reuse (see `web/README.md`)
 
 ### Compilation Errors
 - Fix all errors before proceeding
@@ -127,5 +196,5 @@ The ONLY acceptable reasons to skip steps:
 
 ---
 
-**REMEMBER**: A broken commit wastes everyone's time. Take 2 minutes to verify
-rather than 2 hours to debug a broken build.
+**REMEMBER**: A broken commit wastes everyone's time. Take a few minutes to verify
+rather than hours debugging a broken build.
