@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Download } from "lucide-react";
 import type { JobSummary } from "@/lib/api";
 import { ApiError, getJobLogs, type JobLogLine } from "@/lib/api";
 import { isFailedJob } from "@/lib/jobStatus";
 import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -48,6 +49,7 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const errorLineRefs = useRef<Map<string, HTMLParagraphElement>>(new Map());
   const failed = isFailedJob(job.status);
   const isRunning = job.status.toLowerCase() === "running";
 
@@ -106,6 +108,25 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
     });
   }, [lines, levelFilter, search]);
 
+  const firstErrorId = useMemo(() => {
+    const errorLine = filtered.find((l) => l.level.toUpperCase() === "ERROR");
+    return errorLine?.id ?? null;
+  }, [filtered]);
+
+  const errorCount = useMemo(() => {
+    return filtered.filter((l) => l.level.toUpperCase() === "ERROR").length;
+  }, [filtered]);
+
+  const jumpToError = useCallback(() => {
+    if (!firstErrorId) return;
+    const el = errorLineRefs.current.get(firstErrorId);
+    if (el && scrollRef.current) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("animate-pulse");
+      setTimeout(() => el.classList.remove("animate-pulse"), 1500);
+    }
+  }, [firstErrorId]);
+
   useEffect(() => {
     if (active && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -144,6 +165,22 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
           aria-label="Search within logs"
           className="min-w-[8rem] flex-1"
         />
+        {errorCount > 0 && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={jumpToError}
+            className="shrink-0 gap-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+            Jump to error
+            {errorCount > 1 && (
+              <span className="ml-0.5 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 dark:bg-rose-900/50 dark:text-rose-300">
+                {errorCount}
+              </span>
+            )}
+          </Button>
+        )}
         <IconButton
           type="button"
           aria-label="Download logs"
@@ -166,13 +203,23 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
         {!loading && !error && filtered.length === 0 && (
           <p className="text-neutral-500">No log lines yet for this stage.</p>
         )}
-        {filtered.map((line) => (
-          <p key={line.id} className="whitespace-pre-wrap break-words">
-            <span className="text-neutral-500">{formatLogTime(line.logTime)} </span>
-            <span className={levelClass(line.level)}>[{line.level}]</span>{" "}
-            <span className="text-neutral-200">{line.message}</span>
-          </p>
-        ))}
+        {filtered.map((line) => {
+          const isError = line.level.toUpperCase() === "ERROR";
+          return (
+            <p
+              key={line.id}
+              ref={isError ? (el) => { if (el) errorLineRefs.current.set(line.id, el); } : undefined}
+              className={cn(
+                "whitespace-pre-wrap break-words",
+                isError && "rounded bg-rose-950/50 px-1 -mx-1",
+              )}
+            >
+              <span className="text-neutral-500">{formatLogTime(line.logTime)} </span>
+              <span className={levelClass(line.level)}>[{line.level}]</span>{" "}
+              <span className="text-neutral-200">{line.message}</span>
+            </p>
+          );
+        })}
       </div>
     </div>
   );

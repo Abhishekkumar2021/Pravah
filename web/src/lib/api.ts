@@ -143,6 +143,17 @@ export async function login(email: string, password: string): Promise<AuthTokenR
   return body;
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/password-reset/request"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
 const EXECUTIONS_WS_PATH = "/ws/v1/executions";
 
 /**
@@ -315,6 +326,45 @@ export async function getPipeline(pipelineId: string): Promise<PipelineDetailRes
     headers: authHeaders(),
   });
   return handleResponse<PipelineDetailResponse>(res);
+}
+
+export type PipelineVersionDefinitionResponse = {
+  pipelineId: string;
+  version: number;
+  definition: PipelineDefinition;
+  publishedAt: string | null;
+  publishedBy: string | null;
+};
+
+export type PipelineDefinition = {
+  name?: string;
+  description?: string;
+  stages?: StageDefinition[];
+  variables?: Record<string, unknown>;
+  environments?: Record<string, unknown>;
+  retry?: Record<string, unknown>;
+  timeout?: Record<string, unknown>;
+};
+
+export type StageDefinition = {
+  id: string;
+  name?: string;
+  type?: string;
+  dependsOn?: string[];
+  depends_on?: string[];
+  config?: Record<string, unknown>;
+  retry?: Record<string, unknown>;
+  timeout?: Record<string, unknown>;
+};
+
+export async function getPipelineVersionDefinition(
+  pipelineId: string,
+  version: number,
+): Promise<PipelineVersionDefinitionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/versions/${version}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineVersionDefinitionResponse>(res);
 }
 
 export type CreateExecutionRequest = {
