@@ -38,6 +38,8 @@ class ExecutionApplicationServiceCancelTest {
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private EntityManager entityManager;
+  @Mock private CheckpointService checkpointService;
+  @Mock private ExecutionJobQueueingService executionJobQueueingService;
   @Mock private ApplicationEventPublisher applicationEventPublisher;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
@@ -54,6 +56,8 @@ class ExecutionApplicationServiceCancelTest {
             jobEntityRepository,
             outboxRepository,
             entityManager,
+            checkpointService,
+            executionJobQueueingService,
             EXECUTION_EVENTS_TOPIC,
             applicationEventPublisher,
             objectMapper);

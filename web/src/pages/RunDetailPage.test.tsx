@@ -37,6 +37,8 @@ describe("RunDetailPage", () => {
       status: "running",
       triggerType: "manual",
       triggeredBy: "user-1",
+      retryOf: null,
+      retryCount: 0,
       createdAt: "2026-01-01T00:00:00Z",
       jobs: [],
     });

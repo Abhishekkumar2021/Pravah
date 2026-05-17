@@ -16,6 +16,32 @@ if [[ -z "${DB_PASSWORD:-}" ]]; then
 fi
 export PGPASSWORD="${DB_PASSWORD}"
 
+psql_exec() {
+  if command -v psql >/dev/null 2>&1; then
+    psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -v ON_ERROR_STOP=1 "$@"
+  else
+    docker exec -i pravah-postgres psql -U "$PGUSER" -v ON_ERROR_STOP=1 "$@"
+  fi
+}
+
+assert_migrations_applied() {
+  local missing=()
+  if ! psql_exec -d pravah_pipeline -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='connections'" | grep -q 1; then
+    missing+=("pravah_pipeline.connections (start pipeline-service)")
+  fi
+  if ! psql_exec -d pravah_execution -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='jobs'" | grep -q 1; then
+    missing+=("pravah_execution.jobs (start execution-service)")
+  fi
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Database schema is not migrated yet. Flyway runs when Java services boot." >&2
+    echo "  1. make local-services   # wait ~30–60s for tenant, pipeline, execution, …" >&2
+    echo "  2. make local-seed" >&2
+    echo "Missing: ${missing[*]}" >&2
+    return 1
+  fi
+  return 0
+}
+
 run_psql() {
   if command -v psql >/dev/null 2>&1; then
     if ! (echo >/dev/tcp/"$PGHOST"/"$PGPORT") 2>/dev/null; then
@@ -35,6 +61,7 @@ run_psql() {
 }
 
 echo "Seeding demo data (tenant, pipeline, execution DBs)…"
+assert_migrations_applied
 run_psql
 
 echo ""

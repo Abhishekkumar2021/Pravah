@@ -12,6 +12,8 @@ public record GetExecutionResponse(
     String status,
     String triggerType,
     UUID triggeredBy,
+    UUID retryOf,
+    int retryCount,
     Instant createdAt,
     List<JobSummary> jobs) {
 

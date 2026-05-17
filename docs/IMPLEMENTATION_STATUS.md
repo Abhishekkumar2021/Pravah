@@ -83,7 +83,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-02.14 SQL stage | Implemented | `SqlEmbeddedStageExecutor` |
 | US-02.17 Container stage | Implemented | `ContainerEmbeddedStageExecutor` (Docker) |
 
-**Not yet:** US-02.05 retry from failed stage, US-02.12 checkpointing, US-02.11 artifacts, external runner dispatch, Spark/dbt stages.
+**Not yet:** US-02.11 artifacts, external runner dispatch, Spark/dbt stages.
+
+**Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 
 ---
 

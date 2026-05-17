@@ -219,6 +219,11 @@ public class ExecutionEntity {
     this.errorCategory = errorCategory;
   }
 
+  /** Marks a failed execution as having an in-flight manual retry (US-02.05). */
+  public void markRetrying() {
+    this.status = this.status.onRetry();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/ui/Badge";
+import { Pill, StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
@@ -129,9 +129,9 @@ export function WorkflowDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {pipeline && <StatusBadge status={pipeline.status} />}
-            <span className="rounded-full bg-neutral-100 px-3 py-1 font-mono text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            <Pill className="font-mono text-xs normal-case">
               v{pipeline?.currentVersion ?? "—"}
-            </span>
+            </Pill>
             {pipeline && (
               <TriggerRunButton
                 pipelineId={pipeline.id}

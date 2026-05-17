@@ -30,6 +30,7 @@ class JobFailureServiceTest {
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private JobLogService jobLogService;
+  @Mock private CheckpointService checkpointService;
 
   private JobFailureService service;
 
@@ -37,7 +38,12 @@ class JobFailureServiceTest {
   void setUp() {
     service =
         new JobFailureService(
-            jobEntityRepository, outboxRepository, jobLogService, JOB_CREATED_TOPIC, 3);
+            jobEntityRepository,
+            outboxRepository,
+            jobLogService,
+            checkpointService,
+            JOB_CREATED_TOPIC,
+            3);
   }
 
   @Test

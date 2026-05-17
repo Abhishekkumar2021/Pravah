@@ -45,6 +45,8 @@ class JobCreatedProcessingServiceTest {
   @Mock private ProcessedEventRepository processedEventRepository;
   @Mock private StageExecutorRouter stageExecutorRouter;
   @Mock private JobLogService jobLogService;
+  @Mock private CheckpointService checkpointService;
+  @Mock private ExecutionJobQueueingService executionJobQueueingService;
   @Mock private ApplicationEventPublisher applicationEventPublisher;
 
   private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -56,7 +58,12 @@ class JobCreatedProcessingServiceTest {
   void setUp() {
     jobFailureService =
         new JobFailureService(
-            jobEntityRepository, outboxRepository, jobLogService, JOB_CREATED_TOPIC, 3);
+            jobEntityRepository,
+            outboxRepository,
+            jobLogService,
+            checkpointService,
+            JOB_CREATED_TOPIC,
+            3);
     service =
         new JobCreatedProcessingService(
             executionEntityRepository,
@@ -66,6 +73,8 @@ class JobCreatedProcessingServiceTest {
             stageExecutorRouter,
             jobLogService,
             jobFailureService,
+            checkpointService,
+            executionJobQueueingService,
             JOB_CREATED_TOPIC,
             applicationEventPublisher,
             objectMapper,
@@ -257,6 +266,8 @@ class JobCreatedProcessingServiceTest {
             stageExecutorRouter,
             jobLogService,
             jobFailureService,
+            checkpointService,
+            executionJobQueueingService,
             JOB_CREATED_TOPIC,
             applicationEventPublisher,
             objectMapper,

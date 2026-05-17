@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PlayCircle, RefreshCw } from "lucide-react";
 import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
-import { StatusBadge } from "@/components/ui/Badge";
+import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
@@ -124,27 +124,11 @@ export function RunListPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {hasToken && hasActiveRuns && (
-            <div
-              className={cn(
-                "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide",
-                liveConnected
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                  : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
-              )}
-              title={
-                liveConnected
-                  ? "Connected to execution updates (WebSocket)"
-                  : "Connecting to execution updates…"
-              }
-            >
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  liveConnected ? "animate-pulse bg-emerald-500" : "bg-neutral-400",
-                )}
-              />
-              {liveConnected ? "Live" : "Connecting…"}
-            </div>
+            <IndicatorBadge
+              label={liveConnected ? "Live" : "Connecting…"}
+              active={liveConnected}
+              pulse
+            />
           )}
           <Select
             aria-label="Filter by status"

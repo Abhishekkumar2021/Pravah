@@ -252,6 +252,28 @@ public class JobEntity {
   }
 
   /**
+   * Restores a PENDING job from a checkpoint or prior successful run (US-02.05 / US-02.12).
+   *
+   * <p>Bypasses the normal state machine because checkpoint restore happens before queueing.
+   */
+  public void restoreFromCheckpoint(
+      int exitCode,
+      Map<String, Object> output,
+      Map<String, Object> artifacts,
+      Map<String, Object> metrics) {
+    if (this.status != JobState.PENDING) {
+      throw new IllegalStateException(
+          "Cannot restore job in state %s; expected PENDING".formatted(this.status));
+    }
+    this.status = JobState.SUCCEEDED;
+    this.exitCode = exitCode;
+    this.output = output;
+    this.artifacts = artifacts;
+    this.metrics = metrics;
+    this.completedAt = Instant.now();
+  }
+
+  /**
    * Transitions to CANCELLED state.
    *
    * @throws IllegalStateException if transition is not allowed

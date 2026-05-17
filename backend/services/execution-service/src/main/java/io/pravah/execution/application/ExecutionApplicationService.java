@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
+import io.pravah.common.domain.JobState;
 import io.pravah.common.domain.PipelineDefinitionResolver;
 import io.pravah.common.domain.RetryPolicy;
 import io.pravah.common.domain.RetryPolicyParser;
@@ -14,6 +15,7 @@ import io.pravah.execution.api.dto.CreateExecutionRequest;
 import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.api.dto.ListExecutionsResponse;
+import io.pravah.execution.api.dto.RetryExecutionRequest;
 import io.pravah.execution.api.dto.TriggerPipelineRunRequest;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
@@ -34,7 +36,9 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -71,6 +75,8 @@ public class ExecutionApplicationService {
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
   private final EntityManager entityManager;
+  private final CheckpointService checkpointService;
+  private final ExecutionJobQueueingService executionJobQueueingService;
   private final String executionEventsTopic;
   private final ApplicationEventPublisher applicationEventPublisher;
   private final ObjectMapper objectMapper;
@@ -82,6 +88,8 @@ public class ExecutionApplicationService {
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
       EntityManager entityManager,
+      CheckpointService checkpointService,
+      ExecutionJobQueueingService executionJobQueueingService,
       @Value("${pravah.outbox.topic.execution-events}") String executionEventsTopic,
       ApplicationEventPublisher applicationEventPublisher,
       ObjectMapper objectMapper) {
@@ -91,6 +99,8 @@ public class ExecutionApplicationService {
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.entityManager = entityManager;
+    this.checkpointService = checkpointService;
+    this.executionJobQueueingService = executionJobQueueingService;
     this.executionEventsTopic = executionEventsTopic;
     this.applicationEventPublisher = applicationEventPublisher;
     this.objectMapper = objectMapper;
@@ -269,6 +279,197 @@ public class ExecutionApplicationService {
         execution.getPipelineVersion(),
         execution.getStatus().asDatabaseValue(),
         jobResponses);
+  }
+
+  /**
+   * Retries a failed execution from a specific stage (US-02.05 / US-02.12).
+   *
+   * <p>Creates a new execution with {@code retry_of} referencing the source. Upstream stages are
+   * restored from checkpoints (or prior successful job output); the failed stage and downstream
+   * stages are re-queued.
+   */
+  @Transactional
+  public CreateExecutionResponse retryFromStage(
+      UUID sourceExecutionId, RetryExecutionRequest request) {
+    UUID tenantId = requireTenantId();
+    UUID userId = requireUserId();
+    String fromStageId = request.fromStageId().trim();
+
+    ExecutionEntity source = loadExecutionForTenant(sourceExecutionId, tenantId);
+    assertCanCancelAsUser(source, userId);
+
+    if (source.getStatus() != ExecutionState.FAILED) {
+      throw new InvalidStateTransitionException(
+          "execution", source.getId().toString(), source.getStatus().asDatabaseValue(), "retry");
+    }
+
+    Map<String, Object> definition = source.getDefinitionSnapshot();
+    if (definition == null || definition.isEmpty()) {
+      throw new IllegalStateException("Execution has no definition snapshot for retry");
+    }
+
+    List<JobEntity> sourceJobs =
+        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(sourceExecutionId);
+    Map<String, JobEntity> sourceJobsByStage =
+        sourceJobs.stream().collect(Collectors.toMap(JobEntity::getStageId, j -> j, (a, b) -> a));
+
+    JobEntity failedJob = sourceJobsByStage.get(fromStageId);
+    if (failedJob == null) {
+      throw new IllegalArgumentException("Unknown stage id: " + fromStageId);
+    }
+    if (failedJob.getStatus() != JobState.FAILED) {
+      throw new IllegalArgumentException(
+          "Stage %s is not failed (status: %s)".formatted(fromStageId, failedJob.getStatus()));
+    }
+
+    Set<String> upstream = StagePlanner.transitiveUpstream(definition, fromStageId);
+    for (String upstreamStageId : upstream) {
+      JobEntity upstreamJob = sourceJobsByStage.get(upstreamStageId);
+      if (upstreamJob == null || upstreamJob.getStatus() != JobState.SUCCEEDED) {
+        throw new IllegalArgumentException(
+            "Upstream stage %s did not succeed; cannot retry from %s"
+                .formatted(upstreamStageId, fromStageId));
+      }
+    }
+
+    source.markRetrying();
+
+    ExecutionEntity retryExecution =
+        ExecutionEntity.builder()
+            .tenantId(tenantId)
+            .pipelineId(source.getPipelineId())
+            .pipelineVersion(source.getPipelineVersion())
+            .triggerType(TRIGGER_MANUAL)
+            .triggeredBy(userId)
+            .parameters(source.getParameters())
+            .definitionSnapshot(definition)
+            .retryOf(source.getId())
+            .build();
+    retryExecution = executionEntityRepository.save(retryExecution);
+    entityManager.flush();
+
+    List<JobEntity> retryJobs = new ArrayList<>();
+    for (StagePlanner.PlannedJob planned : StagePlanner.plan(definition)) {
+      JobEntity job =
+          JobEntity.builder()
+              .executionId(retryExecution.getId())
+              .stageId(planned.stageId())
+              .stageName(planned.stageName())
+              .build();
+      job = jobEntityRepository.save(job);
+
+      if (upstream.contains(planned.stageId())) {
+        restoreUpstreamJob(job, source, sourceJobsByStage, planned.stageId());
+        checkpointService.saveAfterJobSuccess(job);
+      }
+      retryJobs.add(job);
+    }
+    entityManager.flush();
+
+    Instant occurredAt = Instant.now();
+    int queued = executionJobQueueingService.queueReadyJobs(retryExecution, definition, occurredAt);
+    if (queued > 0) {
+      retryExecution.start();
+    }
+
+    UUID eventId = UUID.randomUUID();
+    Map<String, Object> outboxPayload =
+        buildExecutionCreatedPayload(
+            eventId,
+            occurredAt,
+            tenantId,
+            retryExecution,
+            source.getPipelineId(),
+            source.getPipelineVersion(),
+            List.of());
+    outboxRepository.save(
+        new OutboxEntity(
+            AGGREGATE_EXECUTION,
+            retryExecution.getId(),
+            ExecutionEventTypes.EXECUTION_CREATED,
+            executionEventsTopic,
+            retryExecution.getId().toString(),
+            outboxPayload,
+            occurredAt));
+
+    log.info(
+        "Execution retry created",
+        kv("tenant_id", tenantId),
+        kv("source_execution_id", source.getId()),
+        kv("retry_execution_id", retryExecution.getId()),
+        kv("from_stage_id", fromStageId),
+        kv("upstream_restored", upstream.size()),
+        kv("jobs_queued", queued),
+        kv("event_id", eventId));
+
+    ExecutionRealtimeEvents.publishExecutionUpdated(
+        applicationEventPublisher,
+        objectMapper,
+        tenantId,
+        retryExecution.getId(),
+        retryExecution.getStatus().asDatabaseValue(),
+        Instant.now(),
+        retryExecution.getPipelineId());
+
+    List<CreateExecutionResponse.JobResponse> jobResponses =
+        retryJobs.stream()
+            .map(
+                j ->
+                    new CreateExecutionResponse.JobResponse(
+                        j.getId(),
+                        j.getStageId(),
+                        j.getStageName(),
+                        j.getStatus().asDatabaseValue()))
+            .toList();
+
+    return new CreateExecutionResponse(
+        retryExecution.getId(),
+        retryExecution.getPipelineId(),
+        retryExecution.getPipelineVersion(),
+        retryExecution.getStatus().asDatabaseValue(),
+        jobResponses);
+  }
+
+  @Transactional
+  public void clearCheckpoints(UUID executionId) {
+    UUID tenantId = requireTenantId();
+    loadExecutionForTenant(executionId, tenantId);
+    checkpointService.clearForExecution(executionId);
+    log.info("Checkpoints cleared manually", kv("execution_id", executionId));
+  }
+
+  private void restoreUpstreamJob(
+      JobEntity targetJob,
+      ExecutionEntity sourceExecution,
+      Map<String, JobEntity> sourceJobsByStage,
+      String stageId) {
+    Map<String, Object> state =
+        checkpointService
+            .loadCheckpointState(sourceExecution.getId(), stageId)
+            .orElseGet(
+                () -> {
+                  JobEntity sourceJob = sourceJobsByStage.get(stageId);
+                  if (sourceJob == null || sourceJob.getStatus() != JobState.SUCCEEDED) {
+                    throw new IllegalStateException(
+                        "No checkpoint or succeeded job for " + stageId);
+                  }
+                  Map<String, Object> fallback = new LinkedHashMap<>();
+                  fallback.put(
+                      "exitCode", sourceJob.getExitCode() != null ? sourceJob.getExitCode() : 0);
+                  fallback.put("output", sourceJob.getOutput());
+                  fallback.put("artifacts", sourceJob.getArtifacts());
+                  fallback.put("metrics", sourceJob.getMetrics());
+                  return fallback;
+                });
+
+    int exitCode = state.get("exitCode") instanceof Number n ? n.intValue() : 0;
+    @SuppressWarnings("unchecked")
+    Map<String, Object> output = (Map<String, Object>) state.get("output");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> artifacts = (Map<String, Object>) state.get("artifacts");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metrics = (Map<String, Object>) state.get("metrics");
+    targetJob.restoreFromCheckpoint(exitCode, output, artifacts, metrics);
   }
 
   /**
@@ -513,6 +714,8 @@ public class ExecutionApplicationService {
                       j.getOutput());
                 })
             .toList();
+    long retryCount = executionEntityRepository.countByRetryOf(execution.getId());
+
     return new GetExecutionResponse(
         execution.getId(),
         execution.getPipelineId(),
@@ -520,6 +723,8 @@ public class ExecutionApplicationService {
         execution.getStatus().asDatabaseValue(),
         execution.getTriggerType(),
         execution.getTriggeredBy(),
+        execution.getRetryOf(),
+        (int) retryCount,
         execution.getCreatedAt(),
         jobSummaries);
   }

@@ -11,13 +11,15 @@ import { RunLogPanel } from "./RunLogPanel";
 type RunJobStagesProps = {
   executionId: string;
   jobs: JobSummary[];
+  canRetry?: boolean;
+  onRetryFromStage?: (stageId: string) => void;
 };
 
 function initialExpanded(jobs: JobSummary[]): Set<string> {
   return new Set(jobs.filter((j) => isFailedJob(j.status)).map((j) => j.id));
 }
 
-export function RunJobStages({ executionId, jobs }: RunJobStagesProps) {
+export function RunJobStages({ executionId, jobs, canRetry, onRetryFromStage }: RunJobStagesProps) {
   const ordered = sortJobsByStage(jobs);
   const [expanded, setExpanded] = useState<Set<string>>(() => initialExpanded(ordered));
 
@@ -81,7 +83,19 @@ export function RunJobStages({ executionId, jobs }: RunJobStagesProps) {
               <span className="text-xs text-neutral-500">
                 attempt {job.attempt} of {job.maxAttempts}
               </span>
-              <span className="ms-auto font-mono text-xs text-neutral-500">{job.stageId}</span>
+              <span className="ms-auto flex items-center gap-2">
+                {canRetry && isFailedJob(job.status) && onRetryFromStage ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => onRetryFromStage(job.stageId)}
+                  >
+                    Retry from here
+                  </Button>
+                ) : null}
+                <span className="font-mono text-xs text-neutral-500">{job.stageId}</span>
+              </span>
             </div>
             {isOpen ? (
               <div id={panelId} className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">

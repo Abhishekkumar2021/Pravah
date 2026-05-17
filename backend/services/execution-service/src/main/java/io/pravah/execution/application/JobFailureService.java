@@ -37,6 +37,7 @@ public class JobFailureService {
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
   private final JobLogService jobLogService;
+  private final CheckpointService checkpointService;
   private final String jobCreatedTopic;
   private final int maxJobAttempts;
 
@@ -44,11 +45,13 @@ public class JobFailureService {
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
       JobLogService jobLogService,
+      CheckpointService checkpointService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
       @Value("${pravah.job.max-attempts:3}") int maxJobAttempts) {
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.jobLogService = jobLogService;
+    this.checkpointService = checkpointService;
     this.jobCreatedTopic = jobCreatedTopic;
     this.maxJobAttempts = maxJobAttempts;
   }
@@ -150,6 +153,7 @@ public class JobFailureService {
           "JOB_FAILED");
     } else {
       execution.complete(true, null, null);
+      checkpointService.clearForExecution(execution.getId());
     }
   }
 
