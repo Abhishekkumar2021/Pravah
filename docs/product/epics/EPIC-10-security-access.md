@@ -29,11 +29,11 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** I access Pravah
 
 **Acceptance Criteria:**
-- [ ] Registration with email verification
-- [ ] Secure password storage (bcrypt)
-- [ ] Login with email/password
-- [ ] Password reset flow
-- [ ] Account lockout after failures
+- [ ] Registration with email verification (alpha: `POST /register` without verification email; signup UI deferred)
+- [x] Secure password storage (bcrypt)
+- [x] Login with email/password
+- [x] Password reset flow (request + confirm; SMTP via `MAIL_*`, Mailhog in local docker-compose)
+- [x] Account lockout after failures
 
 **Story Points:** 8  
 **Priority:** P0

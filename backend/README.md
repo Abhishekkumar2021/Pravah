@@ -63,6 +63,19 @@ make local-web        # Vite dev server (../web)
 
 Gateway: `http://localhost:8080`
 
+### Password reset email (US-10.01)
+
+`tenant-service` sends reset links via Spring Mail. Local `docker-compose` includes **Mailhog** (SMTP `1025`, web UI `http://localhost:8025`).
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `spring.mail.host` | `MAIL_HOST` | `localhost` | SMTP host |
+| `spring.mail.port` | `MAIL_PORT` | `1025` | SMTP port (Mailhog) |
+| `spring.mail.username` | `MAIL_USERNAME` | _(empty)_ | SMTP auth user |
+| `spring.mail.password` | `MAIL_PASSWORD` | _(empty)_ | SMTP auth password |
+| `pravah.auth.frontend-base-url` | `PRAVAH_FRONTEND_URL` | `http://localhost:5173` | Prefix for reset links in email |
+| `pravah.auth.mail-from` | `PRAVAH_MAIL_FROM` | `noreply@localhost.pravah` | From address |
+
 ### Local Kubernetes (Helm, US-09.04)
 
 Requires Helm 3, `kubectl`, and a cluster (kind/minikube). See [deploy/README.md](../deploy/README.md).

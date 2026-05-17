@@ -26,7 +26,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Documentation (theory, ADRs, product, LLD) | **Complete** | 75 theory chapters, 33 ADRs, 9 LLD docs |
 | Engineering foundation | **Partial** | Gradle multi-module, CI, `backend/docker-compose.yml`, local scripts |
 | Core control plane | **Partial** | tenant, pipeline, execution, scheduler, gateway |
-| Web alpha (EPIC-12) | **Partial** | REST + WebSocket; no GraphQL read model |
+| Web alpha (EPIC-12) | **Partial** | REST + WebSocket, visual DAG editor (US-12.06); no GraphQL read model |
 | Remaining microservices | **Stub** | agent, connect, metadata, notification, runner-service, graphql |
 | Runner fleet + gRPC | **Planned** | `runner/` CLI skeleton; no live runner dispatch |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
@@ -41,7 +41,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Service | Port (local) | Status | Capabilities |
 |---------|--------------|--------|--------------|
 | **gateway** | 8080 | Implemented | Routes REST/WS to services (`application.yml`) |
-| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, users, tenants, roles, API tokens |
+| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime |
 | **scheduler-service** | 8085 | Implemented | Cron schedules API, triggers execution-service |
@@ -96,7 +96,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Story | Status | Evidence |
 |-------|--------|----------|
-| US-10.01 Local auth | Partial | Login, register, bcrypt, lockout; password reset stub (no email delivery) |
+| US-10.01 Local auth | Implemented (alpha) | Login, register, bcrypt, lockout; password reset via SMTP (`PasswordResetEmailService`, Mailhog on `1025` locally) |
 | US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
 | US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
 
@@ -114,8 +114,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-12.07 Run list | Implemented | Filter, status badges, duration |
 | US-12.08 Run detail | Implemented | Per-stage status, expandable logs, retry/cancel |
 | US-12.09 Log viewer | Implemented | Syntax highlighting, level filter, search, download, jump to error |
-
-**Not yet:** US-12.06 Visual DAG editor (drag-drop stage creation).
+| US-12.06 Visual DAG editor | Implemented (alpha) | `WorkflowDAGEditor` — React Flow, palette add, connect handles, config panel, undo/redo, YAML export, minimap |
 
 ---
 
@@ -124,7 +123,8 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Area | Status | Notes |
 |------|--------|-------|
 | Login, shell, dashboard | Implemented | Forgot password link (US-10.01), recent failures widget (US-12.03) |
-| Workflows list / detail | Implemented | Search by name (US-12.04), visual DAG (US-12.05) |
+| Workflows list / detail | Implemented | Search by name (US-12.04), read-only DAG (US-12.05), edit via `WorkflowDAGEditor` (US-12.06) |
+| Forgot / reset password | Implemented | Forgot-password + reset-token pages; Mailhog UI `http://localhost:8025` (US-10.01) |
 | Runs list / detail | Implemented | Retry from failed stage (US-02.05), retryOf lineage |
 | Cancel run | Implemented | |
 | Schedules on workflow | Implemented | |

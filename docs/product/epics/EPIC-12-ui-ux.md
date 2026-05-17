@@ -114,12 +114,12 @@ The web application interface — beautiful, fast, and intuitive. The UI is how 
 **So that** I don't need to write YAML
 
 **Acceptance Criteria:**
-- [ ] Drag-drop stage creation
-- [ ] Connect stages visually
-- [ ] Stage configuration panel
-- [ ] Undo/redo
-- [ ] Export to YAML
-- [ ] Mini-map for large DAGs
+- [x] Drag-drop stage creation (alpha: add from palette; reposition nodes on canvas)
+- [x] Connect stages visually (handle drag between stages)
+- [x] Stage configuration panel
+- [x] Undo/redo
+- [x] Export to YAML
+- [x] Mini-map for large DAGs
 
 **Story Points:** 21  
 **Priority:** P0
