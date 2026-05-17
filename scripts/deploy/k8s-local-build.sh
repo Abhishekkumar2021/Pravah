@@ -4,9 +4,26 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BACKEND="$ROOT/backend"
-CLUSTER_NAME="${KIND_CLUSTER_NAME:-pravah}"
 
 SERVICES=(gateway tenant-service pipeline-service execution-service scheduler-service)
+
+detect_kind_cluster() {
+  if [[ -n "${KIND_CLUSTER_NAME:-}" ]]; then
+    echo "$KIND_CLUSTER_NAME"
+    return 0
+  fi
+  local ctx
+  ctx="$(kubectl config current-context 2>/dev/null || true)"
+  if [[ "$ctx" =~ ^kind-(.+)$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if kind get clusters 2>/dev/null | grep -qx kind; then
+    echo kind
+    return 0
+  fi
+  return 1
+}
 
 build_images() {
   local tag=$1
@@ -22,6 +39,14 @@ build_images() {
   done
 }
 
+load_into_kind() {
+  local cluster=$1
+  echo "Loading images into kind cluster '$cluster'..."
+  for svc in "${SERVICES[@]}"; do
+    kind load docker-image "pravah-${svc}:local" --name "$cluster"
+  done
+}
+
 echo "Building JARs and Docker images (tag: local)..."
 
 if command -v minikube >/dev/null 2>&1 && minikube status >/dev/null 2>&1; then
@@ -29,14 +54,13 @@ if command -v minikube >/dev/null 2>&1 && minikube status >/dev/null 2>&1; then
   eval "$(minikube docker-env)"
   build_images local
   echo "Done. Install with: ./scripts/deploy/k8s-local-install.sh"
-elif command -v kind >/dev/null 2>&1 && kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
+elif kind_cluster="$(detect_kind_cluster)"; then
   build_images local
-  echo "Loading images into kind cluster '$CLUSTER_NAME'..."
-  for svc in "${SERVICES[@]}"; do
-    kind load docker-image "pravah-${svc}:local" --name "$CLUSTER_NAME"
-  done
+  load_into_kind "$kind_cluster"
   echo "Done. Install with: ./scripts/deploy/k8s-local-install.sh"
 else
   build_images local
-  echo "Images built on host. Load into your cluster (kind load / minikube docker-env) before helm install."
+  echo "Images built on host."
+  echo "Load into kind:  kind load docker-image pravah-gateway:local --name <cluster>"
+  echo "Or set KIND_CLUSTER_NAME and re-run this script."
 fi
