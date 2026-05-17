@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Calendar, LayoutDashboard, Pencil, Play, Settings } from "lucide-react";
+import { Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Pill, StatusBadge } from "@/components/ui/Badge";
+import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
@@ -123,15 +123,15 @@ export function WorkflowDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <nav className="text-sm text-neutral-500 dark:text-neutral-400" aria-label="Breadcrumb">
-          <ol className="flex flex-wrap items-center gap-1">
+          <ol className="flex flex-wrap items-center gap-1.5">
             <li>
-              <Link to="/app/workflows" className="hover:text-blue-600 dark:hover:text-blue-400">
+              <Link to="/app/workflows" className="transition-colors hover:text-blue-600 dark:hover:text-blue-400">
                 Workflows
               </Link>
             </li>
-            <li aria-hidden>/</li>
+            <li aria-hidden className="text-neutral-300 dark:text-neutral-600">/</li>
             <li className="font-medium text-neutral-800 dark:text-neutral-200">
               {pipeline?.name ?? workflowId}
             </li>
@@ -139,20 +139,23 @@ export function WorkflowDetailPage() {
         </nav>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="page-title">{pipeline?.name ?? "Workflow"}</h2>
-            <p className="page-desc mt-1">
-              Live header from <span className="font-medium">GET /api/v1/pipelines/{`{id}`}</span> (
-              <span className="font-medium">US-12.05</span>).
-            </p>
+            <h2 className="page-title flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-md shadow-violet-500/20 ring-1 ring-violet-400/20">
+                <Workflow className="h-4 w-4" />
+              </span>
+              <span className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-transparent dark:from-neutral-100 dark:to-neutral-300">
+                {pipeline?.name ?? "Workflow"}
+              </span>
+            </h2>
             {pipeline?.description && (
-              <p className="mt-2 max-w-2xl text-[13px] text-neutral-600 dark:text-neutral-300">{pipeline.description}</p>
+              <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-300">{pipeline.description}</p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {pipeline && <StatusBadge status={pipeline.status} />}
-            <Pill className="font-mono text-xs normal-case">
+            <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-2 py-1 font-mono text-xs text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
               v{pipeline?.currentVersion ?? "—"}
-            </Pill>
+            </span>
             {pipeline && (
               <TriggerRunButton
                 pipelineId={pipeline.id}
@@ -168,9 +171,16 @@ export function WorkflowDetailPage() {
       </div>
 
       {loadError && (
-        <Card className="border-rose-200 dark:border-rose-900/50">
-          <CardTitle className="text-base text-rose-800 dark:text-rose-200">Could not load workflow</CardTitle>
-          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">{loadError}</CardDescription>
+        <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50 to-white dark:border-rose-900/50 dark:from-rose-950/40 dark:to-neutral-950">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 ring-1 ring-rose-200/50 dark:bg-rose-900/50 dark:text-rose-400 dark:ring-rose-800/50">
+              <Workflow className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-[15px] text-rose-800 dark:text-rose-200">Could not load workflow</CardTitle>
+              <CardDescription className="mt-1 text-rose-700/90 dark:text-rose-300/90">{loadError}</CardDescription>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -207,20 +217,30 @@ export function WorkflowDetailPage() {
               {runsError ? (
                 <p className="text-sm text-rose-600 dark:text-rose-400">{runsError}</p>
               ) : recentRuns.length === 0 ? (
-                <p className="text-sm text-neutral-500">No runs yet.</p>
+                <div className="flex flex-col items-center py-6 text-center">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                    <Play className="h-4 w-4 text-neutral-400" />
+                  </div>
+                  <p className="text-[13px] text-neutral-500">No runs yet</p>
+                </div>
               ) : (
-                <ul className="space-y-2 text-sm">
+                <ul className="space-y-2">
                   {recentRuns.map((r) => (
                     <li key={r.id}>
                       <Link
-                        className="font-medium text-blue-700 hover:underline dark:text-blue-300"
+                        className="group block rounded-lg border border-neutral-200/80 p-3 transition-all hover:border-blue-200 hover:bg-blue-50/50 dark:border-neutral-800 dark:hover:border-blue-900/50 dark:hover:bg-blue-950/20"
                         to={`/app/runs/${r.id}`}
                       >
-                        {r.id.slice(0, 8)}…
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[12px] font-medium text-neutral-900 group-hover:text-blue-700 dark:text-neutral-100 dark:group-hover:text-blue-300">
+                            {r.id.slice(0, 8)}…
+                          </span>
+                          <StatusBadge status={r.status} />
+                        </div>
+                        <p className="mt-1.5 text-[11px] text-neutral-500">
+                          {r.label}
+                        </p>
                       </Link>
-                      <p className="text-xs capitalize text-neutral-500">
-                        {r.status} · {r.label}
-                      </p>
                     </li>
                   ))}
                 </ul>

@@ -174,7 +174,7 @@
   }
 
   .table-data thead {
-    @apply border-b border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/60;
+    @apply border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/90 to-neutral-100/50 dark:border-neutral-800 dark:from-neutral-900/80 dark:to-neutral-900/40;
   }
 
   .table-data th {
@@ -182,7 +182,7 @@
   }
 
   .table-data tbody {
-    @apply divide-y divide-neutral-100 dark:divide-neutral-800/80;
+    @apply divide-y divide-neutral-100/80 dark:divide-neutral-800/60;
   }
 
   .table-data td {
@@ -190,7 +190,7 @@
   }
 
   .table-data tbody tr {
-    @apply transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900/60;
+    @apply transition-colors hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent dark:hover:from-blue-950/20 dark:hover:to-transparent;
   }
 
   /** Page titles stay slightly larger than body copy. */
@@ -199,6 +199,11 @@
   }
 
   .page-desc {
-    @apply mt-1 text-[13px] leading-snug text-neutral-500 dark:text-neutral-400;
+    @apply mt-1 text-[13px] leading-relaxed text-neutral-500 dark:text-neutral-400;
+  }
+
+  /** Smooth transitions for interactive elements */
+  .interactive-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
   }
 }

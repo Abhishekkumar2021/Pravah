@@ -11,7 +11,7 @@ export function TabsList({
   return (
     <TabsPrimitive.List
       className={cn(
-        "inline-flex items-center gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800",
+        "inline-flex items-center gap-1 rounded-lg bg-neutral-100/80 p-1 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:ring-neutral-700/50",
         className,
       )}
       {...props}
@@ -27,12 +27,12 @@ export function TabsTrigger({
     <TabsPrimitive.Trigger
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-[13px] font-medium transition-all duration-150",
-        "text-neutral-600 hover:text-neutral-900",
+        "text-neutral-600 hover:text-neutral-900 hover:bg-white/50",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
-        "data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm",
-        "dark:text-neutral-400 dark:hover:text-neutral-200",
-        "dark:data-[state=active]:bg-neutral-900 dark:data-[state=active]:text-neutral-100",
+        "data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-neutral-200/50",
+        "dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-700/50",
+        "dark:data-[state=active]:bg-neutral-900 dark:data-[state=active]:text-neutral-100 dark:data-[state=active]:ring-neutral-700/50",
         "dark:focus-visible:ring-offset-neutral-900",
         className,
       )}

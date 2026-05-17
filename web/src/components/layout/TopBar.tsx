@@ -45,7 +45,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const displayName = user?.name?.trim() || user?.email || "Workspace";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/95 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center border-b border-neutral-200/80 bg-white/95 px-4 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/95 sm:px-6">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           {onMenuClick && (
@@ -59,7 +59,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </IconButton>
           )}
           <div className="min-w-0 leading-tight">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Pravah
             </p>
             <p className="truncate text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
@@ -76,7 +76,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           >
             <ThemeIcon className="h-4 w-4" aria-hidden />
           </IconButton>
-          <Button variant="secondary" className="h-9 px-3" onClick={handleSignOut} aria-label="Sign out">
+          <Button variant="secondary" className="h-9 gap-1.5 px-3" onClick={handleSignOut} aria-label="Sign out">
             <LogOut className="h-4 w-4" aria-hidden />
             <span className="hidden sm:inline">Sign out</span>
           </Button>

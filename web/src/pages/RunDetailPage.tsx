@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Ban, ChevronRight, RotateCcw } from "lucide-react";
+import { Ban, ChevronRight, PlayCircle, RotateCcw } from "lucide-react";
 import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -153,13 +153,13 @@ export function RunDetailPage() {
   return (
     <div className="space-y-6">
       <nav className="text-sm text-neutral-500 dark:text-neutral-400" aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-1">
+        <ol className="flex flex-wrap items-center gap-1.5">
           <li>
-            <Link to="/app/runs" className="hover:text-blue-600 dark:hover:text-blue-400">
+            <Link to="/app/runs" className="transition-colors hover:text-blue-600 dark:hover:text-blue-400">
               Runs
             </Link>
           </li>
-          <li aria-hidden>
+          <li aria-hidden className="text-neutral-300 dark:text-neutral-600">
             <ChevronRight className="inline h-4 w-4" />
           </li>
           <li className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{executionId}</li>
@@ -168,17 +168,22 @@ export function RunDetailPage() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="page-title">
-            {pipelineName ? `Run · ${pipelineName}` : "Run detail"}
+          <h2 className="page-title flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/20 ring-1 ring-emerald-400/20">
+              <PlayCircle className="h-4 w-4" />
+            </span>
+            <span className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-transparent dark:from-neutral-100 dark:to-neutral-300">
+              {pipelineName ? `Run · ${pipelineName}` : "Run detail"}
+            </span>
           </h2>
-          <p className="page-desc max-w-2xl">
-            Stage timeline, per-job status, and expandable log panels. Live status uses WebSocket while you are signed in.
+          <p className="page-desc mt-2 max-w-2xl">
+            Stage timeline, per-job status, and expandable log panels.
             {data && (
               <>
                 {" "}
                 <Link
                   to={`/app/workflows/${data.pipelineId}`}
-                  className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                  className="font-medium text-blue-600 transition-colors hover:text-blue-500 hover:underline dark:text-blue-400"
                 >
                   Open workflow
                 </Link>
@@ -236,9 +241,16 @@ export function RunDetailPage() {
 
       {loading && <p className="text-sm text-neutral-500">Loading execution…</p>}
       {error && (
-        <Card className="border-rose-200 dark:border-rose-900/50">
-          <CardTitle className="text-base text-rose-800 dark:text-rose-200">Could not load execution</CardTitle>
-          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">{error}</CardDescription>
+        <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50 to-white dark:border-rose-900/50 dark:from-rose-950/40 dark:to-neutral-950">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 ring-1 ring-rose-200/50 dark:bg-rose-900/50 dark:text-rose-400 dark:ring-rose-800/50">
+              <PlayCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-[15px] text-rose-800 dark:text-rose-200">Could not load execution</CardTitle>
+              <CardDescription className="mt-1 text-rose-700/90 dark:text-rose-300/90">{error}</CardDescription>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -253,16 +265,18 @@ export function RunDetailPage() {
                 pulse
               />
             )}
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">
-              Pipeline <span className="font-mono text-neutral-700 dark:text-neutral-300">{data.pipelineId}</span> · v
-              {data.pipelineVersion}
+            <span className="inline-flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+              Pipeline 
+              <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-1.5 py-0.5 font-mono text-[11px] text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
+                v{data.pipelineVersion}
+              </span>
             </span>
             <span className="text-sm text-neutral-500 dark:text-neutral-400">
-              Trigger: {data.triggerType}
+              Trigger: <span className="font-medium text-neutral-700 dark:text-neutral-300">{data.triggerType}</span>
               {data.triggeredBy && (
                 <>
                   {" "}
-                  · <span className="font-mono">{data.triggeredBy}</span>
+                  · <span className="font-mono text-xs">{data.triggeredBy}</span>
                 </>
               )}
             </span>
@@ -271,15 +285,18 @@ export function RunDetailPage() {
                 Retry of{" "}
                 <Link
                   to={`/app/runs/${data.retryOf}`}
-                  className="font-mono text-blue-600 hover:underline dark:text-blue-400"
+                  className="font-mono text-xs text-blue-600 transition-colors hover:text-blue-500 hover:underline dark:text-blue-400"
                 >
-                  {data.retryOf}
+                  {data.retryOf.slice(0, 8)}…
                 </Link>
               </span>
             )}
             {data.retryCount > 0 && (
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                Retries spawned: {data.retryCount}
+              <span className="inline-flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
+                Retries: 
+                <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100/80 px-1.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200/50 dark:bg-amber-950/60 dark:text-amber-300 dark:ring-amber-800/50">
+                  {data.retryCount}
+                </span>
               </span>
             )}
           </div>
