@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.pravah.tenant.application.dto.AuthTokenResponse;
+import io.pravah.tenant.application.dto.RegisterResponse;
 import io.pravah.tenant.application.dto.UserResponse;
 import io.pravah.tenant.application.dto.UserRoleSummary;
 import io.pravah.tenant.application.service.AuthService;
@@ -70,6 +71,28 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.accessToken").value("jwt-token"));
 
     verify(authService).login(any());
+  }
+
+  @Test
+  void register_returnsCreatedWithoutToken() throws Exception {
+    when(authService.register(any()))
+        .thenReturn(
+            new RegisterResponse(
+                "new@localhost.pravah", "Check your email for a verification link."));
+
+    mockMvc
+        .perform(
+            post("/api/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"email":"new@localhost.pravah","password":"PravahDev1!","name":"New User"}
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.email").value("new@localhost.pravah"))
+        .andExpect(jsonPath("$.message").exists());
+
+    verify(authService).register(any());
   }
 
   @Test

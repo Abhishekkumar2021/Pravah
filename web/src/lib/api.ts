@@ -55,7 +55,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
   let errorCode: string | undefined;
   try {
     const body = await res.json();
-    message = body.message ?? body.error ?? res.statusText;
+    message = body.detail ?? body.message ?? body.error ?? res.statusText;
     errorCode = body.errorCode;
   } catch {
     message = await res.text().catch(() => res.statusText);
@@ -174,6 +174,11 @@ export type AuthTokenResponse = {
   user: AuthUserResponse;
 };
 
+export type RegisterResponse = {
+  email: string;
+  message: string;
+};
+
 /** Email/password login (US-10.01). Stores JWT for subsequent API calls. */
 export async function login(email: string, password: string): Promise<AuthTokenResponse> {
   const res = await fetch(apiUrl("/api/v1/auth/login"), {
@@ -185,6 +190,42 @@ export async function login(email: string, password: string): Promise<AuthTokenR
   setAccessToken(body.accessToken);
   setStoredUser(body.user);
   return body;
+}
+
+/** Self-service signup (US-10.01). Sends verification email; does not sign in. */
+export async function register(
+  email: string,
+  password: string,
+  name: string,
+): Promise<RegisterResponse> {
+  const res = await fetch(apiUrl("/api/v1/auth/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name }),
+  });
+  return handleResponse<RegisterResponse>(res);
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/verify-email"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/verify-email/resend"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

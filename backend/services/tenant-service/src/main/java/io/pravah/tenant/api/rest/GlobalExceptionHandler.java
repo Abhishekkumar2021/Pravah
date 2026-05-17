@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import io.pravah.common.exception.AccessDeniedException;
 import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ConcurrencyException;
+import io.pravah.common.exception.EmailNotVerifiedException;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.InvalidStateTransitionException;
 import io.pravah.common.exception.PravahException;
@@ -84,6 +85,17 @@ public class GlobalExceptionHandler {
     ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
     pd.setTitle("Unauthorized");
     pd.setType(URI.create("https://pravah.io/errors/unauthorized"));
+    pd.setProperty("errorCode", ex.getErrorCode());
+    pd.setProperty("timestamp", Instant.now().toString());
+    return pd;
+  }
+
+  @ExceptionHandler(EmailNotVerifiedException.class)
+  public ProblemDetail handleEmailNotVerified(EmailNotVerifiedException ex) {
+    log.debug("Email not verified", kv("message", ex.getMessage()));
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    pd.setTitle("Email Not Verified");
+    pd.setType(URI.create("https://pravah.io/errors/email-not-verified"));
     pd.setProperty("errorCode", ex.getErrorCode());
     pd.setProperty("timestamp", Instant.now().toString());
     return pd;

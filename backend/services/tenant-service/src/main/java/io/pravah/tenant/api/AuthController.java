@@ -5,6 +5,9 @@ import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.PasswordResetRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
+import io.pravah.tenant.application.dto.RegisterResponse;
+import io.pravah.tenant.application.dto.ResendVerificationRequest;
+import io.pravah.tenant.application.dto.VerifyEmailRequest;
 import io.pravah.tenant.application.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -37,8 +40,20 @@ public class AuthController {
 
   @PostMapping("/register")
   @ResponseStatus(HttpStatus.CREATED)
-  public AuthTokenResponse register(@Valid @RequestBody RegisterRequest request) {
+  public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
     return authService.register(request);
+  }
+
+  @PostMapping("/verify-email")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+    authService.verifyEmail(request.token());
+  }
+
+  @PostMapping("/verify-email/resend")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public void resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+    authService.resendVerificationEmail(request.email());
   }
 
   @PostMapping("/password-reset/request")
