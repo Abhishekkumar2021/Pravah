@@ -5,12 +5,14 @@ import io.pravah.execution.api.dto.CreateExecutionResponse;
 import io.pravah.execution.api.dto.GetExecutionResponse;
 import io.pravah.execution.api.dto.JobLogsResponse;
 import io.pravah.execution.api.dto.ListExecutionsResponse;
+import io.pravah.execution.api.dto.RetryExecutionRequest;
 import io.pravah.execution.application.ExecutionApplicationService;
 import io.pravah.execution.application.JobLogService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,6 +47,21 @@ public class ExecutionController {
   @PostMapping("/{id}/cancel")
   public GetExecutionResponse cancel(@PathVariable("id") UUID id) {
     return executionApplicationService.cancelExecution(id);
+  }
+
+  /** Retry from a failed stage (US-02.05). Creates a new execution linked via {@code retry_of}. */
+  @PostMapping("/{id}/retry")
+  @ResponseStatus(HttpStatus.CREATED)
+  public CreateExecutionResponse retry(
+      @PathVariable("id") UUID id, @Valid @RequestBody RetryExecutionRequest request) {
+    return executionApplicationService.retryFromStage(id, request);
+  }
+
+  /** Clears persisted checkpoints for an execution (US-02.12). */
+  @DeleteMapping("/{id}/checkpoints")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void clearCheckpoints(@PathVariable UUID id) {
+    executionApplicationService.clearCheckpoints(id);
   }
 
   @GetMapping

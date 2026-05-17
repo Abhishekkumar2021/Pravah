@@ -39,7 +39,7 @@ help:
 	@echo "  make local-services-stop - Stop background Java services"
 	@echo "  make local-dev-token     - Mint JWT via POST /api/v1/auth/dev-token"
 	@echo "  make local-print-token   - Mint JWT and show DevTokenCard / project id hints"
-	@echo "  make local-seed          - Load demo tenant, workflows, and runs into Postgres"
+	@echo "  make local-seed          - Demo data (run after local-services; Flyway applies on boot)"
 	@echo "  make local-status        - Ports + pid status"
 	@echo "  make local-web           - npm run dev in ../web"
 	@echo "  make local-down          - Stop Java services + docker compose down"

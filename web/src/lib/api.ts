@@ -30,6 +30,8 @@ export type ExecutionResponse = {
   pipelineVersion: number;
   triggerType: string;
   triggeredBy: string | null;
+  retryOf: string | null;
+  retryCount: number;
   createdAt: string;
   jobs: JobSummary[];
 };
@@ -209,6 +211,22 @@ export async function cancelExecution(executionId: string): Promise<ExecutionRes
     },
   });
   return handleResponse<ExecutionResponse>(res);
+}
+
+/** Retry from a failed stage (US-02.05). Creates a new execution linked via retryOf. */
+export async function retryExecution(
+  executionId: string,
+  fromStageId: string,
+): Promise<CreateExecutionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/executions/${executionId}/retry`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ fromStageId }),
+  });
+  return handleResponse<CreateExecutionResponse>(res);
 }
 
 export type PipelineResponse = {

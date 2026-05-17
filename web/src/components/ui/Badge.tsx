@@ -2,27 +2,77 @@ import { normalizeJobStatus, statusBadgeClass } from "@/lib/jobStatus";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
+/** Shared layout: tight start (dot), slightly more end (label). */
+const badgeWithDot =
+  "inline-flex items-center gap-1 rounded-full py-0.5 pl-1.5 pr-2 text-[11px] leading-none";
+
+const badgeDot = "h-1.5 w-1.5 shrink-0 rounded-full";
+
 export function StatusBadge({ status }: { status: string }) {
   const key = normalizeJobStatus(status);
   const cls = statusBadgeClass[key];
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize leading-none tracking-wide",
+        badgeWithDot,
+        "font-semibold capitalize tracking-wide",
         cls,
       )}
     >
       <span
         className={cn(
-          "h-1.5 w-1.5 rounded-full",
+          badgeDot,
           key === "succeeded" && "bg-emerald-500",
           key === "failed" && "bg-rose-500",
           key === "running" && "animate-pulse bg-blue-500",
           key === "pending" && "bg-amber-500",
+          key === "queued" && "bg-neutral-400",
           key === "cancelled" && "bg-neutral-400",
+          key === "skipped" && "bg-neutral-400",
+          key === "unknown" && "bg-neutral-400",
         )}
       />
       {status}
+    </span>
+  );
+}
+
+/** Live / connecting indicator (WebSocket). */
+export function IndicatorBadge({
+  label,
+  active,
+  pulse = false,
+}: {
+  label: string;
+  active: boolean;
+  pulse?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        badgeWithDot,
+        "border font-semibold uppercase tracking-wide",
+        active
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+          : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
+      )}
+      title={
+        active
+          ? "Connected to execution updates (WebSocket)"
+          : "Connecting to execution updates…"
+      }
+    >
+      <span
+        className={cn(
+          badgeDot,
+          active
+            ? pulse
+              ? "animate-pulse bg-emerald-500"
+              : "bg-emerald-500"
+            : "bg-neutral-400",
+        )}
+      />
+      {label}
     </span>
   );
 }
@@ -49,7 +99,7 @@ export function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium leading-tight",
+        "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-medium leading-none capitalize",
         pillVariants[variant],
         className,
       )}

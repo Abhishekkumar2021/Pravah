@@ -11,7 +11,6 @@ import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
-import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.execution.infrastructure.persistence.entity.ProcessedEventEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
@@ -20,12 +19,8 @@ import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventR
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +48,8 @@ public class JobCreatedProcessingService {
   private final StageExecutorRouter stageExecutorRouter;
   private final JobLogService jobLogService;
   private final JobFailureService jobFailureService;
+  private final CheckpointService checkpointService;
+  private final ExecutionJobQueueingService executionJobQueueingService;
   private final String jobCreatedTopic;
   private final ApplicationEventPublisher applicationEventPublisher;
   private final ObjectMapper objectMapper;
@@ -67,6 +64,8 @@ public class JobCreatedProcessingService {
       StageExecutorRouter stageExecutorRouter,
       JobLogService jobLogService,
       JobFailureService jobFailureService,
+      CheckpointService checkpointService,
+      ExecutionJobQueueingService executionJobQueueingService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
       ApplicationEventPublisher applicationEventPublisher,
       ObjectMapper objectMapper,
@@ -79,6 +78,8 @@ public class JobCreatedProcessingService {
     this.stageExecutorRouter = stageExecutorRouter;
     this.jobLogService = jobLogService;
     this.jobFailureService = jobFailureService;
+    this.checkpointService = checkpointService;
+    this.executionJobQueueingService = executionJobQueueingService;
     this.jobCreatedTopic = jobCreatedTopic;
     this.applicationEventPublisher = applicationEventPublisher;
     this.objectMapper = objectMapper;
@@ -168,6 +169,7 @@ public class JobCreatedProcessingService {
         result.exitCode(),
         enforceStageOutput(result.output(), job.getId(), job.getStageId()),
         null);
+    checkpointService.saveAfterJobSuccess(job);
     jobLogService.append(
         job.getId(),
         JobLogLevel.INFO,
@@ -176,7 +178,7 @@ public class JobCreatedProcessingService {
     Map<String, Object> definition = resolveDefinitionSnapshot(execution);
     Instant occurredAt = Instant.now();
     if (definition != null) {
-      queueNewlyReadyJobs(execution, definition, occurredAt);
+      executionJobQueueingService.queueReadyJobs(execution, definition, occurredAt);
     } else {
       log.warn(
           "Missing pipeline definition snapshot on execution; cannot schedule downstream jobs",
@@ -194,60 +196,9 @@ public class JobCreatedProcessingService {
         kv("stage_id", job.getStageId()));
   }
 
-  private void queueNewlyReadyJobs(
-      ExecutionEntity execution, Map<String, Object> definition, Instant occurredAt) {
-    List<JobEntity> jobs =
-        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
-    Set<String> succeeded =
-        jobs.stream()
-            .filter(j -> j.getStatus() == JobState.SUCCEEDED)
-            .map(JobEntity::getStageId)
-            .collect(Collectors.toSet());
-    Map<String, JobEntity> byStage =
-        jobs.stream().collect(Collectors.toMap(JobEntity::getStageId, j -> j, (a, b) -> a));
-
-    for (String stageId : StagePlanner.stagesReadyToQueueAfterSuccesses(definition, succeeded)) {
-      JobEntity pending = byStage.get(stageId);
-      if (pending == null || pending.getStatus() != JobState.PENDING) {
-        continue;
-      }
-      pending.queue();
-      Map<String, Object> jobPayload =
-          buildJobCreatedPayload(occurredAt, execution.getTenantId(), execution, pending);
-      outboxRepository.save(
-          new OutboxEntity(
-              AGGREGATE_JOB,
-              pending.getId(),
-              JobEventTypes.JOB_CREATED,
-              jobCreatedTopic,
-              execution.getId().toString(),
-              jobPayload,
-              occurredAt));
-    }
-  }
-
   private void recordProcessed(UUID eventId) {
     processedEventRepository.save(
         new ProcessedEventEntity(eventId, JobEventTypes.JOB_CREATED, Instant.now()));
-  }
-
-  private static Map<String, Object> buildJobCreatedPayload(
-      Instant occurredAt, UUID tenantId, ExecutionEntity execution, JobEntity job) {
-    UUID newEventId = UUID.randomUUID();
-    Map<String, Object> m = new LinkedHashMap<>();
-    m.put("eventId", newEventId.toString());
-    m.put("eventType", JobEventTypes.JOB_CREATED);
-    m.put("occurredAt", occurredAt.toString());
-    m.put("aggregateType", AGGREGATE_JOB);
-    m.put("aggregateId", job.getId().toString());
-    m.put("tenantId", tenantId.toString());
-    m.put("executionId", execution.getId().toString());
-    m.put("pipelineId", execution.getPipelineId().toString());
-    m.put("pipelineVersion", execution.getPipelineVersion());
-    m.put("jobId", job.getId().toString());
-    m.put("stageId", job.getStageId());
-    m.put("stageName", job.getStageName());
-    return m;
   }
 
   private static Map<String, Object> resolveDefinitionSnapshot(ExecutionEntity execution) {

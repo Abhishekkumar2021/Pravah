@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Pill } from "@/components/ui/Badge";
+import { IndicatorBadge, Pill } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -117,22 +117,11 @@ export function DashboardPage() {
 
         <div className="flex items-center gap-3">
           {projectId && hasToken && activeRuns.length > 0 && (
-            <div
-              className={cn(
-                "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide",
-                liveConnected
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                  : "border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
-              )}
-            >
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  liveConnected ? "animate-pulse bg-emerald-500" : "bg-neutral-400",
-                )}
-              />
-              {liveConnected ? "Live" : "Connecting…"}
-            </div>
+            <IndicatorBadge
+              label={liveConnected ? "Live" : "Connecting…"}
+              active={liveConnected}
+              pulse
+            />
           )}
           {projectId && hasToken && (
             <Button
@@ -309,9 +298,7 @@ export function DashboardPage() {
               <CardDescription>Pending and running executions</CardDescription>
             </div>
             {activeRuns.length > 0 && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-                {activeRuns.length} active
-              </span>
+              <Pill variant="amber">{activeRuns.length} active</Pill>
             )}
           </CardHeader>
 

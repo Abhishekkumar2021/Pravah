@@ -1,10 +1,13 @@
 package io.pravah.execution.application;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Extracts executable stage plans from a published pipeline definition JSON object. */
 public final class StagePlanner {
@@ -53,6 +56,32 @@ public final class StagePlanner {
       }
     }
     return List.copyOf(ready);
+  }
+
+  /**
+   * All stages that must complete before {@code fromStageId} can run (transitive {@code dependsOn}
+   * closure). Does not include {@code fromStageId}.
+   */
+  public static Set<String> transitiveUpstream(Map<String, Object> definition, String fromStageId) {
+    List<StageDef> stages = parseStages(definition);
+    Map<String, StageDef> byId =
+        stages.stream().collect(Collectors.toMap(StageDef::id, s -> s, (a, b) -> a));
+    if (!byId.containsKey(fromStageId)) {
+      throw new IllegalArgumentException("Unknown stage id: " + fromStageId);
+    }
+    Set<String> upstream = new LinkedHashSet<>();
+    Queue<String> queue = new ArrayDeque<>(byId.get(fromStageId).dependsOn());
+    while (!queue.isEmpty()) {
+      String dep = queue.poll();
+      if (!upstream.add(dep)) {
+        continue;
+      }
+      StageDef stage = byId.get(dep);
+      if (stage != null) {
+        queue.addAll(stage.dependsOn());
+      }
+    }
+    return Set.copyOf(upstream);
   }
 
   public static List<PlannedJob> plan(Map<String, Object> definition) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Ban, ChevronRight, KeyRound, RotateCcw } from "lucide-react";
-import { StatusBadge } from "@/components/ui/Badge";
+import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -19,13 +19,12 @@ import {
   getDevBearerToken,
   getExecution,
   getPipeline,
+  retryExecution,
   type ExecutionResponse,
 } from "@/lib/api";
 import { RunJobStages } from "@/components/runs/RunJobStages";
 import { RunStageGantt } from "@/components/runs/RunStageGantt";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
-import { cn } from "@/lib/cn";
 import { isFailedJob } from "@/lib/jobStatus";
 import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 
@@ -42,12 +41,14 @@ function formatLoadError(e: unknown): string {
 
 export function RunDetailPage() {
   const { executionId } = useParams();
+  const navigate = useNavigate();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [data, setData] = useState<ExecutionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("timeline");
@@ -197,22 +198,34 @@ export function RunDetailPage() {
             <KeyRound className="h-4 w-4" aria-hidden />
             Dev token
           </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex flex-col items-center gap-0.5">
-                <Button type="button" variant="secondary" disabled aria-disabled="true">
-                  <RotateCcw className="h-4 w-4" aria-hidden />
-                  Retry
-                </Button>
-                <span className="text-[10px] leading-none text-neutral-500 dark:text-neutral-400">
-                  US-02.05
-                </span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              Manual retry from a failed stage is planned for US-02.05 (not in alpha yet).
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={
+              !data ||
+              data.status.toLowerCase() !== "failed" ||
+              !data.jobs.some((j) => isFailedJob(j.status)) ||
+              retrying
+            }
+            onClick={() => {
+              if (!data) return;
+              const failed = data.jobs.find((j) => isFailedJob(j.status));
+              if (!failed) return;
+              setActionError(null);
+              setRetrying(true);
+              void retryExecution(data.id, failed.stageId)
+                .then((created) => {
+                  navigate(`/app/runs/${created.id}`);
+                })
+                .catch((e: unknown) => {
+                  setActionError(formatLoadError(e));
+                })
+                .finally(() => setRetrying(false));
+            }}
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden />
+            {retrying ? "Retrying…" : "Retry from failed stage"}
+          </Button>
           <Button
             type="button"
             variant="danger"
@@ -250,21 +263,11 @@ export function RunDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={data.status} />
             {liveWsEnabled && (
-              <span
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-                  liveConnected
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400",
-                )}
-                title={
-                  liveConnected
-                    ? "Connected to execution updates (WebSocket)"
-                    : "Connecting to execution updates…"
-                }
-              >
-                {liveConnected ? "Live" : "Live…"}
-              </span>
+              <IndicatorBadge
+                label={liveConnected ? "Live" : "Live…"}
+                active={liveConnected}
+                pulse
+              />
             )}
             <span className="text-sm text-neutral-500 dark:text-neutral-400">
               Pipeline <span className="font-mono text-neutral-700 dark:text-neutral-300">{data.pipelineId}</span> · v
@@ -279,6 +282,22 @@ export function RunDetailPage() {
                 </>
               )}
             </span>
+            {data.retryOf && (
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                Retry of{" "}
+                <Link
+                  to={`/app/runs/${data.retryOf}`}
+                  className="font-mono text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  {data.retryOf}
+                </Link>
+              </span>
+            )}
+            {data.retryCount > 0 && (
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                Retries spawned: {data.retryCount}
+              </span>
+            )}
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -308,7 +327,23 @@ export function RunDetailPage() {
                   </CardDescription>
                 </CardHeader>
                 <div className="px-6 pb-6">
-                  <RunJobStages executionId={data.id} jobs={data.jobs} />
+                  <RunJobStages
+                    executionId={data.id}
+                    jobs={data.jobs}
+                    canRetry={data.status.toLowerCase() === "failed"}
+                    onRetryFromStage={
+                      data.status.toLowerCase() === "failed"
+                        ? (stageId) => {
+                            setActionError(null);
+                            setRetrying(true);
+                            void retryExecution(data.id, stageId)
+                              .then((created) => navigate(`/app/runs/${created.id}`))
+                              .catch((e: unknown) => setActionError(formatLoadError(e)))
+                              .finally(() => setRetrying(false));
+                          }
+                        : undefined
+                    }
+                  />
                 </div>
               </Card>
             </TabsContent>

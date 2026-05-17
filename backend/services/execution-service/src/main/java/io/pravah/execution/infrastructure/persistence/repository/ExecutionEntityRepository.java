@@ -30,4 +30,6 @@ public interface ExecutionEntityRepository extends JpaRepository<ExecutionEntity
       @Param("status") ExecutionState status,
       @Param("pipelineId") UUID pipelineId,
       Pageable pageable);
+
+  long countByRetryOf(UUID retryOf);
 }
