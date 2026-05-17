@@ -102,10 +102,12 @@ export function DashboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="page-title flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/20">
               <Activity className="h-5 w-5" />
             </span>
-            Dashboard
+            <span className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-transparent dark:from-neutral-100 dark:to-neutral-300">
+              Dashboard
+            </span>
           </h1>
           <p className="page-desc mt-2">
             Real-time overview of your workflows and executions
@@ -140,9 +142,9 @@ export function DashboardPage() {
       />
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/30">
+        <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50 to-white dark:border-rose-900/50 dark:from-rose-950/40 dark:to-neutral-950">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 ring-1 ring-rose-200/50 dark:bg-rose-900/50 dark:text-rose-400 dark:ring-rose-800/50">
               <TriangleAlert className="h-5 w-5" />
             </div>
             <div>
@@ -400,15 +402,15 @@ function StatCard({
   iconBg: string;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", iconBg)}>
+    <div className="group relative flex items-center gap-4 rounded-xl border border-neutral-200/80 bg-white p-4 shadow-sm ring-1 ring-neutral-950/[0.03] transition-all hover:shadow-md dark:border-neutral-800 dark:bg-neutral-950 dark:ring-white/[0.03]">
+      <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-inset ring-black/5 dark:ring-white/5", iconBg)}>
         {icon}
       </div>
       <div>
-        <p className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-50">
+        <p className="text-2xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-50">
           {value}
         </p>
-        <p className="text-[12px] text-neutral-500 dark:text-neutral-400">{label}</p>
+        <p className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">{label}</p>
       </div>
     </div>
   );

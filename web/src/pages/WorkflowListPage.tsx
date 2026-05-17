@@ -87,10 +87,12 @@ export function WorkflowListPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="page-title flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/25">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 text-white shadow-lg shadow-violet-500/20 ring-1 ring-violet-400/20">
               <Workflow className="h-5 w-5" />
             </span>
-            Workflows
+            <span className="bg-gradient-to-r from-neutral-900 to-neutral-700 bg-clip-text text-transparent dark:from-neutral-100 dark:to-neutral-300">
+              Workflows
+            </span>
           </h1>
           <p className="page-desc mt-2">Manage and run your automation pipelines</p>
         </div>
@@ -121,7 +123,7 @@ export function WorkflowListPage() {
           <Button
             type="button"
             variant="secondary"
-            disabled={!projectId || !projectId || loading}
+            disabled={!projectId || loading}
             onClick={() => void load()}
             className="gap-2"
           >
@@ -136,13 +138,20 @@ export function WorkflowListPage() {
       />
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/30">
-          <CardTitle className="text-base text-rose-800 dark:text-rose-200">
-            Could not load workflows
-          </CardTitle>
-          <CardDescription className="text-rose-700/90 dark:text-rose-300/90">
-            {error}
-          </CardDescription>
+        <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50 to-white dark:border-rose-900/50 dark:from-rose-950/40 dark:to-neutral-950">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 ring-1 ring-rose-200/50 dark:bg-rose-900/50 dark:text-rose-400 dark:ring-rose-800/50">
+              <Workflow className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-[15px] text-rose-800 dark:text-rose-200">
+                Could not load workflows
+              </CardTitle>
+              <CardDescription className="mt-1 text-rose-700/90 dark:text-rose-300/90">
+                {error}
+              </CardDescription>
+            </div>
+          </div>
         </Card>
       )}
 
@@ -203,23 +212,30 @@ export function WorkflowListPage() {
               </thead>
               <tbody>
                 {filtered.map((p) => (
-                  <tr key={p.id} className="group">
+                  <tr key={p.id} className="group transition-colors">
                     <td>
                       <Link
                         to={`/app/workflows/${p.id}`}
-                        className="font-medium text-neutral-900 transition-colors hover:text-blue-600 dark:text-neutral-100 dark:hover:text-blue-400"
+                        className="group/link inline-flex items-center gap-1.5 font-medium text-neutral-900 transition-colors hover:text-blue-600 dark:text-neutral-100 dark:hover:text-blue-400"
                       >
-                        {p.name}
+                        <span>{p.name}</span>
+                        <span className="opacity-0 transition-opacity group-hover/link:opacity-100">
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 4l4 4-4 4" />
+                          </svg>
+                        </span>
                       </Link>
-                      <p className="mt-0.5 font-mono text-[10px] text-neutral-400 transition-opacity group-hover:opacity-100 md:opacity-60">
+                      <p className="mt-0.5 font-mono text-[10px] text-neutral-400 transition-opacity group-hover:opacity-100 md:opacity-50">
                         {p.id}
                       </p>
                     </td>
                     <td>
                       <StatusBadge status={p.status} />
                     </td>
-                    <td className="hidden text-neutral-500 dark:text-neutral-400 sm:table-cell">
-                      v{p.currentVersion}
+                    <td className="hidden sm:table-cell">
+                      <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-1.5 py-0.5 font-mono text-[11px] text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
+                        v{p.currentVersion}
+                      </span>
                     </td>
                     <td className="hidden text-neutral-500 dark:text-neutral-400 md:table-cell">
                       {formatShortDateTime(p.updatedAt)}

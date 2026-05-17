@@ -91,11 +91,11 @@ function SidebarNav({
       {!hideBrand && (
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-neutral-200 dark:border-neutral-800",
+          "flex h-14 shrink-0 items-center border-b border-neutral-200/80 dark:border-neutral-800",
           iconOnly ? "justify-center px-2" : "gap-3 px-4",
         )}
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-sm font-bold text-white shadow-lg shadow-blue-600/20">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-sm font-bold text-white shadow-lg shadow-blue-600/20 ring-1 ring-blue-500/20">
           P
         </div>
         {!iconOnly && (
@@ -103,7 +103,7 @@ function SidebarNav({
             <p className="truncate text-[14px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
               Pravah
             </p>
-            <p className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+            <p className="truncate text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
               Control plane
             </p>
           </div>
@@ -233,7 +233,7 @@ export function AppShell() {
 
         <aside
           className={cn(
-            "sticky top-0 z-20 hidden h-dvh shrink-0 flex-col border-r border-neutral-200 bg-white transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 md:flex",
+            "sticky top-0 z-20 hidden h-dvh shrink-0 flex-col border-r border-neutral-200/80 bg-white/95 backdrop-blur-sm transition-[width] duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950/95 md:flex",
             collapsed ? "w-[4.5rem]" : "w-60",
           )}
           aria-label="Main navigation"

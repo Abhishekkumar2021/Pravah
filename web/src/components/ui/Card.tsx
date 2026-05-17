@@ -9,8 +9,9 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-neutral-200 bg-white p-5 shadow-sm",
-        "dark:border-neutral-800 dark:bg-neutral-950",
+        "rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm",
+        "ring-1 ring-neutral-950/[0.03]",
+        "dark:border-neutral-800 dark:bg-neutral-950 dark:ring-white/[0.03]",
         className,
       )}
       {...props}
@@ -27,7 +28,7 @@ export function CardHeader({
   className?: string;
   children: ReactNode;
 }) {
-  return <div className={cn("mb-5 flex flex-col gap-1.5", className)}>{children}</div>;
+  return <div className={cn("mb-5 flex flex-col gap-1", className)}>{children}</div>;
 }
 
 export function CardTitle({

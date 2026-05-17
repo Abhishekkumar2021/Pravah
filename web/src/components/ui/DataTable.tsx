@@ -17,7 +17,9 @@ export function DataTable({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950",
+        "overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-sm",
+        "ring-1 ring-neutral-950/[0.03]",
+        "dark:border-neutral-800 dark:bg-neutral-950 dark:ring-white/[0.03]",
         className,
       )}
     >
