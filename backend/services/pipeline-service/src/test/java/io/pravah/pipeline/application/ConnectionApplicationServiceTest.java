@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.CreateConnectionRequest;
 import io.pravah.pipeline.infrastructure.persistence.entity.ConnectionEntity;
@@ -36,7 +37,9 @@ class ConnectionApplicationServiceTest {
   @BeforeEach
   void setUp() {
     credentialResolver = new ConnectionCredentialResolver();
-    service = new ConnectionApplicationService(connectionRepository, credentialResolver);
+    service =
+        new ConnectionApplicationService(
+            connectionRepository, credentialResolver, new ObjectMapper());
     tenantId = UUID.randomUUID();
     userId = UUID.randomUUID();
     TenantContext.setCurrentTenantId(tenantId);
@@ -80,8 +83,10 @@ class ConnectionApplicationServiceTest {
             "url", "jdbc:postgresql://localhost:5432/pravah",
             "username", "pravah",
             "credentials", Map.of("password", "env:TEST_UNUSED_VAR"));
+    ObjectMapper mapper = new ObjectMapper();
     ConnectionEntity entity =
-        new ConnectionEntity(tenantId, "warehouse", "postgres", config, userId, Instant.now());
+        new ConnectionEntity(
+            tenantId, "warehouse", "postgres", mapper.valueToTree(config), userId, Instant.now());
     when(connectionRepository.findByTenantIdAndName(tenantId, "warehouse"))
         .thenReturn(Optional.of(entity));
 

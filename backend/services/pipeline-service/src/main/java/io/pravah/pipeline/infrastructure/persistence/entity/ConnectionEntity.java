@@ -1,5 +1,6 @@
 package io.pravah.pipeline.infrastructure.persistence.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,7 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -32,7 +32,7 @@ public class ConnectionEntity {
 
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(nullable = false, columnDefinition = "jsonb")
-  private Map<String, Object> config;
+  private JsonNode config;
 
   @Column(name = "created_by", nullable = false)
   private UUID createdBy;
@@ -43,12 +43,7 @@ public class ConnectionEntity {
   protected ConnectionEntity() {}
 
   public ConnectionEntity(
-      UUID tenantId,
-      String name,
-      String type,
-      Map<String, Object> config,
-      UUID createdBy,
-      Instant createdAt) {
+      UUID tenantId, String name, String type, JsonNode config, UUID createdBy, Instant createdAt) {
     this.tenantId = tenantId;
     this.name = name;
     this.type = type;
@@ -73,7 +68,7 @@ public class ConnectionEntity {
     return type;
   }
 
-  public Map<String, Object> getConfig() {
+  public JsonNode getConfig() {
     return config;
   }
 
@@ -85,7 +80,7 @@ public class ConnectionEntity {
     return createdAt;
   }
 
-  public void updateConfig(Map<String, Object> config) {
+  public void updateConfig(JsonNode config) {
     this.config = config;
   }
 }

@@ -11,12 +11,17 @@ import io.pravah.pipeline.domain.SecretProvider;
 import io.pravah.pipeline.infrastructure.persistence.entity.TenantSecretEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.TenantSecretRepository;
 import io.pravah.spring.multitenancy.TenantContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +36,12 @@ public class SecretApplicationService {
   private static final Logger log = LoggerFactory.getLogger(SecretApplicationService.class);
 
   private final TenantSecretRepository secretRepository;
+  private final EntityManager entityManager;
 
-  public SecretApplicationService(TenantSecretRepository secretRepository) {
+  public SecretApplicationService(
+      TenantSecretRepository secretRepository, EntityManager entityManager) {
     this.secretRepository = secretRepository;
+    this.entityManager = entityManager;
   }
 
   @Transactional
@@ -60,10 +68,20 @@ public class SecretApplicationService {
                   request.providerPath().trim(),
                   userId.value(),
                   Instant.now()));
+      entityManager.flush();
       return toResponse(entity);
     } catch (DataIntegrityViolationException e) {
-      throw new DuplicateSecretNameException(
-          "A secret with this name already exists in the tenant", e);
+      throw duplicateSecretName(request.name(), e);
+    } catch (JpaSystemException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateSecretName(request.name(), e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateSecretName(request.name(), e);
+      }
+      throw e;
     }
   }
 
@@ -211,5 +229,26 @@ public class SecretApplicationService {
         entity.getCreatedBy(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
+  }
+
+  private DuplicateSecretNameException duplicateSecretName(String name, Throwable cause) {
+    log.warn(
+        "Duplicate secret name",
+        kv("tenant_id", TenantContext.getCurrentTenantId()),
+        kv("secret_name", name));
+    return new DuplicateSecretNameException(
+        "A secret with this name already exists in the tenant", cause);
+  }
+
+  private static boolean isUniqueConstraintViolation(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ConstraintViolationException) {
+        return true;
+      }
+      if (t instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+        return true;
+      }
+    }
+    return false;
   }
 }

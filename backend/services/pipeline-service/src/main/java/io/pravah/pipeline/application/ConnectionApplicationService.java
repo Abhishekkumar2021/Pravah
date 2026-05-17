@@ -2,6 +2,8 @@ package io.pravah.pipeline.application;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.ConnectionResponse;
@@ -12,13 +14,17 @@ import io.pravah.pipeline.domain.PostgresConnectionConfig;
 import io.pravah.pipeline.infrastructure.persistence.entity.ConnectionEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.ConnectionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
+import jakarta.persistence.PersistenceException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,11 +35,15 @@ public class ConnectionApplicationService {
 
   private final ConnectionRepository connectionRepository;
   private final ConnectionCredentialResolver credentialResolver;
+  private final ObjectMapper objectMapper;
 
   public ConnectionApplicationService(
-      ConnectionRepository connectionRepository, ConnectionCredentialResolver credentialResolver) {
+      ConnectionRepository connectionRepository,
+      ConnectionCredentialResolver credentialResolver,
+      ObjectMapper objectMapper) {
     this.connectionRepository = connectionRepository;
     this.credentialResolver = credentialResolver;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional
@@ -55,10 +65,25 @@ public class ConnectionApplicationService {
       ConnectionEntity entity =
           connectionRepository.save(
               new ConnectionEntity(
-                  tenantId, request.name().trim(), type, config, userId.value(), Instant.now()));
+                  tenantId,
+                  request.name().trim(),
+                  type,
+                  objectMapper.valueToTree(config),
+                  userId.value(),
+                  Instant.now()));
       return toResponse(entity);
     } catch (DataIntegrityViolationException e) {
       throw duplicateName(request.name(), e);
+    } catch (JpaSystemException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateName(request.name(), e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateName(request.name(), e);
+      }
+      throw e;
     }
   }
 
@@ -90,7 +115,7 @@ public class ConnectionApplicationService {
       Map<String, Object> newConfig = copyConfig(request.config());
       validateConfig(entity.getType(), newConfig);
       credentialResolver.validateCredentials(newConfig);
-      entity.updateConfig(newConfig);
+      entity.updateConfig(objectMapper.valueToTree(newConfig));
     }
     return toResponse(entity);
   }
@@ -107,14 +132,15 @@ public class ConnectionApplicationService {
   @Transactional(readOnly = true)
   public ResolvedConnection resolveForExecution(String name) {
     ConnectionEntity entity = findByNameOrThrow(name);
-    String password = credentialResolver.resolvePassword(entity.getConfig());
+    Map<String, Object> config = configFromEntity(entity);
+    String password = credentialResolver.resolvePassword(config);
     return switch (entity.getType()) {
       case "postgres" ->
           new ResolvedConnection(
               entity.getName(),
               entity.getType(),
-              PostgresConnectionConfig.resolveJdbcUrl(entity.getConfig()),
-              PostgresConnectionConfig.resolveUsername(entity.getConfig()),
+              PostgresConnectionConfig.resolveJdbcUrl(config),
+              PostgresConnectionConfig.resolveUsername(config),
               password);
       default ->
           throw new IllegalStateException("Unsupported connection type: " + entity.getType());
@@ -159,13 +185,40 @@ public class ConnectionApplicationService {
     }
   }
 
-  private static Map<String, Object> copyConfig(Map<String, Object> config) {
-    return Map.copyOf(config);
+  /**
+   * Deep-copies config to plain maps so JSONB round-trips and API responses do not expose Hibernate
+   * collection proxies (which Jackson would serialize as {@code {empty, traversableAgain}}).
+   */
+  private Map<String, Object> copyConfig(Map<String, Object> config) {
+    return normalizeConfig(config);
+  }
+
+  private Map<String, Object> normalizeConfig(Map<String, Object> config) {
+    if (config == null || config.isEmpty()) {
+      return Map.of();
+    }
+    return objectMapper.convertValue(config, new TypeReference<Map<String, Object>>() {});
   }
 
   private DuplicateConnectionNameException duplicateName(String name, Throwable cause) {
+    log.warn(
+        "Duplicate connection name",
+        kv("tenant_id", TenantContext.getCurrentTenantId()),
+        kv("connection_name", name));
     return new DuplicateConnectionNameException(
         "A connection with this name already exists in the tenant", cause);
+  }
+
+  private static boolean isUniqueConstraintViolation(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof ConstraintViolationException) {
+        return true;
+      }
+      if (t instanceof SQLException sql && "23505".equals(sql.getSQLState())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static UUID requireTenantId() {
@@ -184,12 +237,17 @@ public class ConnectionApplicationService {
     return UserId.of(userId);
   }
 
+  private Map<String, Object> configFromEntity(ConnectionEntity entity) {
+    return objectMapper.convertValue(
+        entity.getConfig(), new TypeReference<Map<String, Object>>() {});
+  }
+
   private ConnectionResponse toResponse(ConnectionEntity entity) {
     return new ConnectionResponse(
         entity.getId(),
         entity.getName(),
         entity.getType(),
-        entity.getConfig(),
+        configFromEntity(entity),
         entity.getCreatedBy(),
         entity.getCreatedAt());
   }

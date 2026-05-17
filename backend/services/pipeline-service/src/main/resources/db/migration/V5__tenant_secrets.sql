@@ -1,4 +1,4 @@
--- Tenant-scoped secret references for ${secret.name} resolution (docs/lld/07-value-resolution.md)
+-- Tenant-scoped secret references for pipeline secret interpolation (docs/lld/07-value-resolution.md)
 -- Actual secret values stored in external providers (env, Vault, AWS SM)
 
 CREATE TABLE tenant_secrets (

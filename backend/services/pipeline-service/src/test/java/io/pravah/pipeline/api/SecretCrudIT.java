@@ -1,182 +1,187 @@
 package io.pravah.pipeline.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import io.pravah.pipeline.PipelineServiceApplication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.pipeline.api.dto.CreateSecretRequest;
-import io.pravah.pipeline.api.dto.SecretResponse;
 import io.pravah.pipeline.api.dto.UpdateSecretRequest;
+import io.pravah.pipeline.infrastructure.persistence.repository.TenantSecretRepository;
+import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.test.security.TestJwtIssuer;
+import io.pravah.test.security.TestSecurityConfiguration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
-@SpringBootTest(
-    classes = PipelineServiceApplication.class,
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
+@Import(TestSecurityConfiguration.class)
 class SecretCrudIT extends AbstractPipelinePostgresIT {
 
-  @LocalServerPort private int port;
-
-  @Autowired private TestRestTemplate restTemplate;
-
-  private static final UUID TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-  private static final UUID USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
+  @Autowired private MockMvc mockMvc;
+  @Autowired private ObjectMapper objectMapper;
+  @Autowired private TestJwtIssuer testJwtIssuer;
+  @Autowired private TenantSecretRepository secretRepository;
 
   @Test
-  void createListGetUpdateDelete_roundTrip() {
-    HttpHeaders headers = createHeaders();
+  void createListGetUpdateDelete_roundTrip() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreateSecretRequest createRequest =
         new CreateSecretRequest("api_key", "External API key", "env", "MY_API_KEY");
 
-    ResponseEntity<SecretResponse> createResponse =
-        restTemplate.postForEntity(
-            baseUrl() + "/api/v1/secrets",
-            new HttpEntity<>(createRequest, headers),
-            SecretResponse.class);
+    MvcResult created =
+        mockMvc
+            .perform(
+                post("/api/v1/secrets")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(createRequest)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.name").value("api_key"))
+            .andExpect(jsonPath("$.provider").value("env"))
+            .andExpect(jsonPath("$.providerPath").value("MY_API_KEY"))
+            .andReturn();
 
-    assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-    SecretResponse created = createResponse.getBody();
-    assertThat(created).isNotNull();
-    assertThat(created.id()).isNotNull();
-    assertThat(created.name()).isEqualTo("api_key");
-    assertThat(created.provider()).isEqualTo("env");
-    assertThat(created.providerPath()).isEqualTo("MY_API_KEY");
+    UUID secretId =
+        UUID.fromString(
+            objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText());
 
-    ResponseEntity<SecretResponse[]> listResponse =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets",
-            HttpMethod.GET,
-            new HttpEntity<>(headers),
-            SecretResponse[].class);
+    mockMvc
+        .perform(get("/api/v1/secrets").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("api_key"));
 
-    assertThat(listResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(listResponse.getBody()).hasSize(1);
+    mockMvc
+        .perform(get("/api/v1/secrets/{id}", secretId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("api_key"));
 
-    ResponseEntity<SecretResponse> getResponse =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets/" + created.id(),
-            HttpMethod.GET,
-            new HttpEntity<>(headers),
-            SecretResponse.class);
-
-    assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(getResponse.getBody().name()).isEqualTo("api_key");
-
-    ResponseEntity<SecretResponse> getByNameResponse =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets/by-name/api_key",
-            HttpMethod.GET,
-            new HttpEntity<>(headers),
-            SecretResponse.class);
-
-    assertThat(getByNameResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(getByNameResponse.getBody().id()).isEqualTo(created.id());
+    mockMvc
+        .perform(
+            get("/api/v1/secrets/by-name/{name}", "api_key")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(secretId.toString()));
 
     UpdateSecretRequest updateRequest =
         new UpdateSecretRequest("Updated description", "env", "NEW_ENV_VAR");
 
-    ResponseEntity<SecretResponse> updateResponse =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets/" + created.id(),
-            HttpMethod.PUT,
-            new HttpEntity<>(updateRequest, headers),
-            SecretResponse.class);
+    mockMvc
+        .perform(
+            put("/api/v1/secrets/{id}", secretId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateRequest)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.description").value("Updated description"))
+        .andExpect(jsonPath("$.providerPath").value("NEW_ENV_VAR"));
 
-    assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(updateResponse.getBody().description()).isEqualTo("Updated description");
-    assertThat(updateResponse.getBody().providerPath()).isEqualTo("NEW_ENV_VAR");
+    mockMvc
+        .perform(
+            delete("/api/v1/secrets/{id}", secretId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isNoContent());
 
-    ResponseEntity<Void> deleteResponse =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets/" + created.id(),
-            HttpMethod.DELETE,
-            new HttpEntity<>(headers),
-            Void.class);
-
-    assertThat(deleteResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-
-    ResponseEntity<SecretResponse[]> afterDelete =
-        restTemplate.exchange(
-            baseUrl() + "/api/v1/secrets",
-            HttpMethod.GET,
-            new HttpEntity<>(headers),
-            SecretResponse[].class);
-
-    assertThat(afterDelete.getBody()).isEmpty();
+    try {
+      TenantContext.setCurrentTenantId(tenantId);
+      assertThat(secretRepository.findById(secretId)).isEmpty();
+    } finally {
+      TenantContext.clear();
+    }
   }
 
   @Test
-  void createSecret_duplicateName_returns409() {
-    HttpHeaders headers = createHeaders();
+  void createSecret_duplicateName_returns409() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
     CreateSecretRequest request = new CreateSecretRequest("dup_secret", null, "env", "VAR");
 
-    restTemplate.postForEntity(
-        baseUrl() + "/api/v1/secrets", new HttpEntity<>(request, headers), SecretResponse.class);
+    mockMvc
+        .perform(
+            post("/api/v1/secrets")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isCreated());
 
-    ResponseEntity<String> duplicateResponse =
-        restTemplate.postForEntity(
-            baseUrl() + "/api/v1/secrets", new HttpEntity<>(request, headers), String.class);
-
-    assertThat(duplicateResponse.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+    mockMvc
+        .perform(
+            post("/api/v1/secrets")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isConflict());
   }
 
   @Test
-  void createSecret_invalidName_returns400() {
-    HttpHeaders headers = createHeaders();
+  void createSecret_invalidName_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
     CreateSecretRequest request = new CreateSecretRequest("Invalid-Name", null, "env", "VAR");
 
-    ResponseEntity<String> response =
-        restTemplate.postForEntity(
-            baseUrl() + "/api/v1/secrets", new HttpEntity<>(request, headers), String.class);
-
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    mockMvc
+        .perform(
+            post("/api/v1/secrets")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest());
   }
 
   @Test
-  void createSecret_invalidProvider_returns400() {
-    HttpHeaders headers = createHeaders();
+  void createSecret_invalidProvider_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
     CreateSecretRequest request =
         new CreateSecretRequest("valid_name", null, "unknown_provider", "path");
 
-    ResponseEntity<String> response =
-        restTemplate.postForEntity(
-            baseUrl() + "/api/v1/secrets", new HttpEntity<>(request, headers), String.class);
-
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    mockMvc
+        .perform(
+            post("/api/v1/secrets")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest());
   }
 
   @Test
-  void createSecret_vaultProviderWithoutKey_returns400() {
-    HttpHeaders headers = createHeaders();
+  void createSecret_vaultProviderWithoutKey_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
     CreateSecretRequest request =
         new CreateSecretRequest("vault_secret", null, "vault", "secret/path/without/key");
 
-    ResponseEntity<String> response =
-        restTemplate.postForEntity(
-            baseUrl() + "/api/v1/secrets", new HttpEntity<>(request, headers), String.class);
-
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(response.getBody()).contains("key");
-  }
-
-  private String baseUrl() {
-    return "http://localhost:" + port;
-  }
-
-  private HttpHeaders createHeaders() {
-    HttpHeaders headers = new HttpHeaders();
-    headers.set("Content-Type", "application/json");
-    headers.set("X-Tenant-ID", TENANT_ID.toString());
-    headers.set("X-User-ID", USER_ID.toString());
-    return headers;
+    mockMvc
+        .perform(
+            post("/api/v1/secrets")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().string(containsString("key")));
   }
 }
