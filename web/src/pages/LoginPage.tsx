@@ -130,7 +130,12 @@ export function LoginPage() {
                   Remember me
                 </Label>
               </div>
-              <span className="text-neutral-400">Forgot password</span>
+              <Link
+                to="/forgot-password"
+                className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Forgot password?
+              </Link>
             </div>
             {error && (
               <p className="text-[13px] text-rose-600 dark:text-rose-400" role="alert">

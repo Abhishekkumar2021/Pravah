@@ -5,7 +5,16 @@ import { Pill, StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
-import { ApiError, getDevBearerToken, getPipeline, listExecutions, type PipelineDetailResponse } from "@/lib/api";
+import { WorkflowDAG } from "@/components/workflow/WorkflowDAG";
+import {
+  ApiError,
+  getDevBearerToken,
+  getPipeline,
+  getPipelineVersionDefinition,
+  listExecutions,
+  type PipelineDetailResponse,
+  type StageDefinition,
+} from "@/lib/api";
 import { formatShortDateTime, formatExecutionWallDuration } from "@/lib/format";
 
 const tabs = ["Overview", "Runs", "Schedule", "Settings"] as const;
@@ -22,6 +31,7 @@ export function WorkflowDetailPage() {
     { id: string; status: string; label: string }[]
   >([]);
   const [runsError, setRunsError] = useState<string | null>(null);
+  const [stages, setStages] = useState<StageDefinition[]>([]);
 
   const isUuid = workflowId ? UUID_RE.test(workflowId) : false;
 
@@ -31,6 +41,7 @@ export function WorkflowDetailPage() {
       setLoadError(null);
       setRecentRuns([]);
       setRunsError(null);
+      setStages([]);
       return;
     }
     if (!getDevBearerToken()) {
@@ -38,6 +49,7 @@ export function WorkflowDetailPage() {
       setPipeline(null);
       setRecentRuns([]);
       setRunsError(null);
+      setStages([]);
       return;
     }
 
@@ -48,7 +60,18 @@ export function WorkflowDetailPage() {
 
     void getPipeline(workflowId)
       .then((p) => {
-        if (!cancelled) setPipeline(p);
+        if (!cancelled) {
+          setPipeline(p);
+          void getPipelineVersionDefinition(workflowId, p.currentVersion)
+            .then((def) => {
+              if (!cancelled && def.definition?.stages) {
+                setStages(def.definition.stages);
+              }
+            })
+            .catch(() => {
+              if (!cancelled) setStages([]);
+            });
+        }
       })
       .catch((e: unknown) => {
         if (!cancelled) {
@@ -170,14 +193,12 @@ export function WorkflowDetailPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Definition snapshot</CardTitle>
+                <CardTitle>Pipeline stages</CardTitle>
                 <CardDescription>
-                  Visual DAG editor is <span className="font-medium">US-12.06</span>. Placeholder canvas below.
+                  Visual DAG representation of pipeline stages (<span className="font-medium">US-12.05</span>).
                 </CardDescription>
               </CardHeader>
-              <div className="flex aspect-[16/9] max-h-72 items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 text-[13px] text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-400">
-                DAG canvas
-              </div>
+              <WorkflowDAG stages={stages} className="max-h-80" />
             </Card>
             <Card>
               <CardHeader>

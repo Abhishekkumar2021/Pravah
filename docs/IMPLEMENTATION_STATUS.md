@@ -31,8 +31,8 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Runner fleet + gRPC | **Planned** | `runner/` CLI skeleton; no live runner dispatch |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
-**Rough progress vs full product vision (~180 user stories): ~30–35%.**  
-**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~50–55%.**
+**Rough progress vs full product vision (~180 user stories): ~35–40%.**  
+**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~70–75%.**
 
 ---
 
@@ -92,18 +92,46 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 ---
 
+## Security (EPIC-10)
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-10.01 Local auth | Partial | Login, register, bcrypt, lockout; password reset stub (no email delivery) |
+| US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
+| US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
+
+---
+
+## UI/UX (EPIC-12 alpha stories)
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-12.01 Login page | Implemented | Email/password, forgot password link, remember me |
+| US-12.02 Global navigation | Implemented | Sidebar, active state, breadcrumbs |
+| US-12.03 Dashboard home | Implemented | Recent workflows, active runs, failures, quick actions |
+| US-12.04 Workflow list | Implemented | Sortable table, status filter, search, pagination |
+| US-12.05 Workflow detail | Implemented | Header, visual DAG, recent runs, schedules |
+| US-12.07 Run list | Implemented | Filter, status badges, duration |
+| US-12.08 Run detail | Implemented | Per-stage status, expandable logs, retry/cancel |
+| US-12.09 Log viewer | Implemented | Syntax highlighting, level filter, search, download, jump to error |
+
+**Not yet:** US-12.06 Visual DAG editor (drag-drop stage creation).
+
+---
+
 ## Web UI (`web/`)
 
-| Area | Status |
-|------|--------|
-| Login, shell, dashboard | Implemented |
-| Workflows list / detail | Implemented |
-| Runs list / detail | Implemented |
-| Cancel run | Implemented |
-| Schedules on workflow | Implemented |
-| Real-time run status | Implemented (WebSocket) |
-| Stage output debug panel | Implemented (`RunJobOutputPanel`, US-02.10) |
-| GraphQL read model | Planned (ADR-033) |
+| Area | Status | Notes |
+|------|--------|-------|
+| Login, shell, dashboard | Implemented | Forgot password link (US-10.01), recent failures widget (US-12.03) |
+| Workflows list / detail | Implemented | Search by name (US-12.04), visual DAG (US-12.05) |
+| Runs list / detail | Implemented | Retry from failed stage (US-02.05), retryOf lineage |
+| Cancel run | Implemented | |
+| Schedules on workflow | Implemented | |
+| Real-time run status | Implemented (WebSocket) | |
+| Log viewer | Implemented | Level filter, search, download, jump to error (US-12.09) |
+| Stage output debug panel | Implemented | `RunJobOutputPanel` (US-02.10), resource panel |
+| GraphQL read model | Planned | ADR-033 |
 
 ---
 
