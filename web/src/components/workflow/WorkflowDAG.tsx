@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Box, Circle, Container } from "lucide-react";
+import { Box, Circle, Container, Database, FileCode2, Sparkles } from "lucide-react";
 import type { StageDefinition } from "@/lib/api";
 import { cn } from "@/lib/cn";
 
@@ -24,10 +24,16 @@ type Edge = {
 
 function getStageTypeIcon(type: string) {
   switch (type.toLowerCase()) {
+    case "sql":
+      return <Database className="h-4 w-4" />;
     case "container":
       return <Container className="h-4 w-4" />;
-    case "sql":
+    case "python":
+      return <FileCode2 className="h-4 w-4" />;
+    case "dbt":
       return <Box className="h-4 w-4" />;
+    case "spark":
+      return <Sparkles className="h-4 w-4" />;
     default:
       return <Circle className="h-4 w-4" />;
   }
@@ -35,12 +41,18 @@ function getStageTypeIcon(type: string) {
 
 function getStageTypeColor(type: string) {
   switch (type.toLowerCase()) {
-    case "container":
-      return "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-300";
     case "sql":
       return "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-300";
+    case "container":
+      return "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-300";
     case "echo":
       return "bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-300";
+    case "python":
+      return "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300";
+    case "dbt":
+      return "bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-300";
+    case "spark":
+      return "bg-rose-100 border-rose-300 text-rose-700 dark:bg-rose-950 dark:border-rose-800 dark:text-rose-300";
     default:
       return "bg-neutral-100 border-neutral-300 text-neutral-700 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-300";
   }

@@ -3,6 +3,7 @@ package io.pravah.execution.infrastructure.config;
 import io.pravah.spring.security.ApiTenantJwtFilter;
 import io.pravah.spring.security.InternalServiceAuthFilter;
 import io.pravah.spring.security.JwtTokenVerifier;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,11 @@ public class SecurityConfig {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            exceptions ->
+                exceptions.authenticationEntryPoint(
+                    (request, response, authException) ->
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers("/actuator/health/**", "/actuator/info")

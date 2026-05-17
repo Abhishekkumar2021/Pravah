@@ -14,7 +14,7 @@ const fetchMock = vi.fn();
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
-  localStorage.setItem("pravah.devBearerToken", "test-token");
+  localStorage.setItem("pravah.accessToken", "test-token");
 });
 
 afterEach(() => {

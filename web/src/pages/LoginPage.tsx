@@ -1,17 +1,31 @@
 import { Github, Lock, Mail } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { DevTokenCard } from "@/components/workspace/DevTokenCard";
-import { ProjectScopeCard } from "@/components/workspace/ProjectScopeCard";
 import { ApiError, login } from "@/lib/api";
+
+function safeRedirectPath(raw: string | null): string {
+  if (!raw) {
+    return "/app/dashboard";
+  }
+  try {
+    const path = decodeURIComponent(raw);
+    if (path.startsWith("/app")) {
+      return path;
+    }
+  } catch {
+    /* ignore malformed redirect */
+  }
+  return "/app/dashboard";
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("dev@localhost.pravah");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +38,7 @@ export function LoginPage() {
     setError(null);
     try {
       await login(email.trim(), password);
-      navigate("/app/dashboard");
+      navigate(safeRedirectPath(searchParams.get("redirect")), { replace: true });
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 500) {
         setError(
@@ -173,20 +187,6 @@ export function LoginPage() {
           <p className="mt-8 text-center text-[12px] text-neutral-500 dark:text-neutral-500">
             SSO and OAuth are placeholders per{" "}
             <span className="font-medium text-neutral-600 dark:text-neutral-400">US-12.01</span>.
-          </p>
-          <div className="mt-10 space-y-4 border-t border-neutral-200 pt-10 dark:border-neutral-800">
-            <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">Local development</p>
-            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
-              Or paste a dev JWT below (password after{" "}
-              <span className="font-mono">make local-seed</span>: PravahDev1!).
-            </p>
-            <DevTokenCard />
-            <ProjectScopeCard />
-          </div>
-          <p className="mt-6 text-center text-[13px] text-neutral-500">
-            <Link to="/app/dashboard" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-              Skip to app shell
-            </Link>
           </p>
         </div>
       </div>

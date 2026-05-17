@@ -41,7 +41,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Service | Port (local) | Status | Capabilities |
 |---------|--------------|--------|--------------|
 | **gateway** | 8080 | Implemented | Routes REST/WS to services (`application.yml`) |
-| **tenant-service** | 8082 | Implemented | Dev auth, JWT/JWKS, users, tenants, roles, API tokens |
+| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, users, tenants, roles, API tokens |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime |
 | **scheduler-service** | 8085 | Implemented | Cron schedules API, triggers execution-service |

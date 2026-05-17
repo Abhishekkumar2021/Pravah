@@ -19,7 +19,7 @@ function renderPage() {
 
 describe("WorkflowListPage", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     localStorage.setItem("pravah.defaultProjectId", PROJECT_ID);
     vi.spyOn(api, "listPipelines").mockResolvedValue({
       content: [

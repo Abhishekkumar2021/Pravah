@@ -16,9 +16,11 @@ import io.pravah.tenant.application.dto.UserRoleSummary;
 import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.TenantMember;
 import io.pravah.tenant.domain.model.User;
+import io.pravah.tenant.domain.repository.PasswordResetTokenRepository;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import io.pravah.tenant.infrastructure.config.AuthProperties;
+import io.pravah.tenant.infrastructure.email.PasswordResetEmailService;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Duration;
@@ -44,6 +46,8 @@ class AuthServiceTest {
   @Mock private JwtTokenIssuer jwtTokenIssuer;
   @Mock private AuthRlsHelper authRlsHelper;
   @Mock private RoleService roleService;
+  @Mock private PasswordResetTokenRepository passwordResetTokenRepository;
+  @Mock private PasswordResetEmailService passwordResetEmailService;
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private AuthService authService;
@@ -51,7 +55,14 @@ class AuthServiceTest {
 
   @BeforeEach
   void setUp() {
-    AuthProperties properties = new AuthProperties(5, Duration.ofMinutes(15), TENANT_ID);
+    AuthProperties properties =
+        new AuthProperties(
+            5,
+            Duration.ofMinutes(15),
+            TENANT_ID,
+            Duration.ofHours(1),
+            "http://localhost:5173",
+            "noreply@localhost.pravah");
     authService =
         new AuthService(
             userRepository,
@@ -60,7 +71,9 @@ class AuthServiceTest {
             jwtTokenIssuer,
             properties,
             authRlsHelper,
-            roleService);
+            roleService,
+            passwordResetTokenRepository,
+            passwordResetEmailService);
     passwordHash = passwordEncoder.encode("PravahDev1!");
     lenient()
         .when(roleService.resolveAuthorization(TENANT_ID, USER_ID))

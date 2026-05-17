@@ -72,4 +72,4 @@ echo "  Runs:      5 executions (failed, running, succeeded, pending, cancelled)
 echo "  Job logs:  seeded for failed / running / succeeded / cancelled stages"
 echo ""
 echo "Try run detail:  http://localhost:5173/app/runs/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbb0001"
-echo "Sign in:         dev@localhost.pravah / PravahDev1!  (or make local-dev-token)"
+echo "Sign in:         dev@localhost.pravah / PravahDev1!"

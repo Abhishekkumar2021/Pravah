@@ -3,7 +3,7 @@ import {
   EXECUTION_ID,
   PIPELINE_ID,
   mockExecutionBody,
-  seedDevBearerToken,
+  seedSession,
 } from "./helpers";
 import { mockExecutionWebSocket, WS_CONNECTED_TITLE } from "./ws-mock";
 
@@ -12,7 +12,7 @@ import { mockExecutionWebSocket, WS_CONNECTED_TITLE } from "./ws-mock";
  */
 test.describe("Runs list realtime (US-12.10)", () => {
   test.beforeEach(async ({ page }) => {
-    await seedDevBearerToken(page);
+    await seedSession(page);
   });
 
   test("shows Live badge and refreshes list on execution.updated", async ({ page }) => {

@@ -19,7 +19,7 @@ const PIPELINE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001";
 
 describe("WorkflowSchedulePanel", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     vi.spyOn(api, "listSchedules").mockResolvedValue([]);
   });
 
@@ -30,13 +30,4 @@ describe("WorkflowSchedulePanel", () => {
     expect(screen.getByText("Schedules")).toBeVisible();
   });
 
-  it("shows sign-in message without token", async () => {
-    localStorage.removeItem("pravah.devBearerToken");
-
-    renderPanel();
-
-    expect(
-      await screen.findByText(/Sign in or add a development JWT/i),
-    ).toBeVisible();
-  });
 });

@@ -12,7 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { TableSkeleton } from "@/components/ui/Skeleton";
-import { ApiError, getDevBearerToken, listPipelines, type PipelineResponse } from "@/lib/api";
+import { ApiError, listPipelines, type PipelineResponse } from "@/lib/api";
 import { formatShortDateTime } from "@/lib/format";
 import { getResolvedProjectId } from "@/lib/workspace";
 import { cn } from "@/lib/cn";
@@ -30,12 +30,10 @@ export function WorkflowListPage() {
   const pageSize = 20;
 
   const projectId = getResolvedProjectId();
-  const hasToken = Boolean(getDevBearerToken());
 
   const load = useCallback(async () => {
     const pid = getResolvedProjectId();
-    const token = getDevBearerToken();
-    if (!pid || !token) {
+    if (!pid) {
       setRows([]);
       setTotalPages(0);
       setTotalElements(0);
@@ -123,7 +121,7 @@ export function WorkflowListPage() {
           <Button
             type="button"
             variant="secondary"
-            disabled={!projectId || !hasToken || loading}
+            disabled={!projectId || !projectId || loading}
             onClick={() => void load()}
             className="gap-2"
           >
@@ -135,7 +133,6 @@ export function WorkflowListPage() {
 
       <AlphaSetupBanner
         onProjectSaved={() => setProjectNonce((n) => n + 1)}
-        onTokenSaved={() => setProjectNonce((n) => n + 1)}
       />
 
       {error && (
@@ -149,7 +146,7 @@ export function WorkflowListPage() {
         </Card>
       )}
 
-      {projectId && hasToken && (
+      {projectId && (
         <DataTable
           aria-label="Workflows"
           footer={

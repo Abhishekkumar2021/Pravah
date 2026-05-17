@@ -4,7 +4,7 @@ import {
   PIPELINE_ID,
   mockExecutionBody,
   mockPipelineBody,
-  seedDevBearerToken,
+  seedSession,
   TEST_JWT,
 } from "./helpers";
 import { mockExecutionWebSocket, WS_CONNECTED_TITLE } from "./ws-mock";
@@ -14,7 +14,7 @@ import { mockExecutionWebSocket, WS_CONNECTED_TITLE } from "./ws-mock";
  */
 test.describe("Run detail realtime (US-12.10)", () => {
   test.beforeEach(async ({ page }) => {
-    await seedDevBearerToken(page);
+    await seedSession(page);
   });
 
   test("shows Live badge when WebSocket connects for a pending run", async ({ page }) => {
@@ -76,8 +76,8 @@ test.describe("Run detail realtime (US-12.10)", () => {
   });
 });
 
-test.describe("Run detail realtime without dev token", () => {
-  test("does not open WebSocket without dev bearer token", async ({ page }) => {
+test.describe("Run detail realtime without session", () => {
+  test("redirects to sign-in and does not open WebSocket", async ({ page }) => {
     await page.route(`**/api/v1/executions/${EXECUTION_ID}`, async (route) => {
       await route.fulfill({
         status: 200,
@@ -101,6 +101,7 @@ test.describe("Run detail realtime without dev token", () => {
 
     await page.goto(`/app/runs/${EXECUTION_ID}`);
 
+    await expect(page).toHaveURL(/\/login/);
     await expect(page.getByTitle(WS_CONNECTED_TITLE)).toHaveCount(0);
     expect(wsConnections).toBe(0);
   });

@@ -2,7 +2,12 @@ import { useSyncExternalStore, useState } from "react";
 import { Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { ApiError, createExecution, getDevBearerToken, subscribeDevBearerToken } from "@/lib/api";
+import {
+  ApiError,
+  createExecution,
+  hasValidSession,
+  subscribeSession,
+} from "@/lib/api";
 import { cn } from "@/lib/cn";
 
 type TriggerRunButtonProps = {
@@ -25,9 +30,9 @@ export function TriggerRunButton({
   label = "Run",
 }: TriggerRunButtonProps) {
   const navigate = useNavigate();
-  const hasToken = useSyncExternalStore(
-    subscribeDevBearerToken,
-    () => Boolean(getDevBearerToken()),
+  const sessionActive = useSyncExternalStore(
+    subscribeSession,
+    () => hasValidSession(),
     () => false,
   );
   const [loading, setLoading] = useState(false);
@@ -40,15 +45,17 @@ export function TriggerRunButton({
       const res = await createExecution(pipelineId, pipelineVersion);
       navigate(`/app/runs/${res.id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        setError("Session expired or invalid. Sign in again.");
+      } else {
+        setError(e instanceof ApiError ? e.message : String(e));
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  const title = !hasToken
-    ? "Add a development JWT (Runs → Dev token) to start a run"
-    : error ?? undefined;
+  const title = !sessionActive ? "Sign in to start a run" : (error ?? undefined);
 
   return (
     <div className={cn("inline-flex flex-col items-end gap-1", className)}>
@@ -56,7 +63,7 @@ export function TriggerRunButton({
         type="button"
         variant={variant}
         className={cn(size === "sm" && "h-8 px-3 text-[12px]")}
-        disabled={disabled || !hasToken || loading}
+        disabled={disabled || !sessionActive || loading}
         aria-busy={loading}
         title={title}
         onClick={() => void handleRun()}

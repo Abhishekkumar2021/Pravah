@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScheduleForm } from "@/components/workspace/ScheduleForm";
 import { ScheduleList } from "@/components/workspace/ScheduleList";
-import { ApiError, getDevBearerToken, listSchedules, type ScheduleResponse } from "@/lib/api";
+import { ApiError, listSchedules, type ScheduleResponse } from "@/lib/api";
 
 type WorkflowSchedulePanelProps = {
   pipelineId: string;
@@ -13,11 +13,6 @@ export function WorkflowSchedulePanel({ pipelineId }: WorkflowSchedulePanelProps
   const [error, setError] = useState<string | null>(null);
 
   const loadSchedules = useCallback(async () => {
-    if (!getDevBearerToken()) {
-      setSchedules([]);
-      setError("Sign in or add a development JWT (Runs → Dev token) to manage schedules.");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {

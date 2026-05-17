@@ -32,7 +32,7 @@ backend/
 │   └── connect-service/         # External integrations
 ├── runner/                      # Standalone runner binary (CLI skeleton)
 ├── docker-compose.yml           # Local Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog
-├── scripts/local/               # local-up, local-services, seed, dev token
+├── scripts/local/               # local-up, local-services, seed
 ├── gradle/
 │   └── libs.versions.toml       # Version catalog
 ├── settings.gradle.kts          # Module includes

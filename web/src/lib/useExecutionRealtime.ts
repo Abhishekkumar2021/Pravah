@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { executionsWebSocketUrl, getDevBearerToken, subscribeDevBearerToken } from "@/lib/api";
+import { executionsWebSocketUrl, getAccessToken, subscribeSession } from "@/lib/api";
 
 const EXECUTION_UPDATED = "execution.updated";
 
@@ -45,7 +45,7 @@ export function useExecutionRealtime(options: {
 
     const scheduleReconnect = () => {
       if (cancelled) return;
-      const token = getDevBearerToken();
+      const token = getAccessToken();
       if (!token) return;
       const delayMs = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5));
       reconnectTimer = setTimeout(() => {
@@ -56,7 +56,7 @@ export function useExecutionRealtime(options: {
 
     const open = () => {
       if (cancelled) return;
-      const token = getDevBearerToken();
+      const token = getAccessToken();
       if (!token) {
         setLiveConnected(false);
         return;
@@ -113,7 +113,7 @@ export function useExecutionRealtime(options: {
 
     open();
 
-    const unsubToken = subscribeDevBearerToken(() => {
+    const unsubToken = subscribeSession(() => {
       clearReconnect();
       if (socket) {
         const s = socket;

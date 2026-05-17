@@ -4,7 +4,7 @@ import {
   PIPELINE_ID,
   mockMultiStageExecutionBody,
   mockPipelineBody,
-  seedDevBearerToken,
+  seedSession,
 } from "./helpers";
 
 /**
@@ -12,7 +12,7 @@ import {
  */
 test.describe("Run detail stages (US-12.08)", () => {
   test.beforeEach(async ({ page }) => {
-    await seedDevBearerToken(page);
+    await seedSession(page);
     await page.route(`**/api/v1/executions/${EXECUTION_ID}`, async (route) => {
       await route.fulfill({
         status: 200,

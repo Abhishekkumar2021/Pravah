@@ -25,7 +25,7 @@ function renderPage() {
 
 describe("WorkflowDetailPage", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     vi.spyOn(api, "getPipeline").mockResolvedValue({
       id: WORKFLOW_ID,
       projectId: "proj-1",
@@ -54,9 +54,4 @@ describe("WorkflowDetailPage", () => {
     expect(await screen.findByRole("heading", { name: "ETL Pipeline" })).toBeVisible();
   });
 
-  it("prompts for JWT when missing", () => {
-    localStorage.removeItem("pravah.devBearerToken");
-    renderPage();
-    expect(screen.getByText(/development JWT/i)).toBeVisible();
-  });
 });

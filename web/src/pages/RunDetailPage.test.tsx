@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ThemeProvider } from "@/lib/theme";
@@ -29,7 +28,7 @@ function renderPage() {
 
 describe("RunDetailPage", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     vi.spyOn(api, "getExecution").mockResolvedValue({
       id: EXECUTION_ID,
       pipelineId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001",
@@ -62,10 +61,4 @@ describe("RunDetailPage", () => {
     expect(await screen.findByRole("heading", { name: /Run · ETL/i })).toBeVisible();
   });
 
-  it("toggles dev token panel", async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await user.click(screen.getByRole("button", { name: /Dev token/i }));
-    expect(await screen.findByLabelText("Development JWT")).toBeVisible();
-  });
 });

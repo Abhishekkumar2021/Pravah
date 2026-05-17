@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
  *   <li>{@code echo} — dev/test executor (default fallback)
  * </ul>
  *
- * <p>Future: {@code python}, {@code dbt}, {@code spark}
+ * <p>{@code python}, {@code dbt}, {@code spark} are validated at publish but routed to {@link
+ * PlannedStageExecutor} until runner dispatch ships.
  */
 @Component
 public class StageExecutorRouter implements EmbeddedStageExecutor {
@@ -29,14 +30,17 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
   private final SqlEmbeddedStageExecutor sqlExecutor;
   private final ContainerEmbeddedStageExecutor containerExecutor;
   private final EchoEmbeddedStageExecutor echoExecutor;
+  private final PlannedStageExecutor plannedStageExecutor;
 
   public StageExecutorRouter(
       SqlEmbeddedStageExecutor sqlExecutor,
       ContainerEmbeddedStageExecutor containerExecutor,
-      EchoEmbeddedStageExecutor echoExecutor) {
+      EchoEmbeddedStageExecutor echoExecutor,
+      PlannedStageExecutor plannedStageExecutor) {
     this.sqlExecutor = sqlExecutor;
     this.containerExecutor = containerExecutor;
     this.echoExecutor = echoExecutor;
+    this.plannedStageExecutor = plannedStageExecutor;
   }
 
   @Override
@@ -50,6 +54,7 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
     return switch (stageType) {
       case "sql" -> sqlExecutor.execute(job, execution, stageConfig);
       case "container" -> containerExecutor.execute(job, execution, stageConfig);
+      case "python", "dbt", "spark" -> plannedStageExecutor.execute(job, execution);
       default -> echoExecutor.execute(job, execution);
     };
   }

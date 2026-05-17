@@ -49,8 +49,11 @@ export function ForgotPasswordPage() {
               email shortly.
             </p>
             <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">
-              Note: Email delivery is not configured in local development. This is a placeholder
-              per US-10.01.
+              Check Mailhog at{" "}
+              <a href="http://localhost:8025" className="underline" target="_blank" rel="noreferrer">
+                localhost:8025
+              </a>{" "}
+              when running local docker-compose.
             </p>
           </div>
         ) : (

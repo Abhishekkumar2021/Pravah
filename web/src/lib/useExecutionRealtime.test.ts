@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setDevBearerToken } from "@/lib/api";
+import { setAccessToken } from "@/lib/api";
 import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 
 class MockWebSocket {
@@ -25,11 +25,11 @@ describe("useExecutionRealtime", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
     vi.stubGlobal("WebSocket", MockWebSocket);
-    setDevBearerToken("test-jwt");
+    setAccessToken("test-jwt");
   });
 
   afterEach(() => {
-    setDevBearerToken(null);
+    setAccessToken(null);
     vi.unstubAllGlobals();
   });
 

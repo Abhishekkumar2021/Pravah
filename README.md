@@ -147,7 +147,7 @@ See [`docs/architecture/high-level-architecture.md`](docs/architecture/high-leve
 | **Secrets** | Tenant secrets DB + `env:` refs; Vault (target) |
 | **Processing** | DuckDB (embedded, per runner, target) |
 | **Observability** | Prometheus + Grafana + OpenTelemetry + Jaeger + ELK (target) |
-| **Auth** | JWT RS256 + dev token (alpha); OAuth / SSO (target) |
+| **Auth** | JWT RS256 (email/password login); OAuth / SSO (target) |
 | **UI** | Vite 6 · React 19 · Tailwind CSS v4 · React Router 7 (`web/`) |
 | **Agent** | Spring AI · Claude / GPT-4 · ReAct · pgvector (target) |
 

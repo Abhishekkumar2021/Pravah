@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Calendar, LayoutDashboard, Pencil, Play, Settings } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Pill, StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
 import { WorkflowDAG } from "@/components/workflow/WorkflowDAG";
+import { WorkflowDAGEditor } from "@/components/workflow/WorkflowDAGEditor";
 import {
   ApiError,
-  getDevBearerToken,
   getPipeline,
   getPipelineVersionDefinition,
   listExecutions,
@@ -17,13 +18,19 @@ import {
 } from "@/lib/api";
 import { formatShortDateTime, formatExecutionWallDuration } from "@/lib/format";
 
-const tabs = ["Overview", "Runs", "Schedule", "Settings"] as const;
+const tabs = [
+  { id: "Overview", icon: LayoutDashboard },
+  { id: "Editor", icon: Pencil },
+  { id: "Runs", icon: Play },
+  { id: "Schedule", icon: Calendar },
+  { id: "Settings", icon: Settings },
+] as const;
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i;
 
 export function WorkflowDetailPage() {
   const { workflowId } = useParams();
-  const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
+  const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("Overview");
   const [pipeline, setPipeline] = useState<PipelineDetailResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,15 +51,6 @@ export function WorkflowDetailPage() {
       setStages([]);
       return;
     }
-    if (!getDevBearerToken()) {
-      setLoadError("Add a development JWT (Runs → Dev token) to load this workflow.");
-      setPipeline(null);
-      setRecentRuns([]);
-      setRunsError(null);
-      setStages([]);
-      return;
-    }
-
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
@@ -180,11 +178,12 @@ export function WorkflowDetailPage() {
         <p className="text-sm text-neutral-500">Loading workflow…</p>
       )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof tabs)[number])}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof tabs)[number]["id"])}>
         <TabsList aria-label="Workflow sections">
           {tabs.map((t) => (
-            <TabsTrigger key={t} value={t}>
-              {t}
+            <TabsTrigger key={t.id} value={t.id} className="gap-1.5">
+              <t.icon className="h-3.5 w-3.5" aria-hidden />
+              {t.id}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -228,6 +227,33 @@ export function WorkflowDetailPage() {
               )}
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="Editor">
+          {pipeline && workflowId ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Visual editor</CardTitle>
+                <CardDescription>
+                  Drag stages, connect dependencies, and publish (<span className="font-medium">US-12.06</span>).
+                </CardDescription>
+              </CardHeader>
+              <WorkflowDAGEditor
+                pipelineId={workflowId}
+                pipelineName={pipeline.name}
+                pipelineDescription={pipeline.description}
+                initialStages={stages}
+                onPublished={() => {
+                  void getPipeline(workflowId).then((p) => {
+                    setPipeline(p);
+                    return getPipelineVersionDefinition(workflowId, p.currentVersion);
+                  }).then((def) => {
+                    if (def.definition?.stages) setStages(def.definition.stages);
+                  });
+                }}
+              />
+            </Card>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="Runs">

@@ -1,6 +1,7 @@
 package io.pravah.tenant.api;
 
 import io.pravah.tenant.application.dto.AuthTokenResponse;
+import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.PasswordResetRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
@@ -44,5 +45,11 @@ public class AuthController {
   @ResponseStatus(HttpStatus.ACCEPTED)
   public void requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
     authService.requestPasswordReset(request.email());
+  }
+
+  @PostMapping("/password-reset/confirm")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void confirmPasswordReset(@Valid @RequestBody ConfirmPasswordResetRequest request) {
+    authService.confirmPasswordReset(request);
   }
 }

@@ -60,6 +60,6 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/^password$/i), "PravahDev1!");
     await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(api.login).toHaveBeenCalledWith("dev@localhost.pravah", "PravahDev1!");
-    expect(navigateMock).toHaveBeenCalledWith("/app/dashboard");
+    expect(navigateMock).toHaveBeenCalledWith("/app/dashboard", { replace: true });
   });
 });

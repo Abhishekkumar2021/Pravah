@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Ban, ChevronRight, KeyRound, RotateCcw } from "lucide-react";
+import { Ban, ChevronRight, RotateCcw } from "lucide-react";
 import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -12,11 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/Dialog";
-import { DevTokenCard } from "@/components/workspace/DevTokenCard";
 import {
   ApiError,
   cancelExecution,
-  getDevBearerToken,
   getExecution,
   getPipeline,
   retryExecution,
@@ -49,7 +47,6 @@ export function RunDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [showToken, setShowToken] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("timeline");
   const reloadGeneration = useRef(0);
@@ -111,7 +108,7 @@ export function RunDetailPage() {
   });
 
   useEffect(() => {
-    if (!data?.pipelineId || !getDevBearerToken()) {
+    if (!data?.pipelineId) {
       setPipelineName(null);
       return;
     }
@@ -175,7 +172,7 @@ export function RunDetailPage() {
             {pipelineName ? `Run · ${pipelineName}` : "Run detail"}
           </h2>
           <p className="page-desc max-w-2xl">
-            Stage timeline, per-job status, and expandable log panels. Live status uses WebSocket when a dev token is set.
+            Stage timeline, per-job status, and expandable log panels. Live status uses WebSocket while you are signed in.
             {data && (
               <>
                 {" "}
@@ -193,10 +190,6 @@ export function RunDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" disabled={loading} onClick={() => void reload()}>
             Refresh
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => setShowToken((s) => !s)}>
-            <KeyRound className="h-4 w-4" aria-hidden />
-            Dev token
           </Button>
           <Button
             type="button"
@@ -240,15 +233,6 @@ export function RunDetailPage() {
           </Button>
         </div>
       </div>
-
-      {showToken && (
-        <DevTokenCard
-          onSaved={() => {
-            setShowToken(false);
-            void reload();
-          }}
-        />
-      )}
 
       {loading && <p className="text-sm text-neutral-500">Loading execution…</p>}
       {error && (

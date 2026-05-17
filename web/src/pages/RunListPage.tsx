@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Select } from "@/components/ui/Select";
 import { TableSkeleton } from "@/components/ui/Skeleton";
-import { ApiError, getDevBearerToken, listExecutions, listPipelines, type ExecutionListItem } from "@/lib/api";
+import { ApiError, listExecutions, listPipelines, type ExecutionListItem } from "@/lib/api";
 import { formatExecutionWallDuration, formatShortDateTime } from "@/lib/format";
 import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
 import { cn } from "@/lib/cn";
@@ -28,19 +28,7 @@ export function RunListPage() {
   const [totalElements, setTotalElements] = useState(0);
   const pageSize = 20;
 
-  const hasToken = Boolean(getDevBearerToken());
-
   const load = useCallback(async () => {
-    const token = getDevBearerToken();
-    if (!token) {
-      setRows([]);
-      setPipelineNames(new Map());
-      setTotalPages(0);
-      setTotalElements(0);
-      setError(null);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +78,7 @@ export function RunListPage() {
   });
 
   const { liveConnected } = useExecutionRealtime({
-    enabled: hasToken && hasActiveRuns,
+    enabled: hasActiveRuns,
     onExecutionUpdated: () => {
       void load();
     },
@@ -123,7 +111,7 @@ export function RunListPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {hasToken && hasActiveRuns && (
+          {hasActiveRuns && (
             <IndicatorBadge
               label={liveConnected ? "Live" : "Connecting…"}
               active={liveConnected}
@@ -140,7 +128,7 @@ export function RunListPage() {
           <Button
             type="button"
             variant="secondary"
-            disabled={!hasToken || loading}
+            disabled={loading}
             onClick={() => void load()}
             className="gap-2"
           >
@@ -150,10 +138,7 @@ export function RunListPage() {
         </div>
       </div>
 
-      <AlphaSetupBanner
-        onProjectSaved={() => setProjectNonce((n) => n + 1)}
-        onTokenSaved={() => setProjectNonce((n) => n + 1)}
-      />
+      <AlphaSetupBanner onProjectSaved={() => setProjectNonce((n) => n + 1)} />
 
       {error && (
         <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/30">
@@ -172,7 +157,7 @@ export function RunListPage() {
         aria-label="Runs"
         footer={
           <>
-            {hasToken && !loading && rows.length === 0 && (
+            {!loading && rows.length === 0 && (
               <EmptyState
                 icon={<PlayCircle className="h-7 w-7" />}
                 title="No runs found"
@@ -189,7 +174,7 @@ export function RunListPage() {
                 className="border-0 bg-transparent"
               />
             )}
-            {hasToken && !loading && rows.length > 0 && (
+            {!loading && rows.length > 0 && (
               <Pagination
                 page={page}
                 totalPages={totalPages}
@@ -200,7 +185,7 @@ export function RunListPage() {
           </>
         }
       >
-        {loading && hasToken ? (
+        {loading ? (
           <TableSkeleton headers={["Workflow", "Status", "Started", "Duration"]} rows={8} />
         ) : rows.length > 0 ? (
           <table className="table-data">
