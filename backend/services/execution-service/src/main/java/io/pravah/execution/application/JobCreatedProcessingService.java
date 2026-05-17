@@ -48,7 +48,7 @@ public class JobCreatedProcessingService {
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
   private final ProcessedEventRepository processedEventRepository;
-  private final EmbeddedStageExecutor embeddedStageExecutor;
+  private final StageExecutorRouter stageExecutorRouter;
   private final JobLogService jobLogService;
   private final JobFailureService jobFailureService;
   private final String jobCreatedTopic;
@@ -60,7 +60,7 @@ public class JobCreatedProcessingService {
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
       ProcessedEventRepository processedEventRepository,
-      EmbeddedStageExecutor embeddedStageExecutor,
+      StageExecutorRouter stageExecutorRouter,
       JobLogService jobLogService,
       JobFailureService jobFailureService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
@@ -70,7 +70,7 @@ public class JobCreatedProcessingService {
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.processedEventRepository = processedEventRepository;
-    this.embeddedStageExecutor = embeddedStageExecutor;
+    this.stageExecutorRouter = stageExecutorRouter;
     this.jobLogService = jobLogService;
     this.jobFailureService = jobFailureService;
     this.jobCreatedTopic = jobCreatedTopic;
@@ -125,8 +125,7 @@ public class JobCreatedProcessingService {
         JobLogLevel.INFO,
         "Starting stage %s (attempt %d)".formatted(job.getStageName(), job.getAttempt()));
 
-    EmbeddedStageExecutor.StageExecutionResult result =
-        embeddedStageExecutor.execute(job, execution);
+    EmbeddedStageExecutor.StageExecutionResult result = stageExecutorRouter.execute(job, execution);
 
     job =
         jobEntityRepository
@@ -146,7 +145,7 @@ public class JobCreatedProcessingService {
       String errorMessage =
           "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode());
       jobFailureService.handleStageFailure(
-          execution, job, tenantId, result.exitCode(), errorMessage);
+          execution, job, tenantId, result.exitCode(), errorMessage, result.output());
       recordProcessed(eventId);
       publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
       return;

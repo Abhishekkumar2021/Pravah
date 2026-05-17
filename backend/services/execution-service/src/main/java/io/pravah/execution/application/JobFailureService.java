@@ -61,7 +61,12 @@ public class JobFailureService {
    */
   @Transactional
   public boolean handleStageFailure(
-      ExecutionEntity execution, JobEntity job, UUID tenantId, int exitCode, String errorMessage) {
+      ExecutionEntity execution,
+      JobEntity job,
+      UUID tenantId,
+      int exitCode,
+      String errorMessage,
+      Map<String, Object> output) {
     if (job.getStatus() != JobState.RUNNING) {
       return false;
     }
@@ -74,7 +79,7 @@ public class JobFailureService {
     boolean scheduleRetry =
         retryPolicy.shouldScheduleRetry(job.getAttempt(), exitCode, retryWindowStart, now);
 
-    job.fail(exitCode, errorMessage, scheduleRetry);
+    job.fail(exitCode, errorMessage, output, scheduleRetry);
     jobLogService.append(job.getId(), JobLogLevel.ERROR, errorMessage);
 
     if (job.getStatus() == JobState.QUEUED) {

@@ -87,15 +87,18 @@ VALUES (
 -- ============================================================================
 \c pravah_pipeline
 
+DELETE FROM connections WHERE tenant_id = '11111111-1111-4111-8111-111111111111'::uuid;
 DELETE FROM pipeline_versions WHERE pipeline_id IN (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0002',
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0003'
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0003',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0004'
 );
 DELETE FROM pipeline_events WHERE pipeline_id IN (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0002',
-  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0003'
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0003',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0004'
 );
 DELETE FROM pipelines WHERE tenant_id = '11111111-1111-4111-8111-111111111111'::uuid;
 
@@ -141,7 +144,39 @@ INSERT INTO pipelines (
     now() - interval '3 days',
     now() - interval '3 days',
     '22222222-2222-4222-8222-222222222222'
+  ),
+  (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0004',
+    '11111111-1111-4111-8111-111111111111',
+    '33333333-3333-4333-8333-333333333333',
+    'SQL Demo Pipeline',
+    'Demo pipeline with executable SQL stages (US-02.14)',
+    1,
+    'active',
+    0,
+    now() - interval '1 day',
+    now() - interval '1 hour',
+    '22222222-2222-4222-8222-222222222222'
   );
+
+INSERT INTO connections (id, tenant_id, name, type, config, created_by, created_at)
+VALUES (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeee0001',
+  '11111111-1111-4111-8111-111111111111',
+  'warehouse',
+  'postgres',
+  '{
+    "host": "localhost",
+    "port": 5432,
+    "database": "pravah_execution",
+    "username": "pravah",
+    "credentials": {
+      "password": "env:PRAVAH_DB_PASSWORD"
+    }
+  }'::jsonb,
+  '22222222-2222-4222-8222-222222222222',
+  now() - interval '1 day'
+);
 
 INSERT INTO pipeline_versions (id, pipeline_id, version, definition, published_at, published_by)
 VALUES
@@ -159,6 +194,14 @@ VALUES
     1,
     '{"stages":[{"id":"ingest","name":"Ingest stream","type":"kafka"},{"id":"dedupe","name":"Deduplicate","type":"transform"},{"id":"publish","name":"Publish metrics","type":"sql"}]}'::jsonb,
     now() - interval '5 days',
+    '22222222-2222-4222-8222-222222222222'
+  ),
+  (
+    'dddddddd-dddd-4ddd-8ddd-dddddddddd03',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0004',
+    1,
+    '{"variables":{"limit":{"type":"number","default":10}},"stages":[{"id":"query-orders","name":"Query Recent Orders","type":"sql","config":{"query":"SELECT 1 AS n","connection":"warehouse"}},{"id":"process","name":"Process Results","depends_on":["query-orders"]}]}'::jsonb,
+    now() - interval '1 hour',
     '22222222-2222-4222-8222-222222222222'
   );
 

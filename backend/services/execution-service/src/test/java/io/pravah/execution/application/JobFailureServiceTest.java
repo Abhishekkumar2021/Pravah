@@ -68,7 +68,8 @@ class JobFailureServiceTest {
             job,
             tenantId,
             JobFailureService.EXIT_CODE_TIMEOUT,
-            "Stage timed out after 5 seconds");
+            "Stage timed out after 5 seconds",
+            null);
 
     assertThat(handled).isTrue();
     assertThat(job.getStatus()).isEqualTo(JobState.QUEUED);

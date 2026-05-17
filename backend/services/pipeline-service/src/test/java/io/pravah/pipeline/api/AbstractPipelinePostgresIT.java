@@ -41,7 +41,8 @@ public abstract class AbstractPipelinePostgresIT {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
       statement.execute(
-          "TRUNCATE TABLE outbox, pipeline_versions, pipeline_events, pipelines CASCADE;");
+          "TRUNCATE TABLE outbox, pipeline_versions, pipeline_events, pipelines, connections, tenant_secrets"
+              + " CASCADE;");
     }
   }
 }

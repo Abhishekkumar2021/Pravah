@@ -50,7 +50,10 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
 
     CreatePipelineRequest body =
         new CreatePipelineRequest(
-            projectId, "daily-etl", "desc", "stages:\n  - id: extract\n    type: sql\n");
+            projectId,
+            "daily-etl",
+            "desc",
+            "stages:\n  - id: extract\n    type: sql\n    config:\n      query: SELECT 1\n");
 
     mockMvc
         .perform(
@@ -323,7 +326,8 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     ValidatePipelineRequest body =
-        new ValidatePipelineRequest("stages:\n  - id: extract\n    type: sql\n");
+        new ValidatePipelineRequest(
+            "stages:\n  - id: extract\n    type: sql\n    config:\n      query: SELECT 1\n");
 
     mockMvc
         .perform(
@@ -390,6 +394,24 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
     ValidatePipelineRequest body =
         new ValidatePipelineRequest(
             "timeout_seconds: 0\nstages:\n  - id: extract\n    type: sql\n");
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void validateDefinition_sqlStageMissingQuery_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    ValidatePipelineRequest body =
+        new ValidatePipelineRequest("stages:\n  - id: extract\n    type: sql\n");
 
     mockMvc
         .perform(

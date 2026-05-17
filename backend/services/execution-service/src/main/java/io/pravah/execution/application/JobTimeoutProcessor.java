@@ -76,7 +76,7 @@ public class JobTimeoutProcessor {
       String message = "Stage timed out after %d seconds".formatted(timeout.timeoutSeconds());
       boolean handled =
           jobFailureService.handleStageFailure(
-              execution, job, tenantId, JobFailureService.EXIT_CODE_TIMEOUT, message);
+              execution, job, tenantId, JobFailureService.EXIT_CODE_TIMEOUT, message, null);
       if (handled) {
         log.info(
             "Job failed due to timeout",
