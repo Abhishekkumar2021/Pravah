@@ -62,11 +62,11 @@ Enable users to create, edit, version, and manage data workflows through both co
 **So that** I can use the right tool for each task
 
 **Acceptance Criteria:**
-- [ ] SQL Transform stage (query against warehouse)
-- [ ] Python Script stage (custom Python code)
-- [ ] dbt Model stage (run specific dbt models)
-- [ ] Spark Job stage (submit Spark applications)
-- [ ] Custom Container stage (any Docker image)
+- [x] SQL Transform stage (query against warehouse) — `SqlEmbeddedStageExecutor`
+- [ ] Python Script stage (alpha: YAML validation only; execution returns planned-stage message)
+- [ ] dbt Model stage (alpha: validation only)
+- [ ] Spark Job stage (alpha: validation only)
+- [x] Custom Container stage (any Docker image) — `ContainerEmbeddedStageExecutor` (local Docker)
 
 **Story Points:** 8  
 **Priority:** P0

@@ -3,6 +3,7 @@ package io.pravah.tenant.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -10,8 +11,10 @@ import static org.mockito.Mockito.when;
 
 import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ValidationException;
+import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
+import io.pravah.tenant.domain.model.PasswordResetToken;
 import io.pravah.tenant.application.dto.UserRoleSummary;
 import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.TenantMember;
@@ -24,6 +27,7 @@ import io.pravah.tenant.infrastructure.email.PasswordResetEmailService;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -162,6 +166,52 @@ class AuthServiceTest {
                 authService.register(
                     new RegisterRequest("dev@localhost.pravah", "PravahDev1!", "Dev")))
         .isInstanceOf(ValidationException.class);
+  }
+
+  @Test
+  void requestPasswordReset_activeUser_savesTokenAndSendsEmail() {
+    User user = activeUser();
+    when(userRepository.findByEmail("dev@localhost.pravah")).thenReturn(Optional.of(user));
+
+    authService.requestPasswordReset("dev@localhost.pravah");
+
+    verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+    verify(passwordResetEmailService).sendResetLink(eq("dev@localhost.pravah"), any(String.class));
+  }
+
+  @Test
+  void requestPasswordReset_unknownEmail_doesNotSendEmail() {
+    when(userRepository.findByEmail("missing@localhost.pravah")).thenReturn(Optional.empty());
+
+    authService.requestPasswordReset("missing@localhost.pravah");
+
+    verify(passwordResetTokenRepository, never()).save(any());
+    verify(passwordResetEmailService, never()).sendResetLink(any(), any());
+  }
+
+  @Test
+  void confirmPasswordReset_validToken_updatesPasswordAndMarksTokenUsed() {
+    User user = activeUser();
+    String rawToken = "reset-token-raw";
+    String tokenHash =
+        io.pravah.tenant.infrastructure.security.ApiTokenHasher.hash(rawToken);
+    Instant now = Instant.now();
+    PasswordResetToken resetToken =
+        PasswordResetToken.create(user.getId(), tokenHash, now.plus(Duration.ofHours(1)));
+
+    when(passwordResetTokenRepository.findByTokenHashAndUsedAtIsNull(tokenHash))
+        .thenReturn(Optional.of(resetToken));
+    when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+    authService.confirmPasswordReset(
+        new ConfirmPasswordResetRequest(rawToken, "NewPassword1!"));
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(passwordEncoder.matches("NewPassword1!", userCaptor.getValue().getPasswordHash()))
+        .isTrue();
+    verify(passwordResetTokenRepository).save(resetToken);
+    assertThat(resetToken.isUsed()).isTrue();
   }
 
   private User activeUser() {

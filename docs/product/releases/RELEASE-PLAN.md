@@ -43,12 +43,12 @@ Core execution works end-to-end. A workflow can be created, scheduled, and execu
 | EPIC-12 | US-12.01, US-12.02, US-12.03, US-12.04, US-12.05, US-12.07, US-12.08, US-12.09 | Basic UI shell |
 
 ### Exit Criteria
-- [ ] Create workflow via YAML
-- [ ] Run workflow manually
-- [ ] View logs in UI
-- [ ] Schedule on cron
-- [ ] Login and basic RBAC working
-- [ ] Deploy to local K8s
+- [x] Create workflow via YAML (`pipeline-service` + UI import/export)
+- [x] Run workflow manually (`POST /api/v1/executions`, run detail UI)
+- [x] View logs in UI (`RunLogPanel`, US-12.09)
+- [x] Schedule on cron (`scheduler-service`, workflow schedules UI)
+- [x] Login and basic RBAC working (JWT login, built-in roles, API tokens)
+- [x] Deploy to local K8s ([deploy/README.md](../../deploy/README.md) — Helm `pravah-platform`, `k8s-local-*` scripts)
 
 ### Known Limitations
 - Single tenant only
