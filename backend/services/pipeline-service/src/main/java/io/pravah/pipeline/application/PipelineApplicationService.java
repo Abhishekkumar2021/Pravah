@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ConnectionReferenceExtractor;
+import io.pravah.common.domain.ContainerStageValidator;
 import io.pravah.common.domain.PipelineId;
 import io.pravah.common.domain.PipelineVariablesParser;
 import io.pravah.common.domain.ProjectId;
@@ -525,6 +526,7 @@ public class PipelineApplicationService {
       StageTimeoutParser.validateDefinition(definition);
       PipelineVariablesParser.validateDefinition(definition);
       SqlStageValidator.validateDefinition(definition);
+      ContainerStageValidator.validateDefinition(definition);
       connectionApplicationService.validateConnectionReferences(
           ConnectionReferenceExtractor.extractNamedConnections(definition));
       secretApplicationService.validateSecretReferences(

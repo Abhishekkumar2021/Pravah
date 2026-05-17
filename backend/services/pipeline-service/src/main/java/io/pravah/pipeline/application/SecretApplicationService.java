@@ -3,6 +3,7 @@ package io.pravah.pipeline.application;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.domain.UserId;
+import io.pravah.common.domain.resolution.ResolutionContext;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.CreateSecretRequest;
 import io.pravah.pipeline.api.dto.SecretResponse;
@@ -16,6 +17,7 @@ import jakarta.persistence.PersistenceException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -37,11 +39,15 @@ public class SecretApplicationService {
 
   private final TenantSecretRepository secretRepository;
   private final EntityManager entityManager;
+  private final SecretValueResolver secretValueResolver;
 
   public SecretApplicationService(
-      TenantSecretRepository secretRepository, EntityManager entityManager) {
+      TenantSecretRepository secretRepository,
+      EntityManager entityManager,
+      SecretValueResolver secretValueResolver) {
     this.secretRepository = secretRepository;
     this.entityManager = entityManager;
+    this.secretValueResolver = secretValueResolver;
   }
 
   @Transactional
@@ -161,6 +167,27 @@ public class SecretApplicationService {
     return secretRepository
         .findByTenantIdAndName(tenantId, name)
         .orElseThrow(() -> new EntityNotFoundException("Secret", name));
+  }
+
+  /**
+   * Resolves a secret to its actual value for stage execution (internal API only).
+   *
+   * <p>Never log the returned value.
+   */
+  @Transactional(readOnly = true)
+  public ResolvedSecretValue resolveSecretValueForExecution(
+      UUID tenantId, UUID executionId, Instant executionTime, String name) {
+    TenantSecretEntity secret = getSecretEntityByName(tenantId, name);
+    ResolutionContext ctx =
+        ResolutionContext.forExecution(tenantId, executionId, executionTime, Map.of());
+    String value = secretValueResolver.resolve(secret, ctx);
+    log.info(
+        "Resolved secret for execution",
+        kv("tenant_id", tenantId),
+        kv("execution_id", executionId),
+        kv("secret_name", name),
+        kv("provider", secret.getProvider()));
+    return new ResolvedSecretValue(name, value);
   }
 
   private void validateProviderPath(String provider, String path) {

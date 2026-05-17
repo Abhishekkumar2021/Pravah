@@ -11,13 +11,14 @@ package io.pravah.common.domain.resolution;
  *   <li>{@link BuiltinRef} — {@code ${execution_date}} etc.
  *   <li>{@link EnvRef} — {@code env:VAR_NAME} environment variable
  *   <li>{@link VaultRef} — {@code vault:path#key} HashiCorp Vault (future)
+ *   <li>{@link StageOutputRef} — {@code ${stages.stageId.output.key}} upstream stage output
  *   <li>{@link LiteralValue} — plain value, no resolution needed
  * </ul>
  *
  * @see ValueReferenceParser
  */
 public sealed interface ValueReference
-    permits VariableRef, SecretRef, BuiltinRef, EnvRef, VaultRef, LiteralValue {
+    permits VariableRef, SecretRef, BuiltinRef, EnvRef, VaultRef, StageOutputRef, LiteralValue {
 
   /** The original string representation of this reference. */
   String raw();
@@ -41,6 +42,7 @@ public sealed interface ValueReference
     BUILTIN,
     ENV,
     VAULT,
+    STAGE_OUTPUT,
     LITERAL
   }
 }

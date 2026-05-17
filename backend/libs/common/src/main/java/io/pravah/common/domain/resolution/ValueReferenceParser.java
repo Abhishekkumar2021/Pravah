@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
  *   <li>{@code ${var.name}} — pipeline variable
  *   <li>{@code ${secret.name}} — tenant secret
  *   <li>{@code ${execution_date}} — built-in variable
+ *   <li>{@code ${stages.stageId.output.key}} — upstream stage output (US-02.10)
  *   <li>{@code env:VAR_NAME} — environment variable (credential reference)
  *   <li>{@code vault:path#key} — HashiCorp Vault (future)
  * </ul>
@@ -27,6 +28,9 @@ public final class ValueReferenceParser {
       Pattern.compile("\\$\\{secret\\.([a-zA-Z_][a-zA-Z0-9_]*)}");
   private static final Pattern BUILTIN_REF =
       Pattern.compile("\\$\\{(execution_date|execution_id|pipeline_id|pipeline_version)}");
+  private static final Pattern STAGE_OUTPUT_REF =
+      Pattern.compile(
+          "\\$\\{stages\\.([a-zA-Z_][a-zA-Z0-9_-]*)\\.output\\.([a-zA-Z_][a-zA-Z0-9_.]*)}");
 
   private static final Pattern ENV_REF = Pattern.compile("^env:([A-Za-z_][A-Za-z0-9_]*)$");
   private static final Pattern VAULT_REF =
@@ -34,7 +38,7 @@ public final class ValueReferenceParser {
 
   private static final Pattern ANY_INTERPOLATION =
       Pattern.compile(
-          "\\$\\{(var\\.([a-zA-Z_][a-zA-Z0-9_]*)|secret\\.([a-zA-Z_][a-zA-Z0-9_]*)|execution_date|execution_id|pipeline_id|pipeline_version)}");
+          "\\$\\{(var\\.([a-zA-Z_][a-zA-Z0-9_]*)|secret\\.([a-zA-Z_][a-zA-Z0-9_]*)|stages\\.([a-zA-Z_][a-zA-Z0-9_-]*)\\.output\\.([a-zA-Z_][a-zA-Z0-9_.]*)|execution_date|execution_id|pipeline_id|pipeline_version)}");
 
   private ValueReferenceParser() {}
 
@@ -58,6 +62,8 @@ public final class ValueReferenceParser {
         refs.add(new VariableRef(matcher.group(2)));
       } else if (full.startsWith("secret.")) {
         refs.add(new SecretRef(matcher.group(3)));
+      } else if (full.startsWith("stages.")) {
+        refs.add(new StageOutputRef(matcher.group(4), matcher.group(5)));
       } else if (BuiltinRef.SUPPORTED_BUILTINS.contains(full)) {
         refs.add(new BuiltinRef(full));
       }
@@ -157,7 +163,7 @@ public final class ValueReferenceParser {
   }
 
   /**
-   * Checks if a string contains any deferred references (secrets, env, vault).
+   * Checks if a string contains any deferred references (secrets, env, vault, stage outputs).
    *
    * @param value the string to check
    * @return true if deferred references are present
@@ -167,8 +173,27 @@ public final class ValueReferenceParser {
       return false;
     }
     return SECRET_REF.matcher(value).find()
+        || STAGE_OUTPUT_REF.matcher(value).find()
         || ENV_REF.matcher(value).matches()
         || VAULT_REF.matcher(value).matches();
+  }
+
+  /**
+   * Extracts all stage output references ({@code ${stages.stageId.output.key}}) from a string.
+   *
+   * @param value the string to parse
+   * @return list of StageOutputRef found
+   */
+  public static List<StageOutputRef> extractStageOutputRefs(String value) {
+    if (value == null || value.isEmpty()) {
+      return List.of();
+    }
+    List<StageOutputRef> refs = new ArrayList<>();
+    Matcher matcher = STAGE_OUTPUT_REF.matcher(value);
+    while (matcher.find()) {
+      refs.add(new StageOutputRef(matcher.group(1), matcher.group(2)));
+    }
+    return refs;
   }
 
   /**

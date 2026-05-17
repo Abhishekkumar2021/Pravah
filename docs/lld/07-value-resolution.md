@@ -1,11 +1,11 @@
 # Value Resolution System
 
 > **Status**: Implemented  
-> **Related**: US-01.05 (Variables), US-02.14 (SQL Connections)
+> **Related**: US-01.05 (Variables), US-02.10 (Stage Data Passing), US-02.14 (SQL Connections), US-02.17 (Container Stages)
 
 ## Overview
 
-Pravah uses a **unified value resolution system** to handle variables, secrets, environment configs, and credential references throughout pipeline definitions and connections.
+Pravah uses a **unified value resolution system** to handle variables, secrets, environment configs, stage outputs, and credential references throughout pipeline definitions and connections.
 
 ## Reference Types
 
@@ -13,6 +13,7 @@ Pravah uses a **unified value resolution system** to handle variables, secrets, 
 |--------|-------------|-----------------|---------|
 | `${var.name}` | Pipeline variable | Execution start | `${var.batch_size}` |
 | `${secret.name}` | Tenant secret reference | Stage execution | `${secret.api_key}` |
+| `${stages.stageId.output.key}` | Upstream stage output | Stage execution | `${stages.extract.output.row_count}` |
 | `${execution_date}` | Built-in variable | Execution start | `2026-05-17` |
 | `env:VAR_NAME` | Environment variable | Stage execution | `env:PRAVAH_DB_PASSWORD` |
 | `vault:path#key` | HashiCorp Vault (future) | Stage execution | `vault:secret/db#password` |
@@ -62,7 +63,7 @@ Pravah uses a **unified value resolution system** to handle variables, secrets, 
 
 ```java
 public sealed interface ValueReference
-    permits VariableRef, SecretRef, BuiltinRef, EnvRef, VaultRef, LiteralValue {
+    permits VariableRef, SecretRef, BuiltinRef, EnvRef, VaultRef, StageOutputRef, LiteralValue {
   
   String raw();           // Original string representation
   boolean isDeferred();   // true if resolved at execution time vs parse time
@@ -75,6 +76,11 @@ public record VariableRef(String name) implements ValueReference {
 
 public record SecretRef(String name) implements ValueReference {
   public String raw() { return "${secret." + name + "}"; }
+  public boolean isDeferred() { return true; } // resolved at stage execution
+}
+
+public record StageOutputRef(String stageId, String outputPath) implements ValueReference {
+  public String raw() { return "${stages." + stageId + ".output." + outputPath + "}"; }
   public boolean isDeferred() { return true; } // resolved at stage execution
 }
 
@@ -119,6 +125,7 @@ public record ResolutionContext(
 // Implementations
 @Component public class VariableResolverProvider implements ValueResolverProvider { ... }
 @Component public class SecretResolverProvider implements ValueResolverProvider { ... }
+@Component public class StageOutputResolverProvider implements ValueResolverProvider { ... }
 @Component public class EnvResolverProvider implements ValueResolverProvider { ... }
 @Component public class VaultResolverProvider implements ValueResolverProvider { ... } // future
 ```
@@ -218,14 +225,18 @@ VALUES ('...', 'stripe_key', 'aws_sm', 'arn:aws:secretsmanager:...:secret:stripe
 
 ```
 1. Load stage config from definition_snapshot
-2. For each ${secret.*} reference:
+2. For each ${stages.*.output.*} reference:
+   a. Query completed upstream job by stageId
+   b. Extract value from job.output using path notation
+   c. Substitute into config
+3. For each ${secret.*} reference:
    a. Look up tenant_secrets by name
    b. Resolve via appropriate provider (env/vault/aws)
    c. Substitute into config
-3. For connection credentials:
+4. For connection credentials:
    a. Load connection config
    b. Resolve credentials.password via provider
-4. Execute stage with fully resolved config
+5. Execute stage with fully resolved config
 ```
 
 ## Connection Credentials
@@ -261,6 +272,55 @@ At execution time, `credentials.password` is resolved using the same provider pa
 4. **No secrets in logs** — Resolved values never logged; only reference names
 
 5. **Validation at publish** — Missing secrets caught early, not at execution time
+
+## Internal Service-to-Service API Security
+
+For execution-time secret resolution, the Execution Service calls the Pipeline Service's internal API. This endpoint has a different security model than public APIs:
+
+### Internal Secret Resolution Endpoint
+
+```
+POST /internal/secrets/resolve
+Headers:
+  X-Pravah-Internal-Secret: <shared_secret>
+  X-Tenant-ID: <tenant_uuid>
+Body:
+  { "secretName": "api_key" }
+Response:
+  { "value": "resolved_secret_value" }
+```
+
+### Security Model
+
+| Aspect | Implementation |
+|--------|----------------|
+| Authentication | `X-Pravah-Internal-Secret` header (shared secret from config) |
+| Authorization | Service-to-service only; tenant ID passed via header and trusted |
+| Network exposure | **Never expose externally** — internal network only |
+| Why not JWT | Internal services don't represent users; shared secret is simpler and sufficient |
+
+### Configuration
+
+```yaml
+# pipeline-service application.yml
+pravah:
+  internal:
+    secret: ${PRAVAH_INTERNAL_SECRET}
+
+# execution-service application.yml
+pravah:
+  pipeline-service:
+    internal-secret: ${PRAVAH_INTERNAL_SECRET}
+```
+
+### Container Stage Network Isolation
+
+Container stages run with `--network none` by default to prevent containers from:
+- Accessing the internal secret resolution API
+- Querying cloud metadata endpoints (169.254.169.254)
+- Scanning internal network for services
+
+If a container stage genuinely needs network access (e.g., to fetch data from external APIs), this must be explicitly configured in a future story with allowlist-based egress rules.
 
 ## API Endpoints
 
@@ -302,15 +362,78 @@ stages:
         WHERE created_at >= '${execution_date}'
         LIMIT ${var.batch_size}
   
-  - id: call-api
-    type: http
+  - id: transform
+    type: sql
+    dependsOn: [extract]
     config:
-      url: https://api.example.com/process
-      headers:
-        Authorization: "Bearer ${secret.external_api_token}"
-      body:
-        table: "${var.target_table}"
+      connection: warehouse
+      query: |
+        -- Use row count from extract stage
+        SELECT '${stages.extract.output.row_count}' AS extracted_rows,
+               '${stages.extract.output.columns}' AS columns
+  
+  - id: notify
+    dependsOn: [extract, transform]
+    config:
+      message: "Extracted ${stages.extract.output.row_count} rows from ${var.target_table}"
+
+  - id: run-dbt
+    type: container
+    dependsOn: [transform]
+    config:
+      image: ghcr.io/org/dbt-runner:1.2.3
+      command: ["dbt", "run", "--select", "${var.target_table}"]
+      env:
+        DBT_PROFILE: prod
+        SNOWFLAKE_PASSWORD: "${secret.snowflake_password}"
+        EXTRACTED_ROWS: "${stages.extract.output.row_count}"
+      resources:
+        memory: 2Gi
+        cpus: "1.0"
 ```
+
+## Stage Output Resolution (US-02.10)
+
+Downstream stages can access outputs from completed upstream stages using the syntax:
+
+```
+${stages.<stageId>.output.<path>}
+```
+
+### Supported Output Keys
+
+Each stage executor produces specific output keys:
+
+| Executor | Output Keys |
+|----------|-------------|
+| SQL | `row_count`, `columns`, `preview`, `query_type`, `duration_ms` |
+| Container | `exit_code`, `duration_ms`, `timed_out`, `image`, `container_name` |
+| Echo | `executor`, `message` |
+
+### Nested Path Access
+
+Use dot notation for nested values:
+
+```yaml
+# Access first preview row's 'id' column
+message: "First ID: ${stages.query.output.preview.0.id}"
+
+# Access metadata
+message: "Query took ${stages.extract.output.duration_ms}ms"
+```
+
+### Resolution Rules
+
+1. **Dependency requirement**: The referenced stage must be in `dependsOn` (directly or transitively)
+2. **State requirement**: The upstream stage must have `SUCCEEDED` status
+3. **Caching**: Resolved outputs are cached within the same stage resolution context
+4. **Error handling**: Missing keys or failed stages throw `IllegalStateException`
+
+### Size Limits
+
+- Maximum stage output: 1MB (configurable via `pravah.stage.max-output-bytes`)
+- Preview rows: Limited to 10 rows in SQL executor
+- Warning logged if output exceeds 100KB
 
 ## Migration Path
 
