@@ -2,7 +2,9 @@ package io.pravah.pipeline.api;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.pipeline.application.DuplicateConnectionNameException;
 import io.pravah.pipeline.application.DuplicatePipelineNameException;
+import io.pravah.pipeline.application.DuplicateSecretNameException;
 import io.pravah.spring.web.PravahRestExceptionHandler;
 import java.net.URI;
 import org.slf4j.Logger;
@@ -24,6 +26,16 @@ public class RestExceptionHandler extends PravahRestExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
+  @ExceptionHandler(DuplicateConnectionNameException.class)
+  public ProblemDetail handleDuplicateConnectionName(DuplicateConnectionNameException ex) {
+    log.debug("Conflict", kv("message", ex.getMessage()));
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    pd.setTitle("Conflict");
+    pd.setType(URI.create("about:blank"));
+    pd.setProperty("errorCode", "DUPLICATE_CONNECTION_NAME");
+    return pd;
+  }
+
   @ExceptionHandler(DuplicatePipelineNameException.class)
   public ProblemDetail handleDuplicatePipelineName(DuplicatePipelineNameException ex) {
     log.debug("Conflict", kv("message", ex.getMessage()));
@@ -31,6 +43,16 @@ public class RestExceptionHandler extends PravahRestExceptionHandler {
     pd.setTitle("Conflict");
     pd.setType(URI.create("about:blank"));
     pd.setProperty("errorCode", "DUPLICATE_PIPELINE_NAME");
+    return pd;
+  }
+
+  @ExceptionHandler(DuplicateSecretNameException.class)
+  public ProblemDetail handleDuplicateSecretName(DuplicateSecretNameException ex) {
+    log.debug("Conflict", kv("message", ex.getMessage()));
+    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    pd.setTitle("Conflict");
+    pd.setType(URI.create("about:blank"));
+    pd.setProperty("errorCode", "DUPLICATE_SECRET_NAME");
     return pd;
   }
 }

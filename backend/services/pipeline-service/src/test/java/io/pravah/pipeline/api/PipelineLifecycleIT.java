@@ -78,7 +78,8 @@ class PipelineLifecycleIT extends AbstractPipelinePostgresIT {
         .andExpect(jsonPath("$.description").value("after update"));
 
     PublishPipelineRequest publishBody =
-        new PublishPipelineRequest("stages:\n  - id: extract\n    type: sql\n");
+        new PublishPipelineRequest(
+            "stages:\n  - id: extract\n    type: sql\n    config:\n      query: SELECT 1\n");
     mockMvc
         .perform(
             post("/api/v1/pipelines/{id}/publish", pipelineId)

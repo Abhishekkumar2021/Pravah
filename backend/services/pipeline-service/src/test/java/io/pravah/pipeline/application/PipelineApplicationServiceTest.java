@@ -50,6 +50,8 @@ class PipelineApplicationServiceTest {
   @Mock private PipelineVersionRepository pipelineVersionRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private EntityManager entityManager;
+  @Mock private ConnectionApplicationService connectionApplicationService;
+  @Mock private SecretApplicationService secretApplicationService;
 
   private PipelineApplicationService service;
   private ObjectMapper objectMapper;
@@ -68,7 +70,9 @@ class PipelineApplicationServiceTest {
             pipelineVersionRepository,
             outboxRepository,
             objectMapper,
-            entityManager);
+            entityManager,
+            connectionApplicationService,
+            secretApplicationService);
 
     tenantId = UUID.randomUUID();
     userId = UUID.randomUUID();

@@ -71,7 +71,7 @@ class JobTimeoutProcessorTest {
 
     when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
     when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
-    when(jobFailureService.handleStageFailure(any(), any(), eq(tenantId), eq(124), any()))
+    when(jobFailureService.handleStageFailure(any(), any(), eq(tenantId), eq(124), any(), any()))
         .thenReturn(true);
 
     processor.processTimedOutJob(jobId, Instant.now());
@@ -82,7 +82,8 @@ class JobTimeoutProcessorTest {
             eq(job),
             eq(tenantId),
             eq(JobFailureService.EXIT_CODE_TIMEOUT),
-            eq("Stage timed out after 5 seconds"));
+            eq("Stage timed out after 5 seconds"),
+            any());
   }
 
   @Test
@@ -112,7 +113,7 @@ class JobTimeoutProcessorTest {
     processor.processTimedOutJob(jobId, Instant.now());
 
     verify(jobFailureService, never())
-        .handleStageFailure(any(), any(), any(), any(Integer.class), any());
+        .handleStageFailure(any(), any(), any(), any(Integer.class), any(), any());
   }
 
   private static void setId(Object entity, UUID id) throws Exception {

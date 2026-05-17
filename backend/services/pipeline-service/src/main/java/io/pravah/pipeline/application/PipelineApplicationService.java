@@ -4,10 +4,13 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pravah.common.domain.ConnectionReferenceExtractor;
 import io.pravah.common.domain.PipelineId;
 import io.pravah.common.domain.PipelineVariablesParser;
 import io.pravah.common.domain.ProjectId;
 import io.pravah.common.domain.RetryPolicyParser;
+import io.pravah.common.domain.SecretReferenceExtractor;
+import io.pravah.common.domain.SqlStageValidator;
 import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
@@ -72,6 +75,8 @@ public class PipelineApplicationService {
   private final OutboxRepository outboxRepository;
   private final ObjectMapper objectMapper;
   private final EntityManager entityManager;
+  private final ConnectionApplicationService connectionApplicationService;
+  private final SecretApplicationService secretApplicationService;
 
   public PipelineApplicationService(
       PipelineRepository pipelineRepository,
@@ -79,13 +84,17 @@ public class PipelineApplicationService {
       PipelineVersionRepository pipelineVersionRepository,
       OutboxRepository outboxRepository,
       ObjectMapper objectMapper,
-      EntityManager entityManager) {
+      EntityManager entityManager,
+      ConnectionApplicationService connectionApplicationService,
+      SecretApplicationService secretApplicationService) {
     this.pipelineRepository = pipelineRepository;
     this.pipelineEventRepository = pipelineEventRepository;
     this.pipelineVersionRepository = pipelineVersionRepository;
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
     this.entityManager = entityManager;
+    this.connectionApplicationService = connectionApplicationService;
+    this.secretApplicationService = secretApplicationService;
   }
 
   @Transactional
@@ -515,6 +524,11 @@ public class PipelineApplicationService {
       RetryPolicyParser.validateDefinition(definition);
       StageTimeoutParser.validateDefinition(definition);
       PipelineVariablesParser.validateDefinition(definition);
+      SqlStageValidator.validateDefinition(definition);
+      connectionApplicationService.validateConnectionReferences(
+          ConnectionReferenceExtractor.extractNamedConnections(definition));
+      secretApplicationService.validateSecretReferences(
+          SecretReferenceExtractor.extract(definition));
       return definition;
     } catch (YAMLException e) {
       throw new IllegalArgumentException("Invalid YAML: " + e.getMessage(), e);

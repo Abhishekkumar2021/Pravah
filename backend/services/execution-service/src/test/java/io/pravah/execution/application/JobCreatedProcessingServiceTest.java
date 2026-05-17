@@ -43,7 +43,7 @@ class JobCreatedProcessingServiceTest {
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
   @Mock private ProcessedEventRepository processedEventRepository;
-  @Mock private EmbeddedStageExecutor embeddedStageExecutor;
+  @Mock private StageExecutorRouter stageExecutorRouter;
   @Mock private JobLogService jobLogService;
   @Mock private ApplicationEventPublisher applicationEventPublisher;
 
@@ -63,7 +63,7 @@ class JobCreatedProcessingServiceTest {
             jobEntityRepository,
             outboxRepository,
             processedEventRepository,
-            embeddedStageExecutor,
+            stageExecutorRouter,
             jobLogService,
             jobFailureService,
             JOB_CREATED_TOPIC,
@@ -83,7 +83,7 @@ class JobCreatedProcessingServiceTest {
 
     service.processJobCreated(Map.of("eventId", eventId.toString()));
 
-    verify(embeddedStageExecutor, never()).execute(any(), any());
+    verify(stageExecutorRouter, never()).execute(any(), any());
   }
 
   @Test
@@ -110,7 +110,7 @@ class JobCreatedProcessingServiceTest {
             "executionId",
             execId.toString()));
 
-    verify(embeddedStageExecutor, never()).execute(any(), any());
+    verify(stageExecutorRouter, never()).execute(any(), any());
     verify(processedEventRepository).save(any());
   }
 
@@ -146,7 +146,7 @@ class JobCreatedProcessingServiceTest {
     when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
     when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
 
-    when(embeddedStageExecutor.execute(job, execution))
+    when(stageExecutorRouter.execute(job, execution))
         .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(0, Map.of("ok", true)));
 
     service.processJobCreated(
@@ -193,7 +193,7 @@ class JobCreatedProcessingServiceTest {
     when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
     when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
     when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
-    when(embeddedStageExecutor.execute(job, execution))
+    when(stageExecutorRouter.execute(job, execution))
         .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(1, Map.of()));
 
     service.processJobCreated(
@@ -252,7 +252,7 @@ class JobCreatedProcessingServiceTest {
     when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
     when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
     when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
-    when(embeddedStageExecutor.execute(job, execution))
+    when(stageExecutorRouter.execute(job, execution))
         .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(99, Map.of()));
 
     service.processJobCreated(
@@ -305,7 +305,7 @@ class JobCreatedProcessingServiceTest {
     when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
     when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
     when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
-    when(embeddedStageExecutor.execute(job, execution))
+    when(stageExecutorRouter.execute(job, execution))
         .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(1, Map.of()));
 
     Instant before = Instant.now();

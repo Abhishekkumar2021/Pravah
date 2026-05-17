@@ -221,10 +221,25 @@ public class JobEntity {
    * @throws IllegalStateException if transition is not allowed
    */
   public void fail(int exitCode, String errorMessage, boolean scheduleRetry) {
+    fail(exitCode, errorMessage, null, scheduleRetry);
+  }
+
+  /**
+   * Handles job failure with output data and optional automatic retry (US-02.06).
+   *
+   * @param exitCode the exit code
+   * @param errorMessage the error message
+   * @param output optional output data from the failed execution
+   * @param scheduleRetry when true and the state machine allows, re-queue for another attempt
+   * @throws IllegalStateException if transition is not allowed
+   */
+  public void fail(
+      int exitCode, String errorMessage, Map<String, Object> output, boolean scheduleRetry) {
     boolean canRetry = scheduleRetry;
     this.status = this.status.onFailure(canRetry);
     this.exitCode = exitCode;
     this.errorMessage = errorMessage;
+    this.output = output;
 
     if (canRetry) {
       this.attempt++;
