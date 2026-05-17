@@ -25,7 +25,7 @@ public class UnifiedValueResolver {
 
   private static final Pattern INTERPOLATION =
       Pattern.compile(
-          "\\$\\{(var\\.([a-zA-Z_][a-zA-Z0-9_]*)|secret\\.([a-zA-Z_][a-zA-Z0-9_]*)|execution_date|execution_id|pipeline_id|pipeline_version)}");
+          "\\$\\{(var\\.([a-zA-Z_][a-zA-Z0-9_]*)|secret\\.([a-zA-Z_][a-zA-Z0-9_]*)|stages\\.([a-zA-Z_][a-zA-Z0-9_-]*)\\.output\\.([a-zA-Z_][a-zA-Z0-9_.]*)|execution_date|execution_id|pipeline_id|pipeline_version)}");
 
   private final List<ValueResolverProvider> providers;
 
@@ -102,6 +102,9 @@ public class UnifiedValueResolver {
     if (fullMatch.startsWith("secret.")) {
       return new SecretRef(matcher.group(3));
     }
+    if (fullMatch.startsWith("stages.")) {
+      return new StageOutputRef(matcher.group(4), matcher.group(5));
+    }
     if (BuiltinRef.SUPPORTED_BUILTINS.contains(fullMatch)) {
       return new BuiltinRef(fullMatch);
     }
@@ -117,7 +120,6 @@ public class UnifiedValueResolver {
     throw new IllegalArgumentException("No provider found for reference: " + ref.raw());
   }
 
-  @SuppressWarnings("unchecked")
   private Map<String, Object> resolveMap(Map<?, ?> map, ResolutionContext ctx) {
     Map<String, Object> result = new LinkedHashMap<>();
     for (Map.Entry<?, ?> entry : map.entrySet()) {

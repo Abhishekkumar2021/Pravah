@@ -21,9 +21,12 @@ import org.springframework.stereotype.Component;
 public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
 
   private final JobLogService jobLogService;
+  private final ExecutionStageConfigResolver configResolver;
 
-  public EchoEmbeddedStageExecutor(JobLogService jobLogService) {
+  public EchoEmbeddedStageExecutor(
+      JobLogService jobLogService, ExecutionStageConfigResolver configResolver) {
     this.jobLogService = jobLogService;
+    this.configResolver = configResolver;
   }
 
   @Override
@@ -38,6 +41,17 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
     output.put("executor", "embedded-echo");
     output.put("stageId", job.getStageId());
     output.put("executionId", execution.getId().toString());
+
+    Map<String, Object> rawConfig = extractStageConfig(definition, job.getStageId());
+    if (rawConfig != null && !rawConfig.isEmpty()) {
+      Map<String, Object> resolvedConfig = configResolver.resolveConfig(execution, rawConfig);
+      Object message = resolvedConfig.get("message");
+      if (message != null) {
+        output.put("message", message);
+        jobLogService.append(
+            job.getId(), JobLogLevel.INFO, "[embedded-echo] %s".formatted(message));
+      }
+    }
 
     int sleepSeconds = resolveSimulateSleepSeconds(definition, job.getStageId());
     if (sleepSeconds > 0) {
@@ -94,6 +108,28 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
 
   private static int resolveSimulateSleepSeconds(Map<String, Object> definition, String stageId) {
     return resolveStageIntField(definition, stageId, "simulate_sleep_seconds");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> extractStageConfig(
+      Map<String, Object> definition, String stageId) {
+    if (definition == null) {
+      return null;
+    }
+    Object stages = definition.get("stages");
+    if (!(stages instanceof List<?> list)) {
+      return null;
+    }
+    for (Object o : list) {
+      if (o instanceof Map<?, ?> stage) {
+        Object id = stage.get("id");
+        if (id != null && stageId.equals(id.toString())) {
+          Object config = stage.get("config");
+          return config instanceof Map<?, ?> m ? (Map<String, Object>) m : null;
+        }
+      }
+    }
+    return null;
   }
 
   private static int resolveStageIntField(

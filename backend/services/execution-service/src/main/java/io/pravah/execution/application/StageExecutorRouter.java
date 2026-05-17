@@ -15,10 +15,11 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@code sql} — executes SQL query via JDBC
+ *   <li>{@code container} — runs a Docker image (US-02.17)
  *   <li>{@code echo} — dev/test executor (default fallback)
  * </ul>
  *
- * <p>Future: {@code python}, {@code container}, {@code dbt}, {@code spark}
+ * <p>Future: {@code python}, {@code dbt}, {@code spark}
  */
 @Component
 public class StageExecutorRouter implements EmbeddedStageExecutor {
@@ -26,11 +27,15 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
   private static final Logger log = LoggerFactory.getLogger(StageExecutorRouter.class);
 
   private final SqlEmbeddedStageExecutor sqlExecutor;
+  private final ContainerEmbeddedStageExecutor containerExecutor;
   private final EchoEmbeddedStageExecutor echoExecutor;
 
   public StageExecutorRouter(
-      SqlEmbeddedStageExecutor sqlExecutor, EchoEmbeddedStageExecutor echoExecutor) {
+      SqlEmbeddedStageExecutor sqlExecutor,
+      ContainerEmbeddedStageExecutor containerExecutor,
+      EchoEmbeddedStageExecutor echoExecutor) {
     this.sqlExecutor = sqlExecutor;
+    this.containerExecutor = containerExecutor;
     this.echoExecutor = echoExecutor;
   }
 
@@ -44,6 +49,7 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
 
     return switch (stageType) {
       case "sql" -> sqlExecutor.execute(job, execution, stageConfig);
+      case "container" -> containerExecutor.execute(job, execution, stageConfig);
       default -> echoExecutor.execute(job, execution);
     };
   }

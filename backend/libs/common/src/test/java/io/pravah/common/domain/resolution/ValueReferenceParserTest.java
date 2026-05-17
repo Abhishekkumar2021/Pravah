@@ -147,4 +147,64 @@ class ValueReferenceParserTest {
     assertThat(ValueReferenceParser.containsVariableRefs("${secret.name}")).isFalse();
     assertThat(ValueReferenceParser.containsVariableRefs("${execution_date}")).isFalse();
   }
+
+  @Test
+  void extractAll_stageOutputReferences() {
+    List<ValueReference> refs =
+        ValueReferenceParser.extractAll("Row count: ${stages.extract.output.row_count}");
+    assertThat(refs).hasSize(1);
+    assertThat(refs.get(0)).isInstanceOf(StageOutputRef.class);
+    StageOutputRef stageRef = (StageOutputRef) refs.get(0);
+    assertThat(stageRef.stageId()).isEqualTo("extract");
+    assertThat(stageRef.outputPath()).isEqualTo("row_count");
+  }
+
+  @Test
+  void extractAll_stageOutputWithNestedPath() {
+    List<ValueReference> refs =
+        ValueReferenceParser.extractAll("First row ID: ${stages.query.output.preview.0.id}");
+    assertThat(refs).hasSize(1);
+    assertThat(refs.get(0)).isInstanceOf(StageOutputRef.class);
+    StageOutputRef stageRef = (StageOutputRef) refs.get(0);
+    assertThat(stageRef.stageId()).isEqualTo("query");
+    assertThat(stageRef.outputPath()).isEqualTo("preview.0.id");
+  }
+
+  @Test
+  void extractAll_stageOutputWithHyphenatedStageId() {
+    List<ValueReference> refs =
+        ValueReferenceParser.extractAll("${stages.my-extract-stage.output.count}");
+    assertThat(refs).hasSize(1);
+    StageOutputRef stageRef = (StageOutputRef) refs.get(0);
+    assertThat(stageRef.stageId()).isEqualTo("my-extract-stage");
+    assertThat(stageRef.outputPath()).isEqualTo("count");
+  }
+
+  @Test
+  void extractAll_mixedWithStageOutput() {
+    List<ValueReference> refs =
+        ValueReferenceParser.extractAll(
+            "Extracted ${stages.extract.output.row_count} rows at ${execution_date}");
+    assertThat(refs).hasSize(2);
+    assertThat(refs.get(0)).isInstanceOf(StageOutputRef.class);
+    assertThat(refs.get(1)).isInstanceOf(BuiltinRef.class);
+  }
+
+  @Test
+  void extractStageOutputRefs_returnsOnlyStageOutputs() {
+    List<StageOutputRef> refs =
+        ValueReferenceParser.extractStageOutputRefs(
+            "${var.a} and ${stages.s1.output.x} and ${secret.b} and ${stages.s2.output.y}");
+    assertThat(refs).hasSize(2);
+    assertThat(refs.get(0).stageId()).isEqualTo("s1");
+    assertThat(refs.get(0).outputPath()).isEqualTo("x");
+    assertThat(refs.get(1).stageId()).isEqualTo("s2");
+    assertThat(refs.get(1).outputPath()).isEqualTo("y");
+  }
+
+  @Test
+  void containsDeferredRefs_trueForStageOutputs() {
+    assertThat(ValueReferenceParser.containsDeferredRefs("${stages.extract.output.count}"))
+        .isTrue();
+  }
 }
