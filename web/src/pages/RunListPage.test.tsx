@@ -23,7 +23,7 @@ function renderPage() {
 
 describe("RunListPage", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     localStorage.setItem("pravah.defaultProjectId", PROJECT_ID);
     vi.spyOn(api, "listExecutions").mockResolvedValue({
       content: [

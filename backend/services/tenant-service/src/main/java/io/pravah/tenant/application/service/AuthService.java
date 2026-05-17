@@ -6,17 +6,23 @@ import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
+import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
 import io.pravah.tenant.application.dto.UserResponse;
+import io.pravah.tenant.domain.model.PasswordResetToken;
 import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.TenantMember;
 import io.pravah.tenant.domain.model.User;
+import io.pravah.tenant.domain.repository.PasswordResetTokenRepository;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import io.pravah.tenant.infrastructure.config.AuthProperties;
+import io.pravah.tenant.infrastructure.email.PasswordResetEmailService;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
+import io.pravah.tenant.infrastructure.security.ApiTokenHasher;
 import io.pravah.tenant.infrastructure.security.JwtTokenIssuer;
+import io.pravah.tenant.infrastructure.security.PasswordResetTokenGenerator;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +48,8 @@ public class AuthService {
   private final AuthProperties authProperties;
   private final AuthRlsHelper authRlsHelper;
   private final RoleService roleService;
+  private final PasswordResetTokenRepository passwordResetTokenRepository;
+  private final PasswordResetEmailService passwordResetEmailService;
 
   public AuthService(
       UserRepository userRepository,
@@ -50,7 +58,9 @@ public class AuthService {
       JwtTokenIssuer jwtTokenIssuer,
       AuthProperties authProperties,
       AuthRlsHelper authRlsHelper,
-      RoleService roleService) {
+      RoleService roleService,
+      PasswordResetTokenRepository passwordResetTokenRepository,
+      PasswordResetEmailService passwordResetEmailService) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
@@ -58,6 +68,8 @@ public class AuthService {
     this.authProperties = authProperties;
     this.authRlsHelper = authRlsHelper;
     this.roleService = roleService;
+    this.passwordResetTokenRepository = passwordResetTokenRepository;
+    this.passwordResetEmailService = passwordResetEmailService;
   }
 
   /**
@@ -151,23 +163,71 @@ public class AuthService {
   }
 
   /**
-   * Accepts reset requests without revealing whether the email exists (alpha stub).
+   * Issues a single-use reset token and emails a link (US-10.01).
    *
-   * <p>Always returns success to prevent email enumeration.
+   * <p>Always completes without error to prevent email enumeration.
    */
-  @Transactional(readOnly = true)
+  @Transactional
   public void requestPasswordReset(String email) {
     String normalized = normalizeEmail(email);
+    Instant now = Instant.now();
 
-    // Enable RLS bypass for email lookup
     authRlsHelper.enableAuthLookup();
     userRepository
         .findByEmail(normalized)
         .ifPresent(
-            user ->
-                log.info(
-                    "Password reset requested (email delivery not implemented)",
-                    kv("user_id", user.getId())));
+            user -> {
+              if (!user.isActive()) {
+                log.debug(
+                    "Password reset skipped for non-active user", kv("user_id", user.getId()));
+                return;
+              }
+              String rawToken = PasswordResetTokenGenerator.generate();
+              String tokenHash = ApiTokenHasher.hash(rawToken);
+              Instant expiresAt = now.plus(authProperties.passwordResetTokenTtl());
+              passwordResetTokenRepository.save(
+                  PasswordResetToken.create(user.getId(), tokenHash, expiresAt));
+              try {
+                passwordResetEmailService.sendResetLink(user.getEmail(), rawToken);
+                log.info("Password reset email queued", kv("user_id", user.getId()));
+              } catch (RuntimeException e) {
+                log.error(
+                    "Password reset email failed",
+                    kv("user_id", user.getId()),
+                    kv("error", e.getMessage()));
+              }
+            });
+    authRlsHelper.disableAuthLookup();
+  }
+
+  /** Applies a new password using a valid reset token (US-10.01). */
+  @Transactional
+  public void confirmPasswordReset(ConfirmPasswordResetRequest request) {
+    String tokenHash = ApiTokenHasher.hash(request.token().trim());
+    Instant now = Instant.now();
+
+    authRlsHelper.enableAuthLookup();
+    PasswordResetToken resetToken =
+        passwordResetTokenRepository
+            .findByTokenHashAndUsedAtIsNull(tokenHash)
+            .orElseThrow(() -> ValidationException.of("token", "Invalid or expired reset link"));
+    authRlsHelper.disableAuthLookup();
+
+    if (resetToken.isUsed() || resetToken.isExpired(now)) {
+      throw ValidationException.of("token", "Invalid or expired reset link");
+    }
+
+    User user =
+        userRepository
+            .findById(resetToken.getUserId())
+            .orElseThrow(() -> ValidationException.of("token", "Invalid or expired reset link"));
+
+    TenantContext.setCurrentTenantId(user.getTenantId());
+    user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
+    userRepository.save(user);
+    resetToken.markUsed(now);
+    passwordResetTokenRepository.save(resetToken);
+    log.info("Password reset completed", kv("user_id", user.getId()));
   }
 
   private AuthTokenResponse issueToken(User user) {

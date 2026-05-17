@@ -24,7 +24,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { AlphaSetupBanner } from "@/components/workspace/AlphaSetupBanner";
 import {
   ApiError,
-  getDevBearerToken,
   listExecutions,
   listPipelines,
   type ExecutionListItem,
@@ -44,12 +43,10 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const projectId = getResolvedProjectId();
-  const hasToken = Boolean(getDevBearerToken());
 
   const load = useCallback(async () => {
     const pid = getResolvedProjectId();
-    const token = getDevBearerToken();
-    if (!pid || !token) {
+    if (!pid) {
       setWorkflows([]);
       setExecutions([]);
       setPipelineNames(new Map());
@@ -93,7 +90,7 @@ export function DashboardPage() {
   const succeededCount = executions.filter((e) => e.status.toLowerCase() === "succeeded").length;
 
   const { liveConnected } = useExecutionRealtime({
-    enabled: hasToken && activeRuns.length > 0,
+    enabled: Boolean(projectId) && activeRuns.length > 0,
     onExecutionUpdated: () => {
       void load();
     },
@@ -116,14 +113,14 @@ export function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {projectId && hasToken && activeRuns.length > 0 && (
+          {projectId && activeRuns.length > 0 && (
             <IndicatorBadge
               label={liveConnected ? "Live" : "Connecting…"}
               active={liveConnected}
               pulse
             />
           )}
-          {projectId && hasToken && (
+          {projectId && (
             <Button
               type="button"
               variant="secondary"
@@ -140,7 +137,6 @@ export function DashboardPage() {
 
       <AlphaSetupBanner
         onProjectSaved={() => setProjectNonce((n) => n + 1)}
-        onTokenSaved={() => setProjectNonce((n) => n + 1)}
       />
 
       {error && (
@@ -162,7 +158,7 @@ export function DashboardPage() {
       )}
 
       {/* Stats row */}
-      {projectId && hasToken && !loading && (
+      {projectId && !loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={<Workflow className="h-5 w-5" />}
@@ -191,7 +187,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {loading && hasToken && projectId && <span className="sr-only">Loading dashboard…</span>}
+      {loading && projectId && <span className="sr-only">Loading dashboard…</span>}
 
       {/* Main content grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -213,9 +209,9 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
 
-          {loading && hasToken && projectId ? (
+          {loading && projectId ? (
             <DashboardWorkflowListSkeleton rows={4} />
-          ) : workflows.length === 0 && hasToken && projectId && !loading ? (
+          ) : workflows.length === 0 && projectId && !loading ? (
             <EmptyState
               icon={<Workflow className="h-7 w-7" />}
               title="No workflows yet"
@@ -302,7 +298,7 @@ export function DashboardPage() {
             )}
           </CardHeader>
 
-          {loading && hasToken && projectId ? (
+          {loading && projectId ? (
             <DashboardActiveRunsSkeleton rows={3} />
           ) : activeRuns.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
@@ -351,7 +347,7 @@ export function DashboardPage() {
             <CardDescription>Failed runs requiring attention</CardDescription>
           </CardHeader>
 
-          {loading && hasToken && projectId ? (
+          {loading && projectId ? (
             <DashboardFailuresSkeleton rows={2} />
           ) : failedRuns.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">

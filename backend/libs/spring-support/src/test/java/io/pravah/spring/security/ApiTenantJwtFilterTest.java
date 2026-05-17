@@ -71,10 +71,10 @@ class ApiTenantJwtFilterTest {
 
   @Test
   void shouldNotFilter_publicAuthPath_returnsTrue() {
-    when(request.getRequestURI()).thenReturn("/api/v1/auth/dev-token");
+    when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
     assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
 
-    when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+    when(request.getRequestURI()).thenReturn("/api/v1/auth/password-reset/request");
     assertThat(apiTenantJwtFilter.shouldNotFilter(request)).isTrue();
   }
 

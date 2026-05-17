@@ -213,7 +213,7 @@ export function ScheduleForm({ pipelineId, onCreated, onError }: ScheduleFormPro
               >
                 <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   {showTime && (
-                    <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex flex-col min-w-0 gap-4">
                       <Label htmlFor="schedule-time" className="w-16 shrink-0">
                         Run at
                       </Label>
@@ -221,7 +221,7 @@ export function ScheduleForm({ pipelineId, onCreated, onError }: ScheduleFormPro
                     </div>
                   )}
                   {showWeekday && (
-                    <div className="flex min-w-0 items-center gap-4 sm:min-w-[11rem]">
+                    <div className="flex min-w-0 items-center gap-4 sm:min-w-44">
                       <Label htmlFor="schedule-weekday" className="w-16 shrink-0">
                         On
                       </Label>
@@ -253,7 +253,7 @@ export function ScheduleForm({ pipelineId, onCreated, onError }: ScheduleFormPro
             {/* Custom cron input */}
             {preset === "custom" && (
               <div className="space-y-3 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-900/30">
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col gap-2"> 
                   <Label htmlFor="schedule-cron" className="text-[12px]">
                     Cron expression
                   </Label>

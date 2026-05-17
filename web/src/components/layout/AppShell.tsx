@@ -7,7 +7,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { hasValidSession, subscribeSession } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import {
   Tooltip,
@@ -184,6 +185,16 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return subscribeSession(() => {
+      if (!hasValidSession()) {
+        const redirect = encodeURIComponent(location.pathname + location.search);
+        navigate(`/login?redirect=${redirect}`, { replace: true });
+      }
+    });
+  }, [location.pathname, location.search, navigate]);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");

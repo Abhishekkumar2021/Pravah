@@ -63,53 +63,96 @@ async function handleResponse<T>(res: Response): Promise<T> {
   throw new ApiError(message, res.status, errorCode);
 }
 
-const DEV_BEARER_STORAGE_KEY = "pravah.devBearerToken";
-const DEV_BEARER_CHANGED_EVENT = "pravah:dev-bearer-token-changed";
+const ACCESS_TOKEN_STORAGE_KEY = "pravah.accessToken";
+const AUTH_USER_STORAGE_KEY = "pravah.authUser";
+const SESSION_CHANGED_EVENT = "pravah:session-changed";
 
-export function getDevBearerToken(): string | undefined {
-  return localStorage.getItem(DEV_BEARER_STORAGE_KEY) ?? undefined;
+export function getAccessToken(): string | undefined {
+  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? undefined;
 }
 
-/** Subscribe to dev JWT changes (same-tab saves + other tabs via `storage`). */
-export function subscribeDevBearerToken(listener: () => void): () => void {
+/** True when a signed-in session exists and the access token is not expired. */
+export function hasValidSession(): boolean {
+  const token = getAccessToken()?.trim();
+  if (!token) return false;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return false;
+    const payload = parts[1]!.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
+    const claims = JSON.parse(atob(padded)) as { exp?: unknown };
+    if (typeof claims.exp === "number") {
+      return claims.exp * 1000 > Date.now() + 10_000;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getStoredUser(): AuthUserResponse | undefined {
+  const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as AuthUserResponse;
+  } catch {
+    return undefined;
+  }
+}
+
+function setStoredUser(user: AuthUserResponse | null) {
+  if (user) {
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  }
+}
+
+/** Subscribe to session changes (sign-in, sign-out, token refresh; cross-tab via `storage`). */
+export function subscribeSession(listener: () => void): () => void {
   if (typeof window === "undefined") {
     return () => {};
   }
   const onStorage = (e: StorageEvent) => {
-    if (e.key === DEV_BEARER_STORAGE_KEY || e.key === null) {
+    if (
+      e.key === ACCESS_TOKEN_STORAGE_KEY ||
+      e.key === AUTH_USER_STORAGE_KEY ||
+      e.key === null
+    ) {
       listener();
     }
   };
   const onLocal = () => listener();
   window.addEventListener("storage", onStorage);
-  window.addEventListener(DEV_BEARER_CHANGED_EVENT, onLocal);
+  window.addEventListener(SESSION_CHANGED_EVENT, onLocal);
   return () => {
     window.removeEventListener("storage", onStorage);
-    window.removeEventListener(DEV_BEARER_CHANGED_EVENT, onLocal);
+    window.removeEventListener(SESSION_CHANGED_EVENT, onLocal);
   };
 }
 
-export function setDevBearerToken(token: string | null) {
+export function setAccessToken(token: string | null) {
   if (token) {
-    localStorage.setItem(DEV_BEARER_STORAGE_KEY, token);
+    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
   } else {
-    localStorage.removeItem(DEV_BEARER_STORAGE_KEY);
+    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   }
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(DEV_BEARER_CHANGED_EVENT));
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
   }
 }
 
-/** Clear dev JWT and sign out. Use on explicit sign-out actions. */
+/** Clear session and sign out. */
 export function signOut() {
-  localStorage.removeItem(DEV_BEARER_STORAGE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(AUTH_USER_STORAGE_KEY);
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(DEV_BEARER_CHANGED_EVENT));
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
   }
 }
 
 function authHeaders(): HeadersInit {
-  const token = getDevBearerToken();
+  const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -139,7 +182,8 @@ export async function login(email: string, password: string): Promise<AuthTokenR
     body: JSON.stringify({ email, password }),
   });
   const body = await handleResponse<AuthTokenResponse>(res);
-  setDevBearerToken(body.accessToken);
+  setAccessToken(body.accessToken);
+  setStoredUser(body.user);
   return body;
 }
 
@@ -152,6 +196,46 @@ export async function requestPasswordReset(email: string): Promise<void> {
   if (!res.ok) {
     await handleResponse<void>(res);
   }
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/password-reset/confirm"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export type ValidatePipelineResponse = { valid: boolean };
+
+export async function validatePipelineDefinition(definitionYaml: string): Promise<ValidatePipelineResponse> {
+  const res = await fetch(apiUrl("/api/v1/pipelines/validate"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ definitionYaml }),
+  });
+  return handleResponse<ValidatePipelineResponse>(res);
+}
+
+export async function publishPipeline(
+  pipelineId: string,
+  definitionYaml: string,
+): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/publish`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ definitionYaml }),
+  });
+  return handleResponse<PipelineResponse>(res);
 }
 
 const EXECUTIONS_WS_PATH = "/ws/v1/executions";

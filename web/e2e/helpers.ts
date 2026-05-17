@@ -1,20 +1,27 @@
 import type { Page } from "@playwright/test";
 
-export const DEV_BEARER_KEY = "pravah.devBearerToken";
+export const ACCESS_TOKEN_KEY = "pravah.accessToken";
 export const PROJECT_SCOPE_KEY = "pravah.defaultProjectId";
-export const TEST_JWT = "e2e-test-jwt";
+function buildTestJwt(expSeconds: number): string {
+  const header = btoa(JSON.stringify({ alg: "none", typ: "JWT" }));
+  const payload = btoa(JSON.stringify({ exp: expSeconds }));
+  return `${header}.${payload}.e2e`;
+}
+
+/** Non-expired JWT so `hasValidSession()` passes in Playwright. */
+export const TEST_JWT = buildTestJwt(Math.floor(Date.now() / 1000) + 86400 * 365);
 export const TEST_PROJECT_ID = "55555555-5555-4555-8555-555555555555";
 
 export const EXECUTION_ID = "11111111-1111-4111-8111-111111111111";
 export const PIPELINE_ID = "22222222-2222-4222-8222-222222222222";
 
-export async function seedDevBearerToken(page: Page, token = TEST_JWT) {
+export async function seedSession(page: Page, token = TEST_JWT) {
   await page.addInitScript(
-    ([bearerKey, bearer, projectKey, projectId]) => {
-      localStorage.setItem(bearerKey, bearer);
+    ([tokenKey, accessToken, projectKey, projectId]) => {
+      localStorage.setItem(tokenKey, accessToken);
       localStorage.setItem(projectKey, projectId);
     },
-    [DEV_BEARER_KEY, token, PROJECT_SCOPE_KEY, TEST_PROJECT_ID] as const,
+    [ACCESS_TOKEN_KEY, token, PROJECT_SCOPE_KEY, TEST_PROJECT_ID] as const,
   );
 }
 

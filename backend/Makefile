@@ -5,7 +5,7 @@
 
 .PHONY: help build test clean format lint docker-up docker-down \
 	local-setup local-up local-down local-services local-services-stop \
-	local-status local-dev-token local-web local-print-token local-seed
+	local-status local-web local-seed
 
 # Default target
 help:
@@ -37,8 +37,6 @@ help:
 	@echo "  make local-up            - Docker infra + wait for health"
 	@echo "  make local-services      - Start tenant, pipeline, execution, scheduler, gateway (background)"
 	@echo "  make local-services-stop - Stop background Java services"
-	@echo "  make local-dev-token     - Mint JWT via POST /api/v1/auth/dev-token"
-	@echo "  make local-print-token   - Mint JWT and show DevTokenCard / project id hints"
 	@echo "  make local-seed          - Demo data (run after local-services; Flyway applies on boot)"
 	@echo "  make local-status        - Ports + pid status"
 	@echo "  make local-web           - npm run dev in ../web"
@@ -143,18 +141,9 @@ local-status:
 	@chmod +x scripts/local/*.sh
 	@./scripts/local/status.sh
 
-local-dev-token:
-	@chmod +x scripts/local/*.sh
-	@./scripts/local/mint-dev-token.sh
-
 local-seed:
 	@chmod +x scripts/local/seed-demo.sh
 	@./scripts/local/seed-demo.sh
-
-local-print-token: local-dev-token
-	@echo ""
-	@echo "Paste the token above in the UI: Login → Local development, or Dashboard → Alpha setup."
-	@echo "Project id (if needed): $${PRAVAH_DEV_PROJECT_ID:-33333333-3333-4333-8333-333333333333}"
 
 local-web:
 	@cd ../web && npm run dev

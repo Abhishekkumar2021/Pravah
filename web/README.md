@@ -30,15 +30,15 @@ Copy `env.example` to `.env.local` for local overrides (gitignored).
 
 1. Run the API gateway (and dependencies) so `GET/POST /api/v1/executions/...` is available.
 2. `npm run dev` — Vite forwards `/api` to `VITE_DEV_PROXY_TARGET` (default `http://localhost:8080`).
-3. Open **Workflows** or **Dashboard** — set **Project scope** (or `VITE_PRAVAH_PROJECT_ID`) so pipeline lists resolve.
-4. Open **Runs →** pick a row or paste a real execution UUID in the URL (`/app/runs/{id}`).
-5. Open **Dev token**, paste a JWT the gateway accepts, **Save & reload** (stored as `localStorage.pravah.devBearerToken`).
+3. Sign in at `/login` (seeded user after `make local-seed`: `dev@localhost.pravah` / `PravahDev1!`). The access token is stored as `localStorage.pravah.accessToken`.
+4. Open **Workflows** or **Dashboard** — set **Project scope** (or `VITE_PRAVAH_PROJECT_ID`) so pipeline lists resolve.
+5. Open **Runs** and pick a row, or navigate to `/app/runs/{executionId}`.
 
 Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 
 ## Real-time execution updates (WebSocket)
 
-1. Same dev JWT as REST (`pravah.devBearerToken`).
+1. Same signed-in session as REST (`pravah.accessToken`).
 2. Vite proxies `/ws` to the gateway → execution-service (`/ws/v1/executions?access_token=…`).
 3. Run detail, runs list, and dashboard subscribe while runs are pending/running and refetch on `execution.updated` frames.
 

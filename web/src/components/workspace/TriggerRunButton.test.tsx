@@ -9,8 +9,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/api")>();
   return {
     ...mod,
-    getDevBearerToken: vi.fn(),
-    subscribeDevBearerToken: vi.fn(() => () => {}),
+    hasValidSession: vi.fn(),
+    subscribeSession: vi.fn(() => () => {}),
     createExecution: vi.fn(),
   };
 });
@@ -27,10 +27,10 @@ vi.mock("react-router-dom", async (importOriginal) => {
 describe("TriggerRunButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.getDevBearerToken).mockReturnValue(undefined);
+    vi.mocked(api.hasValidSession).mockReturnValue(false);
   });
 
-  it("disables run when no dev token", () => {
+  it("disables run when there is no active session", () => {
     render(
       <MemoryRouter>
         <TriggerRunButton pipelineId="00000000-0000-4000-8000-000000000001" />
@@ -41,7 +41,7 @@ describe("TriggerRunButton", () => {
 
   it("starts execution and navigates on success", async () => {
     const user = userEvent.setup();
-    vi.mocked(api.getDevBearerToken).mockReturnValue("token");
+    vi.mocked(api.hasValidSession).mockReturnValue(true);
     vi.mocked(api.createExecution).mockResolvedValue({
       id: "exec-1",
       pipelineId: "00000000-0000-4000-8000-000000000001",
@@ -59,5 +59,20 @@ describe("TriggerRunButton", () => {
     await user.click(screen.getByRole("button", { name: /^run$/i }));
     expect(api.createExecution).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000001", 1);
     expect(navigate).toHaveBeenCalledWith("/app/runs/exec-1");
+  });
+
+  it("shows a session hint when the API rejects the token", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.hasValidSession).mockReturnValue(true);
+    vi.mocked(api.createExecution).mockRejectedValue(new api.ApiError("Forbidden", 403));
+
+    render(
+      <MemoryRouter>
+        <TriggerRunButton pipelineId="00000000-0000-4000-8000-000000000001" />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^run$/i }));
+    expect(screen.getByRole("alert").textContent?.toLowerCase()).toContain("session expired");
   });
 });

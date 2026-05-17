@@ -1,17 +1,39 @@
 import { LogOut, Menu, Monitor, Moon, Sun } from "lucide-react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { useTheme } from "@/lib/theme";
-import { signOut } from "@/lib/api";
+import { signOut, subscribeSession, type AuthUserResponse } from "@/lib/api";
+
+const AUTH_USER_JSON_KEY = "pravah.authUser";
 
 type TopBarProps = {
   onMenuClick?: () => void;
 };
 
+function readStoredUserJson(): string | null {
+  return localStorage.getItem(AUTH_USER_JSON_KEY);
+}
+
+function parseUserJson(json: string | null): AuthUserResponse | undefined {
+  if (!json) return undefined;
+  try {
+    return JSON.parse(json) as AuthUserResponse;
+  } catch {
+    return undefined;
+  }
+}
+
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { preference, cyclePreference } = useTheme();
   const navigate = useNavigate();
+  const userJson = useSyncExternalStore(
+    subscribeSession,
+    readStoredUserJson,
+    () => null,
+  );
+  const user = useMemo(() => parseUserJson(userJson), [userJson]);
 
   const ThemeIcon = preference === "dark" ? Moon : preference === "light" ? Sun : Monitor;
 
@@ -19,6 +41,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     signOut();
     navigate("/login");
   };
+
+  const displayName = user?.name?.trim() || user?.email || "Workspace";
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-950/95 sm:px-6">
@@ -38,9 +62,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             <p className="text-[10px] font-medium uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Pravah
             </p>
-            <h1 className="truncate text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-              Workspace
-            </h1>
+            <p className="truncate text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              {displayName}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

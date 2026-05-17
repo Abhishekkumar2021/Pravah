@@ -6,11 +6,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ConnectionReferenceExtractor;
 import io.pravah.common.domain.ContainerStageValidator;
+import io.pravah.common.domain.DbtStageValidator;
 import io.pravah.common.domain.PipelineId;
 import io.pravah.common.domain.PipelineVariablesParser;
 import io.pravah.common.domain.ProjectId;
+import io.pravah.common.domain.PythonStageValidator;
 import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.domain.SecretReferenceExtractor;
+import io.pravah.common.domain.SparkStageValidator;
 import io.pravah.common.domain.SqlStageValidator;
 import io.pravah.common.domain.StageOutputReferenceValidator;
 import io.pravah.common.domain.StageTimeoutParser;
@@ -528,6 +531,9 @@ public class PipelineApplicationService {
       PipelineVariablesParser.validateDefinition(definition);
       SqlStageValidator.validateDefinition(definition);
       ContainerStageValidator.validateDefinition(definition);
+      PythonStageValidator.validateDefinition(definition);
+      DbtStageValidator.validateDefinition(definition);
+      SparkStageValidator.validateDefinition(definition);
       StageOutputReferenceValidator.validateDefinition(definition);
       connectionApplicationService.validateConnectionReferences(
           ConnectionReferenceExtractor.extractNamedConnections(definition));

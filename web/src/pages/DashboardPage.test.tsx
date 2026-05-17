@@ -23,7 +23,7 @@ function renderPage() {
 
 describe("DashboardPage", () => {
   beforeEach(() => {
-    localStorage.setItem("pravah.devBearerToken", "jwt");
+    localStorage.setItem("pravah.accessToken", "jwt");
     localStorage.setItem("pravah.defaultProjectId", PROJECT_ID);
     vi.spyOn(api, "listPipelines").mockResolvedValue({
       content: [
@@ -62,9 +62,9 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("ETL")).toBeVisible();
   });
 
-  it("shows alpha setup when token missing", () => {
-    localStorage.removeItem("pravah.devBearerToken");
+  it("shows workspace setup when project is missing", () => {
+    localStorage.removeItem("pravah.defaultProjectId");
     renderPage();
-    expect(screen.getByText("Alpha setup")).toBeVisible();
+    expect(screen.getByText("Workspace setup")).toBeVisible();
   });
 });
