@@ -1,5 +1,7 @@
 # Pravah Release Plan
 
+> **Repo progress:** See [Implementation Status](../../IMPLEMENTATION_STATUS.md) for which stories below are already implemented on `develop` vs still planned.
+
 ## Release Philosophy
 
 Pravah follows a milestone-based release approach:
@@ -34,7 +36,7 @@ Core execution works end-to-end. A workflow can be created, scheduled, and execu
 | Epic | Stories | Notes |
 |------|---------|-------|
 | EPIC-01 | US-01.01, US-01.03, US-01.04, US-01.05, US-01.12 | YAML workflow, basic stages, validation |
-| EPIC-02 | US-02.01, US-02.02, US-02.03, US-02.04, US-02.06, US-02.07, US-02.14, US-02.17 | Manual run, logs, cancel, retry |
+| EPIC-02 | US-02.01, US-02.02, US-02.03, US-02.04, US-02.06, US-02.07, US-02.10, US-02.14, US-02.17 | Manual run, logs, cancel, retry, stage outputs |
 | EPIC-03 | US-03.01, US-03.05, US-03.08 | Cron schedule, pause, API trigger |
 | EPIC-09 | US-09.04, US-09.05, US-09.06, US-09.07 | K8s deploy, docker-compose, Postgres, Kafka |
 | EPIC-10 | US-10.01, US-10.05, US-10.08 | Local auth, basic roles, API tokens |

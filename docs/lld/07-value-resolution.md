@@ -41,7 +41,8 @@ Pravah uses a **unified value resolution system** to handle variables, secrets, 
 │  1. PARSE PHASE (Pipeline Publish)                                  │
 │     ├── Validate variable declarations                              │
 │     ├── Validate secret references exist (tenant_secrets table)     │
-│     └── Validate connection references exist                        │
+│     ├── Validate connection references exist                        │
+│     └── Validate ${stages.*.output.*} (StageOutputReferenceValidator)│
 │                                                                      │
 │  2. RESOLVE PHASE (Execution Start)                                 │
 │     ├── Apply variable defaults                                     │
@@ -52,6 +53,7 @@ Pravah uses a **unified value resolution system** to handle variables, secrets, 
 │                                                                      │
 │  3. EXECUTION PHASE (Stage Run)                                     │
 │     ├── Resolve ${secret.*} → actual values                         │
+│     ├── Resolve ${stages.*.output.*} from upstream job output       │
 │     ├── Resolve connection credentials (env:/vault:)                │
 │     └── Execute stage with fully resolved config                    │
 └─────────────────────────────────────────────────────────────────────┘
@@ -425,9 +427,11 @@ message: "Query took ${stages.extract.output.duration_ms}ms"
 ### Resolution Rules
 
 1. **Dependency requirement**: The referenced stage must be in `dependsOn` (directly or transitively)
-2. **State requirement**: The upstream stage must have `SUCCEEDED` status
-3. **Caching**: Resolved outputs are cached within the same stage resolution context
-4. **Error handling**: Missing keys or failed stages throw `IllegalStateException`
+2. **Publish-time validation**: `StageOutputReferenceValidator` scans each stage definition (not only `config`) and rejects unknown stages, self-references, non-upstream refs, and circular dependencies at pipeline publish
+3. **State requirement**: The upstream stage must have `SUCCEEDED` status
+4. **Caching**: Resolved outputs are cached within the same stage resolution context
+5. **Error handling**: Missing keys or failed stages throw `IllegalStateException`
+6. **Size limits**: On both success and failure, outputs over `pravah.stage.output-warn-bytes` (default 100KB) log a warning; outputs over `pravah.stage.max-output-bytes` (default 1MB) are truncated before persistence (`JobCreatedProcessingService` + `StageOutputSizeGuard`)
 
 ### Size Limits
 

@@ -12,6 +12,7 @@ import io.pravah.common.domain.ProjectId;
 import io.pravah.common.domain.RetryPolicyParser;
 import io.pravah.common.domain.SecretReferenceExtractor;
 import io.pravah.common.domain.SqlStageValidator;
+import io.pravah.common.domain.StageOutputReferenceValidator;
 import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
@@ -527,6 +528,7 @@ public class PipelineApplicationService {
       PipelineVariablesParser.validateDefinition(definition);
       SqlStageValidator.validateDefinition(definition);
       ContainerStageValidator.validateDefinition(definition);
+      StageOutputReferenceValidator.validateDefinition(definition);
       connectionApplicationService.validateConnectionReferences(
           ConnectionReferenceExtractor.extractNamedConnections(definition));
       secretApplicationService.validateSecretReferences(

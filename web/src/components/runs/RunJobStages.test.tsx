@@ -6,7 +6,15 @@ import * as api from "@/lib/api";
 import { RunJobStages } from "./RunJobStages";
 
 const jobs: JobSummary[] = [
-  { id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1, maxAttempts: 3 },
+  {
+    id: "j-ok",
+    stageId: "lint",
+    stageName: "Lint",
+    status: "succeeded",
+    attempt: 1,
+    maxAttempts: 3,
+    output: { row_count: 10 },
+  },
   { id: "j-bad", stageId: "deploy", stageName: "Deploy", status: "failed", attempt: 2, maxAttempts: 3 },
 ];
 
@@ -44,7 +52,15 @@ describe("RunJobStages", () => {
       <RunJobStages
         executionId="exec-1"
         jobs={[
-          { id: "j-ok", stageId: "lint", stageName: "Lint", status: "succeeded", attempt: 1, maxAttempts: 3 },
+          {
+            id: "j-ok",
+            stageId: "lint",
+            stageName: "Lint",
+            status: "succeeded",
+            attempt: 1,
+            maxAttempts: 3,
+            output: { row_count: 1 },
+          },
         ]}
       />,
     );
@@ -53,6 +69,14 @@ describe("RunJobStages", () => {
     await waitFor(() => {
       expect(screen.getByText(/Stage failed/)).toBeInTheDocument();
     });
+  });
+
+  it("shows stage output when expanded", async () => {
+    const user = userEvent.setup();
+    render(<RunJobStages executionId="exec-1" jobs={jobs} />);
+    await user.click(screen.getByRole("button", { name: /Lint/i }));
+    expect(screen.getByText(/Stage output/)).toBeInTheDocument();
+    expect(screen.getByText(/"row_count": 10/)).toBeInTheDocument();
   });
 
   it("toggles log panel for a stage", async () => {

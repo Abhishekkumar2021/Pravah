@@ -81,13 +81,21 @@ public final class StagePlanner {
       String id = idObj.toString();
       Object nameObj = m.get("name");
       String name = nameObj != null ? nameObj.toString() : id;
-      List<String> dependsOn = parseDependsOn(m.get("dependsOn"));
+      List<String> dependsOn = parseDependsOn(m);
       result.add(new StageDef(id, name, dependsOn));
     }
     return result;
   }
 
-  private static List<String> parseDependsOn(Object dep) {
+  private static List<String> parseDependsOn(Map<?, ?> stage) {
+    Object dep = stage.get("dependsOn");
+    if (dep == null) {
+      dep = stage.get("depends_on");
+    }
+    return parseDependsOnList(dep);
+  }
+
+  private static List<String> parseDependsOnList(Object dep) {
     if (!(dep instanceof List<?> d) || d.isEmpty()) {
       return List.of();
     }

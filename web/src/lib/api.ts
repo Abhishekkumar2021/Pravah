@@ -20,6 +20,7 @@ export type JobSummary = {
   status: string;
   attempt: number;
   maxAttempts: number;
+  output?: Record<string, unknown> | null;
 };
 
 export type ExecutionResponse = {

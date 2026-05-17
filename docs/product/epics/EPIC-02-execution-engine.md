@@ -183,11 +183,12 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** downstream stages can use upstream results
 
 **Acceptance Criteria:**
-- [ ] Return values stored in metadata store
-- [ ] Size limit (1MB default)
-- [ ] Access via `${stages.upstream.output.key}`
-- [ ] Visible in UI for debugging
-- [ ] Warnings for large payloads
+- [x] Return values stored in job `output` (execution DB)
+- [x] Size limit (1MB default, `pravah.stage.max-output-bytes`)
+- [x] Access via `${stages.<stageId>.output.<key>}`
+- [x] Visible in UI for debugging (`RunJobOutputPanel` on run detail)
+- [x] Warnings for large payloads (`pravah.stage.output-warn-bytes`)
+- [x] Publish-time validation (`StageOutputReferenceValidator`)
 
 **Story Points:** 5  
 **Priority:** P0

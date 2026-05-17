@@ -12,6 +12,8 @@ Reading theory is not the same as building it. These exercises exist to answer t
 
 Each exercise simulates a real scenario from Pravah — not a toy example. When you finish the playground, every line of code in the real backend will feel familiar.
 
+The **production codebase** lives in [`backend/`](../backend/) and [`web/`](../web/). See **[Implementation Status](../docs/IMPLEMENTATION_STATUS.md)** for what is implemented vs still planned.
+
 ---
 
 ## Exercise Index

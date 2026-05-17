@@ -68,7 +68,9 @@ class JobCreatedProcessingServiceTest {
             jobFailureService,
             JOB_CREATED_TOPIC,
             applicationEventPublisher,
-            objectMapper);
+            objectMapper,
+            1_048_576L,
+            102_400L);
   }
 
   @AfterEach
@@ -215,6 +217,72 @@ class JobCreatedProcessingServiceTest {
                     JOB_CREATED_TOPIC.equals(row.getTopic())
                         && JobEventTypes.JOB_CREATED.equals(row.getEventType())
                         && jobId.equals(row.getAggregateId())));
+  }
+
+  @Test
+  void process_failure_truncatesLargeOutputBeforePersist() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID eventId = UUID.randomUUID();
+    UUID jobId = UUID.randomUUID();
+    UUID execId = UUID.randomUUID();
+
+    TenantContext.setCurrentTenantId(tenantId);
+    when(processedEventRepository.existsByEventId(eventId)).thenReturn(false);
+
+    Map<String, Object> definition =
+        Map.of(
+            "retry", Map.of("max_attempts", 1), "stages", List.of(Map.of("id", "a", "name", "A")));
+
+    ExecutionEntity execution =
+        ExecutionEntity.builder()
+            .tenantId(tenantId)
+            .pipelineId(UUID.randomUUID())
+            .pipelineVersion(1)
+            .triggerType(ExecutionApplicationService.TRIGGER_MANUAL)
+            .definitionSnapshot(definition)
+            .build();
+    setId(execution, execId);
+    execution.start();
+
+    JobEntity job = JobEntity.builder().executionId(execId).stageId("a").stageName("A").build();
+    setId(job, jobId);
+    job.queue();
+
+    JobCreatedProcessingService smallOutputService =
+        new JobCreatedProcessingService(
+            executionEntityRepository,
+            jobEntityRepository,
+            outboxRepository,
+            processedEventRepository,
+            stageExecutorRouter,
+            jobLogService,
+            jobFailureService,
+            JOB_CREATED_TOPIC,
+            applicationEventPublisher,
+            objectMapper,
+            100L,
+            50L);
+
+    Map<String, Object> hugeOutput = Map.of("blob", "x".repeat(500));
+
+    when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
+    when(executionEntityRepository.findById(execId)).thenReturn(Optional.of(execution));
+    when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
+    when(stageExecutorRouter.execute(job, execution))
+        .thenReturn(new EmbeddedStageExecutor.StageExecutionResult(1, hugeOutput));
+
+    smallOutputService.processJobCreated(
+        Map.of(
+            "eventId",
+            eventId.toString(),
+            "tenantId",
+            tenantId.toString(),
+            "jobId",
+            jobId.toString(),
+            "executionId",
+            execId.toString()));
+
+    assertThat(job.getOutput()).containsEntry("_truncated", true);
   }
 
   @Test

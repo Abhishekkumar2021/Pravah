@@ -5,6 +5,7 @@ import { isFailedJob, jobStatusBorderClass, sortJobsByStage } from "@/lib/jobSta
 import { cn } from "@/lib/cn";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { RunJobOutputPanel } from "./RunJobOutputPanel";
 import { RunLogPanel } from "./RunLogPanel";
 
 type RunJobStagesProps = {
@@ -84,6 +85,7 @@ export function RunJobStages({ executionId, jobs }: RunJobStagesProps) {
             </div>
             {isOpen ? (
               <div id={panelId} className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
+                <RunJobOutputPanel output={job.output} />
                 <RunLogPanel executionId={executionId} job={job} active />
               </div>
             ) : null}

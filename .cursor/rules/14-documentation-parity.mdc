@@ -1,0 +1,56 @@
+---
+description: Keep docs, READMEs, and implementation status in sync with code changes
+alwaysApply: true
+---
+
+# Documentation Parity (Mandatory)
+
+**Documentation is not optional follow-up work.** When you add, change, or remove user-facing behavior, update documentation in the **same PR** as the code. Stale docs (especially root `README.md` claiming features exist or "0% implemented") are a defect.
+
+## Before You Finish Any Feature or Fix
+
+1. Read **`docs/IMPLEMENTATION_STATUS.md`** — confirm what is already marked built vs planned.
+2. Read the relevant **LLD** in `docs/lld/` (e.g. `07-value-resolution.md` for `${var.*}` / `${stages.*.output.*}`).
+3. Read the **user story** in `docs/product/epics/` if the work maps to a US-XX.YY.
+
+## After Code Changes — Update in This Order
+
+| Step | File(s) | When required |
+|------|---------|----------------|
+| 1 | `docs/IMPLEMENTATION_STATUS.md` | Any new/changed/removed capability, service, API, UI screen, config property, or alpha scope shift |
+| 2 | Relevant `docs/lld/*.md` | Design, validation rules, state transitions, or resolution pipeline changed |
+| 3 | `docs/product/epics/EPIC-*.md` | Acceptance criteria met or scope changed — check boxes and wording must match reality |
+| 4 | `docs/lld/07-value-resolution.md` | Variables, secrets, connections, or stage output behavior touched |
+| 5 | `backend/README.md` | New env vars, ports, local dev steps, or execution/pipeline behavior operators need |
+| 6 | `web/README.md` | New UI routes, env vars (`VITE_*`), or product mapping (US-12.xx) |
+| 7 | `docs/product/releases/RELEASE-PLAN.md` | Story moves between alpha/beta/GA milestones |
+| 8 | Root `README.md` | Only if onboarding, project status summary, or repo layout changed — **do not** claim unbuilt HLA features as shipped |
+| 9 | `docs/architecture/high-level-architecture.md` | Only if target architecture changed — keep the "target vs implemented" distinction |
+
+**Do not update** `docs/theory/` for routine product code unless you are deliberately changing curriculum content.
+
+## Accuracy Rules
+
+- **HLA / ADRs / epics** describe intent; **`docs/IMPLEMENTATION_STATUS.md`** describes the repo. Never imply runner fleet, GraphQL UI, lineage, or agent service exist unless status says so.
+- Root README **Project Status** must stay aligned with `IMPLEMENTATION_STATUS.md` (no "Implementation 0%" if code exists).
+- New configuration: document property name, env override, default, and owning service (see `backend/README.md` stage output table as pattern).
+- API or UI exposure: note endpoint/route and which epic/story it satisfies.
+
+## Checklist (copy before marking work complete)
+
+```
+### Documentation parity
+- [ ] docs/IMPLEMENTATION_STATUS.md updated (or confirmed N/A)
+- [ ] Relevant docs/lld/ updated if behavior/design changed
+- [ ] Epic acceptance criteria updated if US-XX.YY scope delivered
+- [ ] backend/README.md and/or web/README.md if operators/frontend need new steps or env vars
+- [ ] Root README.md only if onboarding/status/layout changed
+- [ ] No aspirational language presenting unbuilt systems as live
+```
+
+## Cross-References
+
+- Pre-commit tests: `.cursor/rules/12-pre-commit-workflow.mdc`
+- Review gate: `.cursor/rules/11-code-review-checklist.mdc` (Documentation Alignment section)
+- Doc index: `docs/README.md`
+- Agents: `AGENTS.md` — "Check Documentation First" table includes implementation status

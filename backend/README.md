@@ -14,8 +14,9 @@ backend/
 │       ├── pravah.jpa-conventions.gradle.kts
 │       └── pravah.kafka-conventions.gradle.kts
 ├── libs/                        # Shared libraries
-│   ├── common/                  # Domain primitives, events, exceptions
-│   ├── proto/                   # gRPC/Protobuf definitions
+│   ├── common/                  # Domain primitives, events, value resolution, validators
+│   ├── proto/                   # gRPC/Protobuf definitions (partial)
+│   ├── spring-support/          # Multitenancy, security
 │   └── test-support/            # Test utilities and Testcontainers
 ├── services/                    # Microservices
 │   ├── gateway/                 # API Gateway (Spring Cloud Gateway)
@@ -29,12 +30,16 @@ backend/
 │   ├── notification-service/    # Multi-channel notifications
 │   ├── agent-service/           # AI-powered assistance
 │   └── connect-service/         # External integrations
-├── runner/                      # Standalone runner binary
+├── runner/                      # Standalone runner binary (CLI skeleton)
+├── docker-compose.yml           # Local Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog
+├── scripts/local/               # local-up, local-services, seed, dev token
 ├── gradle/
 │   └── libs.versions.toml       # Version catalog
 ├── settings.gradle.kts          # Module includes
 └── build.gradle.kts             # Root build configuration
 ```
+
+**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler. Stubs: graphql, runner-service, metadata, notification, agent, connect.
 
 ## Prerequisites
 
@@ -46,6 +51,20 @@ backend/
 
 ## Quick Start
 
+### Local full stack (from repo root)
+
+```bash
+make local-setup      # once: copy env templates
+make local-up         # docker-compose infra
+make local-services   # tenant, pipeline, execution, scheduler, gateway
+make local-seed       # demo data
+make local-web        # Vite dev server (../web)
+```
+
+Gateway: `http://localhost:8080`
+
+### Build and test only
+
 ```bash
 # Build all modules
 ./gradlew build
@@ -53,10 +72,10 @@ backend/
 # Run tests
 ./gradlew test
 
-# Compile only
-./gradlew compileJava
+# Integration tests (Docker required)
+./gradlew integrationTest
 
-# Run a specific service
+# Run a single service
 ./gradlew :services:tenant-service:bootRun
 ```
 
@@ -95,6 +114,17 @@ Test utilities:
 - `KafkaContainerExtension` - Shared Kafka container
 - Fixture classes for test data generation
 
+## Stage output and value resolution (US-02.10)
+
+Embedded stages (echo, SQL, container) resolve `${stages.<stageId>.output.<path>}` at run time via `execution-service` (`StageOutputResolverProvider`, `ExecutionStageConfigResolver`). Pipeline publish validates references with `StageOutputReferenceValidator` in `libs:common` (wired from `pipeline-service`).
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.stage.max-output-bytes` | `PRAVAH_STAGE_MAX_OUTPUT_BYTES` | `1048576` (1MB) | Truncate persisted job output above this size |
+| `pravah.stage.output-warn-bytes` | `PRAVAH_STAGE_OUTPUT_WARN_BYTES` | `102400` (100KB) | Structured warn log when output exceeds threshold |
+
+See [Value resolution LLD](../docs/lld/07-value-resolution.md).
+
 ## Execution real-time (US-12.10)
 
 `execution-service` exposes `GET /ws/v1/executions` for ephemeral `execution.updated` frames (see [LLD](../docs/lld/07-execution-realtime-websocket.md)).
@@ -124,9 +154,11 @@ Start Redis from `docker-compose.yml` when running execution-service with defaul
 
 ## Documentation References
 
-- [High-Level Architecture](../docs/architecture/high-level-architecture.md)
+- [Implementation Status](../docs/IMPLEMENTATION_STATUS.md)
+- [High-Level Architecture](../docs/architecture/high-level-architecture.md) (target; see status doc for gaps)
 - [API Contracts](../docs/architecture/api-contracts.md)
 - [Database ERD](../docs/lld/02-database-erd.md)
 - [State Machines](../docs/lld/03-state-machines.md)
 - [Design Patterns](../docs/lld/01-design-patterns.md)
+- [Value resolution](../docs/lld/07-value-resolution.md)
 - [Execution WebSocket](../docs/lld/07-execution-realtime-websocket.md)

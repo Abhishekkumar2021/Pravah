@@ -5,6 +5,8 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
+import io.pravah.common.domain.StageOutputSizeEnforcement;
+import io.pravah.common.domain.StageOutputSizeGuard;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -54,6 +56,8 @@ public class JobCreatedProcessingService {
   private final String jobCreatedTopic;
   private final ApplicationEventPublisher applicationEventPublisher;
   private final ObjectMapper objectMapper;
+  private final long stageOutputMaxBytes;
+  private final long stageOutputWarnBytes;
 
   public JobCreatedProcessingService(
       ExecutionEntityRepository executionEntityRepository,
@@ -65,7 +69,9 @@ public class JobCreatedProcessingService {
       JobFailureService jobFailureService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
       ApplicationEventPublisher applicationEventPublisher,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      @Value("${pravah.stage.max-output-bytes:1048576}") long stageOutputMaxBytes,
+      @Value("${pravah.stage.output-warn-bytes:102400}") long stageOutputWarnBytes) {
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
@@ -76,6 +82,8 @@ public class JobCreatedProcessingService {
     this.jobCreatedTopic = jobCreatedTopic;
     this.applicationEventPublisher = applicationEventPublisher;
     this.objectMapper = objectMapper;
+    this.stageOutputMaxBytes = stageOutputMaxBytes;
+    this.stageOutputWarnBytes = stageOutputWarnBytes;
   }
 
   @Transactional
@@ -145,13 +153,21 @@ public class JobCreatedProcessingService {
       String errorMessage =
           "Stage %s failed with exit code %d".formatted(job.getStageName(), result.exitCode());
       jobFailureService.handleStageFailure(
-          execution, job, tenantId, result.exitCode(), errorMessage, result.output());
+          execution,
+          job,
+          tenantId,
+          result.exitCode(),
+          errorMessage,
+          enforceStageOutput(result.output(), job.getId(), job.getStageId()));
       recordProcessed(eventId);
       publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
       return;
     }
 
-    job.succeed(result.exitCode(), result.output(), null);
+    job.succeed(
+        result.exitCode(),
+        enforceStageOutput(result.output(), job.getId(), job.getStageId()),
+        null);
     jobLogService.append(
         job.getId(),
         JobLogLevel.INFO,
@@ -259,5 +275,41 @@ public class JobCreatedProcessingService {
         execution.getStatus().asDatabaseValue(),
         Instant.now(),
         execution.getPipelineId());
+  }
+
+  private Map<String, Object> enforceStageOutput(
+      Map<String, Object> output, UUID jobId, String stageId) {
+    StageOutputSizeEnforcement enforced =
+        StageOutputSizeGuard.enforce(
+            output, stageOutputMaxBytes, stageOutputWarnBytes, objectMapper);
+    logStageOutputSize(enforced, jobId, stageId);
+    return enforced.output();
+  }
+
+  private void logStageOutputSize(StageOutputSizeEnforcement enforced, UUID jobId, String stageId) {
+    if (enforced.serializationFailed()) {
+      log.error(
+          "Failed to measure stage output size; persisted truncated summary",
+          kv("job_id", jobId),
+          kv("stage_id", stageId));
+      return;
+    }
+    if (enforced.truncated()) {
+      log.warn(
+          "Stage output truncated — exceeds max size",
+          kv("job_id", jobId),
+          kv("stage_id", stageId),
+          kv("output_bytes", enforced.serializedBytes()),
+          kv("max_bytes", stageOutputMaxBytes));
+      return;
+    }
+    if (enforced.exceededWarnThreshold()) {
+      log.warn(
+          "Stage output exceeds warn threshold",
+          kv("job_id", jobId),
+          kv("stage_id", stageId),
+          kv("output_bytes", enforced.serializedBytes()),
+          kv("warn_bytes", stageOutputWarnBytes));
+    }
   }
 }

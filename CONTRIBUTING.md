@@ -98,6 +98,9 @@ Follow the coding standards defined in:
 - `.cursor/rules/` - Cursor AI rules
 - `docs/lld/` - Low-level design patterns
 - `docs/adr/` - Architecture decisions
+- `docs/IMPLEMENTATION_STATUS.md` - Update when shipping or removing user-facing capabilities
+
+**Local stack:** from repo root, `make local-setup && make local-up && make local-services && make local-seed` (see [backend/README.md](backend/README.md)).
 
 ### 3. Commit Your Changes
 

@@ -16,17 +16,21 @@ This is not a hackathon project. This is a production-grade system being built w
 
 | Need | Location |
 |------|----------|
+| **What is built in this repo** | `docs/IMPLEMENTATION_STATUS.md` |
 | Architecture decisions | `docs/adr/` |
 | Design patterns | `docs/lld/01-design-patterns.md` |
 | Database schemas | `docs/lld/02-database-erd.md` |
 | State machines | `docs/lld/03-state-machines.md` |
 | Key flows | `docs/lld/04-sequence-diagrams.md` |
+| Value resolution (vars, secrets, stage outputs) | `docs/lld/07-value-resolution.md` |
 | Domain models | `docs/lld/05-class-diagrams.md` |
 | User stories | `docs/product/epics/` |
 | Theory/concepts | `docs/theory/` |
 | Working examples | `playground/` |
 
 **If documentation doesn't exist for what you're building, STOP and ask.**
+
+When you ship or change user-facing behavior, update `docs/IMPLEMENTATION_STATUS.md` and the relevant LLD/epic in the same PR.
 
 ### 2. Understand the Context
 

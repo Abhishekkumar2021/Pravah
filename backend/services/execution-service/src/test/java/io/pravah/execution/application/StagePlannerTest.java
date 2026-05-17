@@ -72,6 +72,19 @@ class StagePlannerTest {
   }
 
   @Test
+  void stagesReadyToQueueAfterSuccesses_respectsDependsOnSnakeCase() {
+    Map<String, Object> definition =
+        Map.of(
+            "stages",
+            List.of(
+                Map.of("id", "extract", "name", "Extract"),
+                Map.of("id", "load", "name", "Load", "depends_on", List.of("extract"))));
+
+    assertThat(StagePlanner.stagesReadyToQueueAfterSuccesses(definition, Set.of("extract")))
+        .containsExactly("load");
+  }
+
+  @Test
   void rootStageIds_whenDependsOn_returnsOnlyRoots() {
     assertThat(
             StagePlanner.rootStageIds(
