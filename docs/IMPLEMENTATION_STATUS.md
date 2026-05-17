@@ -96,7 +96,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Story | Status | Evidence |
 |-------|--------|----------|
-| US-10.01 Local auth | Implemented (alpha) | Login, register, bcrypt, lockout; password reset via SMTP (`PasswordResetEmailService`, Mailhog on `1025` locally) |
+| US-10.01 Local auth | Implemented | Login, signup UI, email verification (pending → verify → active), bcrypt, lockout; password reset via SMTP (Mailhog `1025`) |
 | US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
 | US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
 
@@ -124,6 +124,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 |------|--------|-------|
 | Login, shell, dashboard | Implemented | Forgot password link (US-10.01), recent failures widget (US-12.03) |
 | Workflows list / detail | Implemented | Search by name (US-12.04), read-only DAG (US-12.05), edit via `WorkflowDAGEditor` (US-12.06) |
+| Signup / verify email | Implemented | `/signup`, `/verify-email?token=…`, resend verification API (US-10.01) |
 | Forgot / reset password | Implemented | Forgot-password + reset-token pages; Mailhog UI `http://localhost:8025` (US-10.01) |
 | Runs list / detail | Implemented | Retry from failed stage (US-02.05), retryOf lineage |
 | Cancel run | Implemented | |

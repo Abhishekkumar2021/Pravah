@@ -11,6 +11,7 @@ public record AuthProperties(
     /** Tenant for self-service registration when no invite context exists (local alpha). */
     java.util.UUID registrationTenantId,
     Duration passwordResetTokenTtl,
+    Duration emailVerificationTokenTtl,
     String frontendBaseUrl,
     String mailFrom) {
 
@@ -25,6 +26,12 @@ public record AuthProperties(
         || passwordResetTokenTtl.isNegative()
         || passwordResetTokenTtl.isZero()) {
       throw new IllegalArgumentException("pravah.auth.password-reset-token-ttl must be positive");
+    }
+    if (emailVerificationTokenTtl == null
+        || emailVerificationTokenTtl.isNegative()
+        || emailVerificationTokenTtl.isZero()) {
+      throw new IllegalArgumentException(
+          "pravah.auth.email-verification-token-ttl must be positive");
     }
     if (frontendBaseUrl == null || frontendBaseUrl.isBlank()) {
       throw new IllegalArgumentException("pravah.auth.frontend-base-url must not be blank");

@@ -75,6 +75,9 @@ Gateway: `http://localhost:8080`
 | `spring.mail.password` | `MAIL_PASSWORD` | _(empty)_ | SMTP auth password |
 | `pravah.auth.frontend-base-url` | `PRAVAH_FRONTEND_URL` | `http://localhost:5173` | Prefix for reset links in email |
 | `pravah.auth.mail-from` | `PRAVAH_MAIL_FROM` | `noreply@localhost.pravah` | From address |
+| `pravah.auth.email-verification-token-ttl` | _(none)_ | `24h` | Verification link validity |
+
+**Auth API (public):** `POST /api/v1/auth/register` (creates `PENDING` user, sends verification email), `POST /api/v1/auth/verify-email`, `POST /api/v1/auth/verify-email/resend`. Sign-in requires verified (`ACTIVE`) account.
 
 ### Local Kubernetes (Helm, US-09.04)
 

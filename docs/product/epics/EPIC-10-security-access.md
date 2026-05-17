@@ -29,7 +29,7 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** I access Pravah
 
 **Acceptance Criteria:**
-- [ ] Registration with email verification (alpha: `POST /register` without verification email; signup UI deferred)
+- [x] Registration with email verification (`POST /register` → pending user + verification email; `/signup`, `/verify-email` UI)
 - [x] Secure password storage (bcrypt)
 - [x] Login with email/password
 - [x] Password reset flow (request + confirm; SMTP via `MAIL_*`, Mailhog in local docker-compose)

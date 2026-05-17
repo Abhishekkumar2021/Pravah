@@ -6,6 +6,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { SignupPage } from "./pages/SignupPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunListPage } from "./pages/RunListPage";
@@ -17,6 +19,8 @@ export default function App() {
     <Routes>
       <Route element={<PublicOnly />}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>

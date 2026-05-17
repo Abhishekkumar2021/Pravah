@@ -1,6 +1,7 @@
-import { ArrowLeft, Mail } from "lucide-react";
+import { AlertCircle, ArrowRight, Mail, RefreshCw } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -14,50 +15,80 @@ export function ForgotPasswordPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!email.trim()) return;
     setSubmitting(true);
     setError(null);
     try {
       await requestPasswordReset(email.trim());
       setSent(true);
     } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : "Request failed");
+      setError(err instanceof ApiError ? err.message : "Request failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-white px-4 dark:bg-neutral-950">
-      <div className="w-full max-w-md">
-        <Link
-          to="/login"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sign in
-        </Link>
-
-        <h1 className="page-title">Reset password</h1>
-        <p className="page-desc mt-2">
-          Enter your email address and we'll send you a link to reset your password.
-        </p>
-
-        {sent ? (
-          <div className="mt-8 rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/50">
-            <p className="text-sm text-emerald-800 dark:text-emerald-200">
-              If an account exists for <strong>{email}</strong>, you'll receive a password reset
-              email shortly.
-            </p>
-            <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">
-              Check Mailhog at{" "}
-              <a href="http://localhost:8025" className="underline" target="_blank" rel="noreferrer">
-                localhost:8025
-              </a>{" "}
-              when running local docker-compose.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+    <AuthLayout
+      title="Reset your password"
+      description="Enter your email and we'll send you a link to create a new password."
+      heroTitle="Forgot your password?"
+      heroDescription="No worries — we'll help you get back into your account securely."
+      backTo={{ label: "Back to sign in", href: "/login" }}
+    >
+      {sent ? (
+        <section className="rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-6 py-8 text-center shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/40">
+          <span className="relative mx-auto flex h-14 w-14 items-center justify-center">
+            <span
+              className="absolute inset-0 animate-ping rounded-full bg-emerald-500/20"
+              style={{ animationDuration: "1.5s", animationIterationCount: "2" }}
+              aria-hidden
+            />
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600/15 ring-1 ring-emerald-600/25">
+              <Mail className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+            </span>
+          </span>
+          <h2 className="mt-6 text-lg font-semibold tracking-tight text-emerald-900 dark:text-emerald-100">
+            Check your inbox
+          </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-emerald-800/90 dark:text-emerald-200/90">
+            If an account exists for <strong className="font-medium">{email}</strong>, you'll receive a password reset link shortly.
+          </p>
+          <p className="mt-1 text-[13px] text-emerald-700/70 dark:text-emerald-300/70">
+            The link expires in 1 hour.
+          </p>
+          <p className="mt-4 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+            Local dev: open{" "}
+            <a
+              href="http://localhost:8025"
+              className="font-medium underline underline-offset-2 transition-colors hover:text-emerald-900 dark:hover:text-emerald-100"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Mailhog
+            </a>
+          </p>
+          <Button
+            type="button"
+            className="mt-6 h-11 w-full gap-2 rounded-xl text-[13px] font-medium"
+            onClick={() => {
+              setSent(false);
+              setEmail("");
+            }}
+          >
+            Send to a different email
+          </Button>
+          <Link
+            to="/login"
+            className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-emerald-700 transition-colors hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100"
+          >
+            Return to sign in
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </section>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-5" noValidate>
+          <fieldset className="space-y-5" disabled={submitting}>
             <div>
               <Label htmlFor="email" className="mb-1.5 block">
                 Email address
@@ -72,26 +103,52 @@ export function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="py-2.5 pl-10"
+                  className="h-11 py-2.5 pl-10"
                   required
                 />
               </div>
-            </div>
-            {error && (
-              <p className="text-[13px] text-rose-600 dark:text-rose-400" role="alert">
-                {error}
+              <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                We'll send a secure link to reset your password.
               </p>
-            )}
-            <Button
-              type="submit"
-              className="h-11 w-full rounded-lg text-[13px] font-medium"
-              disabled={submitting || !email.trim()}
+            </div>
+          </fieldset>
+
+          {error && (
+            <div
+              className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-2.5 text-[13px] text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
+              role="alert"
             >
-              {submitting ? "Sending…" : "Send reset link"}
-            </Button>
-          </form>
-        )}
-      </div>
-    </div>
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            className="h-11 w-full rounded-xl text-[13px] font-semibold transition-all duration-200"
+            disabled={submitting || !email.trim()}
+          >
+            {submitting ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                Sending…
+              </>
+            ) : (
+              "Send reset link"
+            )}
+          </Button>
+
+          <p className="text-center text-[13px] text-neutral-600 dark:text-neutral-400">
+            Remember your password?{" "}
+            <Link
+              to="/login"
+              className="font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Sign in
+            </Link>
+          </p>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

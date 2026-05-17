@@ -48,17 +48,17 @@ describe("LoginPage", () => {
 
   it("shows visible labels on primary and secondary actions", () => {
     renderLogin();
-    expect(screen.getByRole("button", { name: /continue/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /continue/i })).toHaveTextContent("Continue");
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /sign in/i })).toHaveTextContent("Sign in");
     expect(screen.getByRole("button", { name: /github/i })).toHaveTextContent("GitHub");
     expect(screen.getByRole("button", { name: /^google$/i })).toHaveTextContent("Google");
   });
 
-  it("submits via Continue and navigates to the app dashboard", async () => {
+  it("submits via Sign in and navigates to the app dashboard", async () => {
     const user = userEvent.setup();
     renderLogin();
     await user.type(screen.getByLabelText(/^password$/i), "PravahDev1!");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
     expect(api.login).toHaveBeenCalledWith("dev@localhost.pravah", "PravahDev1!");
     expect(navigateMock).toHaveBeenCalledWith("/app/dashboard", { replace: true });
   });

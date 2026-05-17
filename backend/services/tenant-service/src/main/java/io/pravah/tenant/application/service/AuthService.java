@@ -3,21 +3,26 @@ package io.pravah.tenant.application.service;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.exception.AuthenticationException;
+import io.pravah.common.exception.EmailNotVerifiedException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
 import io.pravah.tenant.application.dto.RegisterRequest;
+import io.pravah.tenant.application.dto.RegisterResponse;
 import io.pravah.tenant.application.dto.UserResponse;
+import io.pravah.tenant.domain.model.EmailVerificationToken;
 import io.pravah.tenant.domain.model.PasswordResetToken;
 import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.TenantMember;
 import io.pravah.tenant.domain.model.User;
+import io.pravah.tenant.domain.repository.EmailVerificationTokenRepository;
 import io.pravah.tenant.domain.repository.PasswordResetTokenRepository;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import io.pravah.tenant.infrastructure.config.AuthProperties;
+import io.pravah.tenant.infrastructure.email.EmailVerificationEmailService;
 import io.pravah.tenant.infrastructure.email.PasswordResetEmailService;
 import io.pravah.tenant.infrastructure.persistence.AuthRlsHelper;
 import io.pravah.tenant.infrastructure.security.ApiTokenHasher;
@@ -29,6 +34,7 @@ import java.util.Locale;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +46,8 @@ public class AuthService {
 
   private static final Logger log = LoggerFactory.getLogger(AuthService.class);
   private static final String INVALID_CREDENTIALS = "Invalid email or password";
+  private static final String REGISTRATION_MESSAGE =
+      "Check your email for a verification link before signing in.";
 
   private final UserRepository userRepository;
   private final TenantMemberRepository memberRepository;
@@ -50,6 +58,8 @@ public class AuthService {
   private final RoleService roleService;
   private final PasswordResetTokenRepository passwordResetTokenRepository;
   private final PasswordResetEmailService passwordResetEmailService;
+  private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+  private final EmailVerificationEmailService emailVerificationEmailService;
 
   public AuthService(
       UserRepository userRepository,
@@ -60,7 +70,9 @@ public class AuthService {
       AuthRlsHelper authRlsHelper,
       RoleService roleService,
       PasswordResetTokenRepository passwordResetTokenRepository,
-      PasswordResetEmailService passwordResetEmailService) {
+      PasswordResetEmailService passwordResetEmailService,
+      EmailVerificationTokenRepository emailVerificationTokenRepository,
+      EmailVerificationEmailService emailVerificationEmailService) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
@@ -70,6 +82,8 @@ public class AuthService {
     this.roleService = roleService;
     this.passwordResetTokenRepository = passwordResetTokenRepository;
     this.passwordResetEmailService = passwordResetEmailService;
+    this.emailVerificationTokenRepository = emailVerificationTokenRepository;
+    this.emailVerificationEmailService = emailVerificationEmailService;
   }
 
   /**
@@ -83,28 +97,37 @@ public class AuthService {
   public AuthTokenResponse login(LoginRequest request) {
     String email = normalizeEmail(request.email());
 
-    // Enable RLS bypass for email lookup (tenant unknown at this point)
     authRlsHelper.enableAuthLookup();
     User user =
         userRepository
             .findByEmail(email)
             .orElseThrow(() -> new AuthenticationException(INVALID_CREDENTIALS));
 
-    // Now we know the tenant - set context for subsequent operations
     authRlsHelper.disableAuthLookup();
     TenantContext.setCurrentTenantId(user.getTenantId());
     TenantContext.setCurrentUserId(user.getId());
 
-    // Use generic message for all auth failures to prevent user enumeration
     if (user.isAccountLocked()) {
       log.debug("Login attempt on locked account", kv("user_id", user.getId()));
       throw new AuthenticationException(INVALID_CREDENTIALS);
     }
+
+    boolean passwordMatches =
+        user.getPasswordHash() != null
+            && passwordEncoder.matches(request.password(), user.getPasswordHash());
+
+    if (user.getStatus() == User.Status.PENDING) {
+      if (passwordMatches) {
+        throw new EmailNotVerifiedException();
+      }
+      throw new AuthenticationException(INVALID_CREDENTIALS);
+    }
+
     if (!user.isActive()) {
       throw new AuthenticationException(INVALID_CREDENTIALS);
     }
-    if (user.getPasswordHash() == null
-        || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+
+    if (!passwordMatches) {
       user.recordFailedLogin(authProperties.maxFailedAttempts(), authProperties.lockDuration());
       userRepository.save(user);
       log.info(
@@ -120,20 +143,36 @@ public class AuthService {
     return issueToken(user);
   }
 
-  public AuthTokenResponse register(RegisterRequest request) {
+  /**
+   * Self-service registration (US-10.01). Creates a pending user and sends a verification email.
+   *
+   * <p>Does not issue a JWT until {@link #verifyEmail(String)} succeeds.
+   */
+  public RegisterResponse register(RegisterRequest request) {
     UUID tenantId = authProperties.registrationTenantId();
     String email = normalizeEmail(request.email());
 
-    // Enable RLS bypass for duplicate check (no tenant context set during registration)
     authRlsHelper.enableAuthLookup();
-    boolean exists = userRepository.existsByTenantIdAndEmail(tenantId, email);
-    authRlsHelper.disableAuthLookup();
-
-    if (exists) {
+    var existing = userRepository.findByEmail(email);
+    if (existing.isPresent()) {
+      User user = existing.get();
+      authRlsHelper.disableAuthLookup();
+      if (user.getStatus() == User.Status.PENDING) {
+        TenantContext.setCurrentTenantId(user.getTenantId());
+        user.updateName(request.name().trim());
+        user.updatePasswordHash(passwordEncoder.encode(request.password()));
+        userRepository.save(user);
+        queueVerificationEmail(user);
+        log.info(
+            "Re-registration updated pending user",
+            kv("user_id", user.getId()),
+            kv("email", email));
+        return new RegisterResponse(email, REGISTRATION_MESSAGE);
+      }
       throw ValidationException.of("email", "User with this email already exists");
     }
+    authRlsHelper.disableAuthLookup();
 
-    // Set tenant context for user creation and subsequent operations
     TenantContext.setCurrentTenantId(tenantId);
 
     User user =
@@ -142,24 +181,90 @@ public class AuthService {
             .email(email)
             .name(request.name().trim())
             .passwordHash(passwordEncoder.encode(request.password()))
-            // Alpha: activate immediately; email verification tracked in US-10.01 follow-up.
-            .status(User.Status.ACTIVE)
+            .status(User.Status.PENDING)
             .build();
     user = userRepository.save(user);
 
     TenantMember membership = new TenantMember(tenantId, user.getId(), Role.VIEWER_ROLE_ID);
     memberRepository.save(membership);
 
-    TenantContext.setCurrentUserId(user.getId());
-
-    user.recordLogin();
-    userRepository.save(user);
+    queueVerificationEmail(user);
     log.info(
-        "User registered",
+        "User registered (pending verification)",
         kv("user_id", user.getId()),
         kv("tenant_id", tenantId),
         kv("email", email));
-    return issueToken(user);
+    return new RegisterResponse(email, REGISTRATION_MESSAGE);
+  }
+
+  /** Activates a pending account using the verification token from email (US-10.01). */
+  @Transactional
+  public void verifyEmail(String rawToken) {
+    String tokenHash = ApiTokenHasher.hash(rawToken.trim());
+    Instant now = Instant.now();
+
+    authRlsHelper.enableAuthLookup();
+    EmailVerificationToken verificationToken =
+        emailVerificationTokenRepository
+            .findByTokenHash(tokenHash)
+            .orElseThrow(
+                () -> ValidationException.of("token", "Invalid or expired verification link"));
+
+    User user =
+        userRepository
+            .findById(verificationToken.getUserId())
+            .orElseThrow(
+                () -> ValidationException.of("token", "Invalid or expired verification link"));
+
+    TenantContext.setCurrentTenantId(user.getTenantId());
+    authRlsHelper.disableAuthLookup();
+
+    if (user.isActive()) {
+      log.debug("Email verify skipped: account already active", kv("user_id", user.getId()));
+      return;
+    }
+
+    if (verificationToken.isUsed() || verificationToken.isExpired(now)) {
+      throw ValidationException.of("token", "Invalid or expired verification link");
+    }
+
+    if (user.getStatus() == User.Status.PENDING) {
+      try {
+        user.activate();
+        userRepository.save(user);
+      } catch (OptimisticLockingFailureException ex) {
+        User latest = userRepository.findById(user.getId()).orElseThrow(() -> ex);
+        if (!latest.isActive()) {
+          throw ex;
+        }
+        log.debug("Email verify concurrent activation resolved", kv("user_id", latest.getId()));
+      }
+    }
+
+    verificationToken.markUsed(now);
+    emailVerificationTokenRepository.save(verificationToken);
+    log.info("Email verified", kv("user_id", user.getId()));
+  }
+
+  /**
+   * Re-sends verification email for a pending account (US-10.01).
+   *
+   * <p>Always completes without error to prevent email enumeration.
+   */
+  @Transactional
+  public void resendVerificationEmail(String email) {
+    String normalized = normalizeEmail(email);
+
+    authRlsHelper.enableAuthLookup();
+    userRepository
+        .findByEmail(normalized)
+        .filter(user -> user.getStatus() == User.Status.PENDING)
+        .ifPresent(
+            user -> {
+              TenantContext.setCurrentTenantId(user.getTenantId());
+              queueVerificationEmail(user);
+            });
+    authRlsHelper.disableAuthLookup();
   }
 
   /**
@@ -211,11 +316,6 @@ public class AuthService {
         passwordResetTokenRepository
             .findByTokenHashAndUsedAtIsNull(tokenHash)
             .orElseThrow(() -> ValidationException.of("token", "Invalid or expired reset link"));
-    authRlsHelper.disableAuthLookup();
-
-    if (resetToken.isUsed() || resetToken.isExpired(now)) {
-      throw ValidationException.of("token", "Invalid or expired reset link");
-    }
 
     User user =
         userRepository
@@ -223,11 +323,33 @@ public class AuthService {
             .orElseThrow(() -> ValidationException.of("token", "Invalid or expired reset link"));
 
     TenantContext.setCurrentTenantId(user.getTenantId());
+    authRlsHelper.disableAuthLookup();
+
+    if (resetToken.isUsed() || resetToken.isExpired(now)) {
+      throw ValidationException.of("token", "Invalid or expired reset link");
+    }
     user.updatePasswordHash(passwordEncoder.encode(request.newPassword()));
     userRepository.save(user);
     resetToken.markUsed(now);
     passwordResetTokenRepository.save(resetToken);
     log.info("Password reset completed", kv("user_id", user.getId()));
+  }
+
+  private void queueVerificationEmail(User user) {
+    emailVerificationTokenRepository.deleteUnusedByUserId(user.getId());
+    String rawToken = PasswordResetTokenGenerator.generate();
+    String tokenHash = ApiTokenHasher.hash(rawToken);
+    Instant expiresAt = Instant.now().plus(authProperties.emailVerificationTokenTtl());
+    emailVerificationTokenRepository.save(
+        EmailVerificationToken.create(user.getId(), tokenHash, expiresAt));
+    try {
+      emailVerificationEmailService.sendVerificationLink(user.getEmail(), rawToken);
+      log.info("Verification email queued", kv("user_id", user.getId()));
+    } catch (RuntimeException e) {
+      log.error(
+          "Verification email failed", kv("user_id", user.getId()), kv("error", e.getMessage()));
+      throw e;
+    }
   }
 
   private AuthTokenResponse issueToken(User user) {
