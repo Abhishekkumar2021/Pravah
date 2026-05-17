@@ -1,0 +1,325 @@
+# Default values for pravah-platform.
+# Production: use values-prod.yaml with external Postgres/Kafka/Redis and proper secrets.
+
+global:
+  imageRegistry: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ghcr.io
+  repositoryPrefix: abhishekkumar2021/pravah
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# External secrets integration (ExternalSecrets operator, Vault CSI, etc.)
+externalSecrets:
+  enabled: false
+
+# Bundled PostgreSQL (disable in production; use externalPostgres instead)
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  auth:
+    username: pravah
+    password: pravah
+    database: pravah
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  securityContext:
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+
+# External PostgreSQL (when postgres.enabled=false)
+externalPostgres:
+  host: ""
+  port: 5432
+  username: ""
+  password: ""
+  existingSecret: ""
+  existingSecretUsernameKey: postgres-username
+  existingSecretPasswordKey: postgres-password
+  databases:
+    tenant: pravah_tenant
+    pipeline: pravah_pipeline
+    execution: pravah_execution
+    scheduler: pravah_scheduler
+
+# Bundled Kafka (disable in production; use externalKafka instead)
+kafka:
+  enabled: true
+  image: apache/kafka:3.7.0
+  clusterId: pravah-kafka-cluster-001
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# External Kafka (when kafka.enabled=false)
+externalKafka:
+  bootstrapServers: ""
+  sasl:
+    enabled: false
+    mechanism: PLAIN
+    username: ""
+    password: ""
+    existingSecret: ""
+
+# Bundled Redis (disable in production; use externalRedis instead)
+redis:
+  enabled: true
+  image: redis:7-alpine
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# External Redis (when redis.enabled=false)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: redis-password
+  tls:
+    enabled: false
+
+# Pravah services configuration
+services:
+  tenant-service:
+    enabled: true
+    port: 8082
+    database: pravah_tenant
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: false
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  pipeline-service:
+    enabled: true
+    port: 8083
+    database: pravah_pipeline
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: false
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  execution-service:
+    enabled: true
+    port: 8084
+    database: pravah_execution
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: true
+    extraEnv:
+      PRAVAH_CONTAINER_ENABLED: "false"
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  scheduler-service:
+    enabled: true
+    port: 8085
+    database: pravah_scheduler
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    needsKafka: false
+    needsPostgres: true
+    needsRedis: false
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  gateway:
+    enabled: true
+    port: 8080
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+# Pravah application configuration
+pravah:
+  jwtIssuer: pravah-dev
+  internalServiceSecret: pravah-local-internal-secret
+  jwtSigningKey: ""
+  devTenantId: "11111111-1111-4111-8111-111111111111"
+  registrationTenantId: "11111111-1111-4111-8111-111111111111"
+  realtimeRedisEnabled: "true"
+  wsAllowedOrigins: "http://localhost:5173,http://127.0.0.1:5173"
+  frontendBaseUrl: "http://localhost:5173"
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  host: pravah.local
+  annotations: {}
+  tls: []
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Default resources (can be overridden per-service)
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+# Pod security context (applied to all pods)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context (applied to all containers)
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Health probes configuration
+probes:
+  startup:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 30
+    timeoutSeconds: 3
+  liveness:
+    initialDelaySeconds: 90
+    periodSeconds: 15
+    failureThreshold: 3
+    timeoutSeconds: 5
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+# Deployment strategy
+deploymentStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# Network policies
+networkPolicy:
+  enabled: false
+
+# Pod topology spread constraints
+topologySpreadConstraints:
+  enabled: false
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+
+# Metrics and observability
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    labels: {}

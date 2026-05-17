@@ -89,7 +89,7 @@ metadata:
 spec:
   project: pravah
   source:
-    repoURL: https://github.com/pravah/infrastructure
+    repoURL: https://github.com/Abhishekkumar2021/Pravah
     targetRevision: main
     path: charts/pravah-platform
     helm:

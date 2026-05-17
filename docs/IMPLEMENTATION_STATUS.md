@@ -143,15 +143,26 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Start Java services | `make local-services` (repo root → `backend/Makefile`) |
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
+| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh` |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
 See [backend/README.md](../backend/README.md) and [web/README.md](../web/README.md).
 
 ---
 
-## Infrastructure not in repo
+## Infrastructure
 
-- Kubernetes / Helm application charts (CI may build container images; charts not maintained here)
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Docker Compose (local deps) | Implemented | `backend/docker-compose.yml` |
+| Helm umbrella chart (US-09.04) | Implemented (alpha) | `deploy/helm/pravah-platform` — gateway + 4 services; bundled Postgres/Kafka/Redis for local K8s |
+| GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
+| Argo CD GitOps | Planned | ADR-010; beta |
+| Terraform (cloud) | Planned | US-09.06+ |
+
+---
+
+## Infrastructure not in repo
 - Elasticsearch / OpenLineage pipeline
 - HashiCorp Vault deployment (secrets: tenant DB + `env:` refs)
 - Production runner fleet management
