@@ -1,0 +1,170 @@
+{{- $gw := .Values.services.gateway }}
+{{- if $gw.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pravah.fullname" . }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $gw.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: gateway
+    {{- include "pravah.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pravah.fullname" . }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ $gw.replicaCount }}
+  {{- with .Values.deploymentStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: gateway
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: gateway
+        {{- include "pravah.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print .Template.BasePath "/configmap-gateway.yaml") . | sha256sum }}
+        {{- if .Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $gw.port | quote }}
+        prometheus.io/path: "/actuator/prometheus"
+        {{- end }}
+        {{- with $gw.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "pravah.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if $gw.waitForTenantService }}
+      initContainers:
+        - name: wait-tenant-service
+          image: curlimages/curl:8.5.0
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sf "http://{{ include "pravah.fullname" . }}-tenant-service:{{ (index .Values.services "tenant-service").port }}/actuator/health" >/dev/null; do
+                echo "waiting for tenant-service..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      {{- end }}
+      containers:
+        - name: gateway
+          image: {{ include "pravah.image" (list . "gateway") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $gw.port }}
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ include "pravah.jvmOptions" . | quote }}
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: optional:file:/config/
+            {{- range $k, $v := $gw.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: gateway-config
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          resources:
+            {{- toYaml ($gw.resources | default .Values.resources) | nindent 12 }}
+      volumes:
+        - name: gateway-config
+          configMap:
+            name: {{ include "pravah.fullname" . }}-gateway-config
+        - name: tmp
+          emptyDir: {}
+      {{- if gt (int $gw.replicaCount) 1 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: gateway
+                    {{- include "pravah.selectorLabels" . | nindent 20 }}
+                topologyKey: kubernetes.io/hostname
+      {{- else if $gw.affinity }}
+      affinity:
+        {{- toYaml $gw.affinity | nindent 8 }}
+      {{- end }}
+      {{- with $gw.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $gw.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+{{- end }}

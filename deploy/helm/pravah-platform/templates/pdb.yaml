@@ -1,0 +1,21 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- range $svcKey, $svc := .Values.services }}
+{{- if and $svc.enabled (gt (int $svc.replicaCount) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "pravah.fullname" $ }}-{{ $svcKey }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcKey }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ $svcKey }}
+      {{- include "pravah.selectorLabels" $ | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

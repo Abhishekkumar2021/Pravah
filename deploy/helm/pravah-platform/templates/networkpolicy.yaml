@@ -1,0 +1,137 @@
+{{- if .Values.networkPolicy.enabled }}
+# Allow ingress to gateway from anywhere (or specific sources if needed)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-gateway-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: gateway
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: {{ .Values.services.gateway.port }}
+          protocol: TCP
+---
+# Allow services to communicate with each other within the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-intra-namespace
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pravah.selectorLabels" . | nindent 14 }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "pravah.selectorLabels" . | nindent 14 }}
+    # Allow DNS resolution (labels vary: kube-dns vs coredns — see values.networkPolicy.dnsPodLabels)
+    - to:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.dnsNamespaceSelector | nindent 12 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dnsPodLabels | nindent 14 }}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+{{- if .Values.postgres.enabled }}
+# Allow access to bundled postgres only from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: postgres
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pravah.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 5432
+          protocol: TCP
+{{- end }}
+---
+{{- if .Values.kafka.enabled }}
+# Allow access to bundled kafka only from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-kafka
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: kafka
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pravah.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 9092
+          protocol: TCP
+{{- end }}
+---
+{{- if .Values.redis.enabled }}
+# Allow access to bundled redis only from services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: redis
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "pravah.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 6379
+          protocol: TCP
+{{- end }}
+{{- end }}

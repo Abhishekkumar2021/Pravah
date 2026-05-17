@@ -1,0 +1,180 @@
+# Production values for pravah-platform.
+# Use external managed services (RDS/Aurora, MSK, ElastiCache) and secrets manager.
+#
+# USAGE:
+#   helm upgrade --install pravah deploy/helm/pravah-platform \
+#     -f deploy/helm/pravah-platform/values.yaml \
+#     -f deploy/helm/pravah-platform/values-prod.yaml \
+#     --set image.tag=<git-sha> \
+#     --set externalPostgres.host=<rds-endpoint> \
+#     --set externalKafka.bootstrapServers=<msk-endpoint> \
+#     --set externalRedis.host=<elasticache-endpoint>
+
+requireProductionSecrets: true
+
+# Disable bundled data stores (use external managed services)
+postgres:
+  enabled: false
+
+kafka:
+  enabled: false
+
+redis:
+  enabled: false
+
+# External PostgreSQL (Amazon RDS / Aurora)
+externalPostgres:
+  host: ""
+  port: 5432
+  username: pravah
+  password: ""
+  existingSecret: pravah-postgres-credentials
+  existingSecretUsernameKey: username
+  existingSecretPasswordKey: password
+  databases:
+    tenant: pravah_tenant
+    pipeline: pravah_pipeline
+    execution: pravah_execution
+    scheduler: pravah_scheduler
+
+# External Kafka (Amazon MSK / Confluent Cloud)
+externalKafka:
+  bootstrapServers: ""
+  sasl:
+    enabled: false
+    mechanism: SCRAM-SHA-512
+    username: ""
+    password: ""
+    existingSecret: pravah-kafka-credentials
+
+# External Redis (Amazon ElastiCache / Redis Cloud)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: pravah-redis-credentials
+  existingSecretPasswordKey: password
+  tls:
+    enabled: true
+
+# Production image settings
+image:
+  registry: ghcr.io
+  repositoryPrefix: abhishekkumar2021/pravah
+  # Set via --set image.tag=<git-sha> or CI pipeline
+  tag: latest
+  pullPolicy: Always
+  pullSecrets:
+    - name: ghcr-pull-secret
+
+# HA replica counts
+services:
+  tenant-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  pipeline-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  execution-service:
+    replicaCount: 3
+    resources:
+      requests:
+        cpu: 500m
+        memory: 768Mi
+      limits:
+        cpu: "4"
+        memory: 2Gi
+
+  scheduler-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  gateway:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+# Production Pravah settings (set via secrets manager / CI)
+pravah:
+  jwtIssuer: pravah
+  internalServiceSecret: ""
+  internalServiceExistingSecret: pravah-credentials
+  internalServiceExistingSecretKey: internal-service-secret
+  realtimeRedisEnabled: "true"
+  wsAllowedOrigins: ""
+  frontendBaseUrl: ""
+
+# Enable Ingress with TLS
+ingress:
+  enabled: true
+  className: nginx
+  host: pravah.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  tls:
+    - hosts:
+        - pravah.example.com
+      secretName: pravah-tls
+
+# Enable PDB for HA
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Enable HPA for auto-scaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Enable network policies
+networkPolicy:
+  enabled: true
+  dnsPodLabels:
+    k8s-app: kube-dns
+
+# Enable topology spread for zone awareness
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+
+# Enable Prometheus ServiceMonitor
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus

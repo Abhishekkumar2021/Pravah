@@ -1,0 +1,30 @@
+apiVersion: v2
+name: pravah-platform
+description: |
+  Pravah data orchestration platform - production-grade Helm chart for
+  deploying the control plane services to Kubernetes.
+
+type: application
+version: 0.1.0
+appVersion: "0.1.0-alpha"
+
+keywords:
+  - pravah
+  - data-platform
+  - orchestration
+  - workflow
+  - data-engineering
+
+home: https://github.com/Abhishekkumar2021/Pravah
+sources:
+  - https://github.com/Abhishekkumar2021/Pravah
+
+maintainers:
+  - name: Abhishek Kumar
+    url: https://github.com/Abhishekkumar2021
+
+kubeVersion: ">=1.27.0-0"
+
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/category: integration-delivery

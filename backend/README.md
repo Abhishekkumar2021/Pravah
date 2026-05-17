@@ -63,6 +63,19 @@ make local-web        # Vite dev server (../web)
 
 Gateway: `http://localhost:8080`
 
+### Local Kubernetes (Helm, US-09.04)
+
+Requires Helm 3, `kubectl`, and a cluster (kind/minikube). See [deploy/README.md](../deploy/README.md).
+
+```bash
+./scripts/deploy/k8s-local-build.sh    # build + load images (kind)
+./scripts/deploy/k8s-local-install.sh  # helm install
+kubectl -n pravah port-forward svc/pravah-gateway 8080:8080
+./scripts/deploy/k8s-local-seed.sh pravah
+```
+
+Container stages are disabled on K8s (`PRAVAH_CONTAINER_ENABLED=false`); use echo/SQL stages for smoke tests.
+
 ### Build and test only
 
 ```bash

@@ -1,0 +1,26 @@
+{{- if .Values.services.gateway.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pravah.fullname" . }}-gateway-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+data:
+  application-k8s.yml: |
+    spring:
+      cloud:
+        discovery:
+          client:
+            simple:
+              instances:
+                pipeline-service:
+                  - uri: http://{{ include "pravah.fullname" . }}-pipeline-service:{{ (index .Values.services "pipeline-service").port }}
+                execution-service:
+                  - uri: http://{{ include "pravah.fullname" . }}-execution-service:{{ (index .Values.services "execution-service").port }}
+                tenant-service:
+                  - uri: http://{{ include "pravah.fullname" . }}-tenant-service:{{ (index .Values.services "tenant-service").port }}
+                scheduler-service:
+                  - uri: http://{{ include "pravah.fullname" . }}-scheduler-service:{{ (index .Values.services "scheduler-service").port }}
+{{- end }}

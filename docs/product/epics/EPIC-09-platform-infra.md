@@ -77,10 +77,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** we run in our infrastructure
 
 **Acceptance Criteria:**
-- [ ] Helm chart provided
-- [ ] Configurable for scale
-- [ ] HA configuration
-- [ ] Clear installation docs
+- [x] Helm chart provided (`deploy/helm/pravah-platform`; alpha umbrella)
+- [x] Configurable for scale (`replicaCount`, `values-prod.yaml`)
+- [ ] HA configuration (alpha: replica overrides in `values-prod.yaml`; PDB/HPA beta)
+- [x] Clear installation docs (`deploy/README.md`)
 
 **Story Points:** 13  
 **Priority:** P0
