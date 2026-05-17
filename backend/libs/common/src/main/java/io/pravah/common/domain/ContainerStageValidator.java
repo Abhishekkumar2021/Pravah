@@ -210,6 +210,15 @@ public final class ContainerStageValidator {
   }
 
   private static void validateResources(Map<?, ?> resources, String stageId, List<String> errors) {
+    Object profile = resources.get("profile");
+    if (profile != null && !profile.toString().isBlank()) {
+      if (!ResourceProfiles.isValidProfile(profile.toString())) {
+        errors.add(
+            "Container stage '%s' resources.profile is invalid: '%s' (use small, medium, large, or xlarge)"
+                .formatted(stageId, profile));
+      }
+    }
+
     Object memory = resources.get("memory");
     if (memory != null) {
       String memoryText = memory.toString().trim();

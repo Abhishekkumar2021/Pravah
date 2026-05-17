@@ -3,6 +3,7 @@ package io.pravah.execution.application;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.domain.ContainerResourceParser;
+import io.pravah.common.domain.ResourceProfiles;
 import io.pravah.common.domain.StageTimeout;
 import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.execution.application.port.ContainerLogLineConsumer;
@@ -108,8 +109,13 @@ public class ContainerEmbeddedStageExecutor {
 
     List<String> command = parseCommand(resolvedConfig.get("command"));
     Map<String, String> environment = parseEnv(resolvedConfig.get("env"));
-    String memoryLimit = parseMemoryLimit(resolvedConfig);
-    String cpuLimit = parseCpuLimit(resolvedConfig);
+    ResourceProfiles.ResourceLimits limits = parseResourceLimits(resolvedConfig);
+    String memoryLimit =
+        limits.memory() != null
+            ? ContainerResourceParser.toDockerMemoryLimit(limits.memory())
+            : null;
+    String cpuLimit =
+        limits.cpus() != null ? ContainerResourceParser.toDockerCpuLimit(limits.cpus()) : null;
 
     String containerName = "pravah-job-" + job.getId();
     StageTimeout timeout =
@@ -227,28 +233,12 @@ public class ContainerEmbeddedStageExecutor {
     return env;
   }
 
-  private static String parseMemoryLimit(Map<String, Object> config) {
+  private static ResourceProfiles.ResourceLimits parseResourceLimits(Map<String, Object> config) {
     Object resources = config.get("resources");
     if (!(resources instanceof Map<?, ?> map)) {
-      return null;
+      return new ResourceProfiles.ResourceLimits(null, null);
     }
-    Object memory = map.get("memory");
-    if (memory == null) {
-      return null;
-    }
-    return ContainerResourceParser.toDockerMemoryLimit(memory.toString());
-  }
-
-  private static String parseCpuLimit(Map<String, Object> config) {
-    Object resources = config.get("resources");
-    if (!(resources instanceof Map<?, ?> map)) {
-      return null;
-    }
-    Object cpus = map.get("cpus");
-    if (cpus == null) {
-      return null;
-    }
-    return ContainerResourceParser.toDockerCpuLimit(cpus.toString());
+    return ResourceProfiles.mergeWithProfile(map);
   }
 
   @SuppressWarnings("unchecked")

@@ -390,8 +390,40 @@ stages:
         SNOWFLAKE_PASSWORD: "${secret.snowflake_password}"
         EXTRACTED_ROWS: "${stages.extract.output.row_count}"
       resources:
-        memory: 2Gi
+        profile: medium       # preset: small (512Mi/0.5), medium (2Gi/2), large (8Gi/4), xlarge (16Gi/8)
+        memory: 2Gi           # explicit values override profile defaults
         cpus: "1.0"
+```
+
+### Resource Profiles (US-02.08)
+
+Container stages support predefined resource profiles for common workload sizes:
+
+| Profile | Memory | CPUs |
+|---------|--------|------|
+| `small` / `s` | 512Mi | 0.5 |
+| `medium` / `m` | 2Gi | 2 |
+| `large` / `l` | 8Gi | 4 |
+| `xlarge` / `xl` | 16Gi | 8 |
+
+Profiles simplify configuration while allowing explicit overrides:
+
+```yaml
+stages:
+  - id: light_task
+    type: container
+    config:
+      image: python:3.12
+      resources:
+        profile: small    # 512Mi memory, 0.5 CPU
+
+  - id: memory_intensive
+    type: container
+    config:
+      image: python:3.12
+      resources:
+        profile: large
+        memory: 12Gi      # override profile memory, keep profile CPU (4)
 ```
 
 ## Stage Output Resolution (US-02.10)
