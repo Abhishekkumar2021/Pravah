@@ -35,7 +35,7 @@ help:
 	@echo "Local full stack (from backend/):"
 	@echo "  make local-setup         - Copy env.local.example → .env and web/.env.local"
 	@echo "  make local-up            - Docker infra + wait for health"
-	@echo "  make local-services      - Start tenant, pipeline, execution, gateway (background)"
+	@echo "  make local-services      - Start tenant, pipeline, execution, scheduler, gateway (background)"
 	@echo "  make local-services-stop - Stop background Java services"
 	@echo "  make local-dev-token     - Mint JWT via POST /api/v1/auth/dev-token"
 	@echo "  make local-print-token   - Mint JWT and show DevTokenCard / project id hints"

@@ -226,8 +226,10 @@ class SqlStageExecutionIT extends AbstractExecutionPostgresIT {
 
     assertThat(jobs.get(0).getStatus()).isEqualTo(JobState.FAILED);
     assertThat(execution.getStatus()).isEqualTo(ExecutionState.FAILED);
-    assertThat(jobs.get(0).getOutput()).containsKey("error");
-    assertThat(jobs.get(0).getOutput()).containsKey("sql_state");
+    assertThat(jobs.get(0).getOutput())
+        .containsEntry("error", "SQL execution failed. Check logs for details.");
+    assertThat(jobs.get(0).getOutput()).doesNotContainKey("sql_state");
+    assertThat(jobs.get(0).getOutput()).doesNotContainKey("error_code");
   }
 
   @Test

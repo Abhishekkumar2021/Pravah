@@ -181,4 +181,4 @@ Total: 75 chapters complete
 
 The theory curriculum is complete. Architecture Decision Records (ADRs 001–033) and the High-Level Architecture document are in [`docs/adr/`](../adr/README.md) and [`docs/architecture/`](../architecture/high-level-architecture.md).
 
-Next: **Implementation** — starting with the Gradle multi-module project skeleton.
+**Implementation** is underway in `backend/` and `web/`. For an accurate list of what is built vs planned (do not assume the HLA is fully implemented), see **[Implementation Status](../IMPLEMENTATION_STATUS.md)** and the root [README](../../README.md#project-status).

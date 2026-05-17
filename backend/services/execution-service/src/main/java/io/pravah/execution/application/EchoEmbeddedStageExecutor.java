@@ -1,5 +1,7 @@
 package io.pravah.execution.application;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import io.pravah.common.domain.StageTimeout;
 import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.execution.domain.JobLogLevel;
@@ -9,6 +11,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,6 +23,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
+
+  private static final Logger log = LoggerFactory.getLogger(EchoEmbeddedStageExecutor.class);
 
   private final JobLogService jobLogService;
   private final ExecutionStageConfigResolver configResolver;
@@ -44,12 +50,25 @@ public class EchoEmbeddedStageExecutor implements EmbeddedStageExecutor {
 
     Map<String, Object> rawConfig = extractStageConfig(definition, job.getStageId());
     if (rawConfig != null && !rawConfig.isEmpty()) {
-      Map<String, Object> resolvedConfig = configResolver.resolveConfig(execution, rawConfig);
-      Object message = resolvedConfig.get("message");
-      if (message != null) {
-        output.put("message", message);
-        jobLogService.append(
-            job.getId(), JobLogLevel.INFO, "[embedded-echo] %s".formatted(message));
+      try {
+        Map<String, Object> resolvedConfig = configResolver.resolveConfig(execution, rawConfig);
+        Object message = resolvedConfig.get("message");
+        if (message != null) {
+          output.put("message", message);
+          jobLogService.append(
+              job.getId(), JobLogLevel.INFO, "[embedded-echo] Resolved stage message");
+        }
+      } catch (RuntimeException e) {
+        log.error(
+            "Echo config resolution failed",
+            kv("job_id", job.getId()),
+            kv("stage_id", job.getStageId()),
+            kv("execution_id", execution.getId()),
+            e);
+        String userError = "Failed to resolve echo stage configuration. Check logs for details.";
+        jobLogService.append(job.getId(), JobLogLevel.ERROR, "[embedded-echo] " + userError);
+        output.put("error", userError);
+        return new StageExecutionResult(1, output);
       }
     }
 

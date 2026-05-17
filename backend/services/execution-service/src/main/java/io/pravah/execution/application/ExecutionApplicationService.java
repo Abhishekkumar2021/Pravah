@@ -509,7 +509,8 @@ public class ExecutionApplicationService {
                       j.getStageName(),
                       j.getStatus().asDatabaseValue(),
                       j.getAttempt(),
-                      retry.maxAttempts());
+                      retry.maxAttempts(),
+                      j.getOutput());
                 })
             .toList();
     return new GetExecutionResponse(

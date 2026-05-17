@@ -34,6 +34,7 @@ class SqlEmbeddedStageExecutorTest {
   @Mock private JobLogService jobLogService;
   @Mock private ConnectionCatalog connectionCatalog;
   @Mock private DataSource defaultDataSource;
+  @Mock private ExecutionStageConfigResolver configResolver;
   @Mock private Connection connection;
   @Mock private Statement statement;
   @Mock private ResultSet resultSet;
@@ -43,7 +44,11 @@ class SqlEmbeddedStageExecutorTest {
 
   @BeforeEach
   void setUp() {
-    executor = new SqlEmbeddedStageExecutor(jobLogService, connectionCatalog, defaultDataSource);
+    executor =
+        new SqlEmbeddedStageExecutor(
+            jobLogService, connectionCatalog, defaultDataSource, configResolver);
+    when(configResolver.resolveConfig(any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(1));
   }
 
   @Test
@@ -168,9 +173,10 @@ class SqlEmbeddedStageExecutorTest {
         executor.execute(job, execution, stageDefinition);
 
     assertThat(result.exitCode()).isEqualTo(1);
-    assertThat(result.output()).containsEntry("sql_state", "42601");
-    assertThat(result.output()).containsEntry("error_code", 1);
-    assertThat((String) result.output().get("error")).contains("syntax error");
+    assertThat(result.output()).doesNotContainKey("sql_state");
+    assertThat(result.output()).doesNotContainKey("error_code");
+    assertThat((String) result.output().get("error"))
+        .isEqualTo("SQL execution failed. Check logs for details.");
     verify(jobLogService).append(any(), eq(JobLogLevel.ERROR), any());
   }
 

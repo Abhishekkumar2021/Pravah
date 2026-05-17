@@ -489,6 +489,73 @@ class CreatePipelineIT extends AbstractPipelinePostgresIT {
   }
 
   @Test
+  void validateDefinition_invalidStageOutputReference_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    String yaml =
+        """
+        stages:
+          - id: extract
+            type: sql
+            config:
+              query: SELECT 1
+          - id: notify
+            dependsOn: [extract]
+            config:
+              message: ${stages.parallel.output.row_count}
+          - id: parallel
+            config:
+              message: hi
+        """;
+
+    ValidatePipelineRequest body = new ValidatePipelineRequest(yaml);
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines/validate")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void createPipeline_invalidStageOutputReference_returns400() throws Exception {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    UUID projectId = UUID.randomUUID();
+    String token = testJwtIssuer.generateAccessToken(userId, tenantId);
+
+    String yaml =
+        """
+        stages:
+          - id: extract
+            config:
+              query: SELECT 1
+          - id: notify
+            dependsOn: [extract]
+            config:
+              message: ${stages.parallel.output.row_count}
+          - id: parallel
+            config:
+              message: hi
+        """;
+
+    CreatePipelineRequest body =
+        new CreatePipelineRequest(projectId, "bad-stage-ref", "Bad refs", yaml);
+
+    mockMvc
+        .perform(
+            post("/api/v1/pipelines")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void validateDefinition_blankYaml_returns400() throws Exception {
     UUID tenantId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();

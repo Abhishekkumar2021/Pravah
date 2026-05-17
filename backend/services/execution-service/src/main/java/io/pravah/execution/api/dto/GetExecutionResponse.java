@@ -2,6 +2,7 @@ package io.pravah.execution.api.dto;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public record GetExecutionResponse(
@@ -15,5 +16,11 @@ public record GetExecutionResponse(
     List<JobSummary> jobs) {
 
   public record JobSummary(
-      UUID id, String stageId, String stageName, String status, int attempt, int maxAttempts) {}
+      UUID id,
+      String stageId,
+      String stageName,
+      String status,
+      int attempt,
+      int maxAttempts,
+      Map<String, Object> output) {}
 }

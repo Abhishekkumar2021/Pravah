@@ -2,6 +2,8 @@
 
 React + Vite + TypeScript + Tailwind CSS v4. This package is the **alpha UI shell**: login layout, global navigation, dashboard, workflows, runs, and run detail with cancel wired to the gateway REST API.
 
+Backend capabilities and gaps: [Implementation Status](../docs/IMPLEMENTATION_STATUS.md).
+
 ## Scripts
 
 ```bash
@@ -63,6 +65,7 @@ npm run test:e2e
 | Workflow detail tabs | US-12.05 |
 | Run list | US-12.07 |
 | Run detail + cancel | US-12.08 / US-02.04 |
+| Run detail stage output panel | US-02.10 (`RunJobOutputPanel`, `GET /api/v1/executions/{id}` job `output`) |
 | Real-time run status | US-12.10 / US-02.02 |
 
 GraphQL read model (ADR-033) is not implemented yet; pages use REST where noted.

@@ -1,5 +1,7 @@
 package io.pravah.execution.application;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import io.pravah.execution.application.port.ConnectionCatalog;
 import io.pravah.execution.application.port.ResolvedJdbcConnection;
 import io.pravah.execution.domain.JobLogLevel;
@@ -74,14 +76,17 @@ public class SqlEmbeddedStageExecutor {
   private final JobLogService jobLogService;
   private final ConnectionCatalog connectionCatalog;
   private final DataSource defaultDataSource;
+  private final ExecutionStageConfigResolver configResolver;
 
   public SqlEmbeddedStageExecutor(
       JobLogService jobLogService,
       ConnectionCatalog connectionCatalog,
-      DataSource defaultDataSource) {
+      DataSource defaultDataSource,
+      ExecutionStageConfigResolver configResolver) {
     this.jobLogService = jobLogService;
     this.connectionCatalog = connectionCatalog;
     this.defaultDataSource = defaultDataSource;
+    this.configResolver = configResolver;
   }
 
   /**
@@ -99,11 +104,27 @@ public class SqlEmbeddedStageExecutor {
     output.put("executor", "sql");
     output.put("stageId", job.getStageId());
 
-    Map<String, Object> stageConfig = extractConfig(stageDefinition);
-    if (stageConfig == null) {
+    Map<String, Object> rawConfig = extractConfig(stageDefinition);
+    if (rawConfig == null) {
       String error = "SQL stage missing required 'config' section";
       jobLogService.append(job.getId(), JobLogLevel.ERROR, error);
       output.put("error", error);
+      return new EmbeddedStageExecutor.StageExecutionResult(1, output);
+    }
+
+    Map<String, Object> stageConfig;
+    try {
+      stageConfig = configResolver.resolveConfig(execution, rawConfig);
+    } catch (RuntimeException e) {
+      log.error(
+          "SQL config resolution failed",
+          kv("job_id", job.getId()),
+          kv("stage_id", job.getStageId()),
+          kv("execution_id", execution.getId()),
+          e);
+      String userError = "Failed to resolve SQL stage configuration. Check logs for details.";
+      jobLogService.append(job.getId(), JobLogLevel.ERROR, "[sql] " + userError);
+      output.put("error", userError);
       return new EmbeddedStageExecutor.StageExecutionResult(1, output);
     }
 
@@ -151,17 +172,17 @@ public class SqlEmbeddedStageExecutor {
     } catch (SQLException e) {
       Duration duration = Duration.between(startTime, Instant.now());
       output.put("duration_ms", duration.toMillis());
-      String errorMsg = "SQL execution failed: " + e.getMessage();
-      output.put("error", errorMsg);
-      output.put("sql_state", e.getSQLState());
-      output.put("error_code", e.getErrorCode());
+      String userError = "SQL execution failed. Check logs for details.";
+      output.put("error", userError);
 
-      jobLogService.append(job.getId(), JobLogLevel.ERROR, "[sql] " + errorMsg);
+      jobLogService.append(job.getId(), JobLogLevel.ERROR, "[sql] " + userError);
       log.warn(
           "SQL stage execution failed",
-          net.logstash.logback.argument.StructuredArguments.kv("job_id", job.getId()),
-          net.logstash.logback.argument.StructuredArguments.kv("stage_id", job.getStageId()),
-          net.logstash.logback.argument.StructuredArguments.kv("sql_state", e.getSQLState()),
+          kv("job_id", job.getId()),
+          kv("stage_id", job.getStageId()),
+          kv("execution_id", execution.getId()),
+          kv("sql_state", e.getSQLState()),
+          kv("error_code", e.getErrorCode()),
           e);
 
       return new EmbeddedStageExecutor.StageExecutionResult(1, output);

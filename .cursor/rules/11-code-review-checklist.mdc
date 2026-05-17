@@ -11,6 +11,11 @@ alwaysApply: true
 - [ ] Change aligns with documented design in `docs/lld/`
 - [ ] If design changed, documentation is updated
 - [ ] New features have user story in `docs/product/epics/`
+- [ ] **Documentation parity complete** per `.cursor/rules/14-documentation-parity.mdc`:
+  - [ ] `docs/IMPLEMENTATION_STATUS.md` reflects built/planned scope
+  - [ ] Relevant LLD + epic acceptance criteria updated
+  - [ ] `backend/README.md` / `web/README.md` updated if env vars, local dev, or UI mapping changed
+  - [ ] Root `README.md` only if onboarding or project status changed; no false "fully implemented" claims
 
 ### 2. Test Coverage
 - [ ] Unit tests for business logic
