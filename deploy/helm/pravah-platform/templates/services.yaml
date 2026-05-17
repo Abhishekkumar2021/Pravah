@@ -107,7 +107,7 @@ spec:
           {{- end }}
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /actuator/health
               port: http
             initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
@@ -115,7 +115,7 @@ spec:
             timeoutSeconds: {{ $.Values.probes.readiness.timeoutSeconds }}
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /actuator/health
               port: http
             initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}

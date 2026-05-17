@@ -44,12 +44,13 @@ spec:
         - podSelector:
             matchLabels:
               {{- include "pravah.selectorLabels" . | nindent 14 }}
-    # Allow DNS resolution
+    # Allow DNS resolution (labels vary: kube-dns vs coredns — see values.networkPolicy.dnsPodLabels)
     - to:
-        - namespaceSelector: {}
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.dnsNamespaceSelector | nindent 12 }}
           podSelector:
             matchLabels:
-              k8s-app: kube-dns
+              {{- toYaml .Values.networkPolicy.dnsPodLabels | nindent 14 }}
       ports:
         - port: 53
           protocol: UDP

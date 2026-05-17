@@ -60,6 +60,28 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if $gw.waitForTenantService }}
+      initContainers:
+        - name: wait-tenant-service
+          image: curlimages/curl:8.5.0
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sf "http://{{ include "pravah.fullname" . }}-tenant-service:{{ (index .Values.services "tenant-service").port }}/actuator/health" >/dev/null; do
+                echo "waiting for tenant-service..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      {{- end }}
       containers:
         - name: gateway
           image: {{ include "pravah.image" (list . "gateway") }}
@@ -74,7 +96,7 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: k8s
             - name: JAVA_TOOL_OPTIONS
-              value: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+              value: {{ include "pravah.jvmOptions" . | quote }}
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: optional:file:/config/
             {{- range $k, $v := $gw.extraEnv }}
@@ -99,7 +121,7 @@ spec:
           {{- end }}
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /actuator/health
               port: http
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
@@ -107,7 +129,7 @@ spec:
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /actuator/health
               port: http
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}

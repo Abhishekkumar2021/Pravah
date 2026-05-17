@@ -107,11 +107,26 @@ Secret name for credentials
 */}}
 {{- define "pravah.secretName" -}}
 {{- if .Values.externalSecrets.enabled }}
-{{- /* External secrets operator manages this */ -}}
-{{- .Values.externalSecrets.secretName | default (printf "%s-credentials" (include "pravah.fullname" .)) }}
+{{- required "externalSecrets.secretName is required when externalSecrets.enabled is true" .Values.externalSecrets.secretName }}
 {{- else }}
 {{- printf "%s-credentials" (include "pravah.fullname" .) }}
 {{- end }}
+{{- end }}
+
+{{- define "pravah.internalService.secretName" -}}
+{{- if .Values.pravah.internalServiceExistingSecret }}
+{{- .Values.pravah.internalServiceExistingSecret }}
+{{- else }}
+{{- include "pravah.secretName" . }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.internalService.secretKey" -}}
+{{- .Values.pravah.internalServiceExistingSecretKey | default "internal-service-secret" }}
+{{- end }}
+
+{{- define "pravah.jvmOptions" -}}
+{{- .Values.jvmOptions | default "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError" }}
 {{- end }}
 
 {{/*
@@ -160,7 +175,7 @@ Common environment variables for all services
 - name: SPRING_PROFILES_ACTIVE
   value: k8s
 - name: JAVA_TOOL_OPTIONS
-  value: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+  value: {{ include "pravah.jvmOptions" $root | quote }}
 - name: DB_USERNAME
   valueFrom:
     secretKeyRef:
@@ -174,8 +189,8 @@ Common environment variables for all services
 - name: PRAVAH_INTERNAL_SERVICE_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ include "pravah.secretName" $root }}
-      key: internal-service-secret
+      name: {{ include "pravah.internalService.secretName" $root }}
+      key: {{ include "pravah.internalService.secretKey" $root }}
 - name: PRAVAH_JWKS_URL
   value: {{ printf "http://%s-tenant-service:%v/.well-known/jwks.json" (include "pravah.fullname" $root) (index $root.Values.services "tenant-service").port | quote }}
 - name: PRAVAH_JWT_ISSUER

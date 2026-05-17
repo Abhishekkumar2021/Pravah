@@ -17,6 +17,13 @@ image:
 # External secrets integration (ExternalSecrets operator, Vault CSI, etc.)
 externalSecrets:
   enabled: false
+  secretName: ""
+
+# Fail helm template when production values omit required secrets / hosts
+requireProductionSecrets: false
+
+# JVM defaults for all Spring Boot services (override per environment)
+jvmOptions: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
 
 # Bundled PostgreSQL (disable in production; use externalPostgres instead)
 postgres:
@@ -52,10 +59,10 @@ externalPostgres:
   existingSecretUsernameKey: postgres-username
   existingSecretPasswordKey: postgres-password
   databases:
-    tenant: pravah_tenant
-    pipeline: pravah_pipeline
-    execution: pravah_execution
-    scheduler: pravah_scheduler
+    tenant-service: pravah_tenant
+    pipeline-service: pravah_pipeline
+    execution-service: pravah_execution
+    scheduler-service: pravah_scheduler
 
 # Bundled Kafka (disable in production; use externalKafka instead)
 kafka:
@@ -201,6 +208,7 @@ services:
     enabled: true
     port: 8080
     replicaCount: 1
+    waitForTenantService: true
     resources:
       requests:
         cpu: 100m
@@ -218,6 +226,8 @@ services:
 pravah:
   jwtIssuer: pravah-dev
   internalServiceSecret: pravah-local-internal-secret
+  internalServiceExistingSecret: ""
+  internalServiceExistingSecretKey: internal-service-secret
   jwtSigningKey: ""
   devTenantId: "11111111-1111-4111-8111-111111111111"
   registrationTenantId: "11111111-1111-4111-8111-111111111111"
@@ -307,6 +317,10 @@ deploymentStrategy:
 # Network policies
 networkPolicy:
   enabled: false
+  # DNS pod labels vary by cluster (kube-dns vs coredns)
+  dnsNamespaceSelector: {}
+  dnsPodLabels:
+    k8s-app: kube-dns
 
 # Pod topology spread constraints
 topologySpreadConstraints:

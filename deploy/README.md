@@ -195,7 +195,9 @@ kubectl -n pravah describe ingress pravah
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `pravah.jwtIssuer` | JWT issuer | `pravah-dev` |
-| `pravah.internalServiceSecret` | Inter-service auth secret | `pravah-local-internal-secret` |
+| `pravah.internalServiceSecret` | Inter-service auth secret (chart Secret) | `pravah-local-internal-secret` |
+| `pravah.internalServiceExistingSecret` | Use pre-created Secret instead of chart | `""` (prod: `pravah-credentials`) |
+| `requireProductionSecrets` | Fail template if prod secrets missing | `false` (`true` in values-prod) |
 | `pravah.wsAllowedOrigins` | WebSocket CORS origins | `http://localhost:5173,...` |
 | `pravah.frontendBaseUrl` | Frontend URL for emails | `http://localhost:5173` |
 
