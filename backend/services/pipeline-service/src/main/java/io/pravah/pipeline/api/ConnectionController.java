@@ -2,6 +2,7 @@ package io.pravah.pipeline.api;
 
 import io.pravah.pipeline.api.dto.ConnectionResponse;
 import io.pravah.pipeline.api.dto.CreateConnectionRequest;
+import io.pravah.pipeline.api.dto.TestConnectionResponse;
 import io.pravah.pipeline.api.dto.UpdateConnectionRequest;
 import io.pravah.pipeline.application.ConnectionApplicationService;
 import jakarta.validation.Valid;
@@ -54,5 +55,10 @@ public class ConnectionController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void delete(@PathVariable UUID id) {
     connectionApplicationService.deleteConnection(id);
+  }
+
+  @PostMapping("/{id}/test")
+  public TestConnectionResponse test(@PathVariable UUID id) {
+    return connectionApplicationService.testConnection(id);
   }
 }

@@ -698,3 +698,81 @@ export async function listExecutions(opts?: {
   const res = await fetch(apiUrl(path), { headers: authHeaders() });
   return handleResponse<ListExecutionsResponse>(res);
 }
+
+/** Named JDBC connection (US-12.16). Passwords are never returned resolved — only references. */
+export type ConnectionResponse = {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type CreateConnectionRequest = {
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+};
+
+export type UpdateConnectionRequest = {
+  config: Record<string, unknown>;
+};
+
+export type TestConnectionResponse = {
+  success: boolean;
+  message: string;
+};
+
+export async function listConnections(): Promise<ConnectionResponse[]> {
+  const res = await fetch(apiUrl("/api/v1/connections"), { headers: authHeaders() });
+  return handleResponse<ConnectionResponse[]>(res);
+}
+
+export async function getConnection(connectionId: string): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function createConnection(
+  body: CreateConnectionRequest,
+): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl("/api/v1/connections"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function updateConnection(
+  connectionId: string,
+  body: UpdateConnectionRequest,
+): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function deleteConnection(connectionId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function testConnection(connectionId: string): Promise<TestConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}/test`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<TestConnectionResponse>(res);
+}

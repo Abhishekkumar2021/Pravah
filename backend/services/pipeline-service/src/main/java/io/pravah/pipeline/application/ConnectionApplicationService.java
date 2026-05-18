@@ -8,6 +8,7 @@ import io.pravah.common.domain.UserId;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.ConnectionResponse;
 import io.pravah.pipeline.api.dto.CreateConnectionRequest;
+import io.pravah.pipeline.api.dto.TestConnectionResponse;
 import io.pravah.pipeline.api.dto.UpdateConnectionRequest;
 import io.pravah.pipeline.domain.ConnectionType;
 import io.pravah.pipeline.domain.PostgresConnectionConfig;
@@ -15,10 +16,13 @@ import io.pravah.pipeline.infrastructure.persistence.entity.ConnectionEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.ConnectionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.PersistenceException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -126,6 +130,37 @@ public class ConnectionApplicationService {
     ConnectionEntity entity = findConnectionOrThrow(connectionId);
     connectionRepository.delete(entity);
     log.info("Deleted connection", kv("connection_id", connectionId), kv("name", entity.getName()));
+  }
+
+  /** Opens a short-lived JDBC connection to verify stored settings (US-12.16). */
+  @Transactional(readOnly = true)
+  public TestConnectionResponse testConnection(UUID connectionId) {
+    ResolvedConnection resolved =
+        resolveForExecution(findConnectionOrThrow(connectionId).getName());
+    Properties props = new Properties();
+    props.setProperty("user", resolved.username());
+    props.setProperty("password", resolved.password());
+    props.setProperty("connectTimeout", "5");
+    props.setProperty("loginTimeout", "5");
+
+    try (Connection connection = DriverManager.getConnection(resolved.jdbcUrl(), props)) {
+      if (!connection.isValid(5)) {
+        return new TestConnectionResponse(false, "Connection failed validation");
+      }
+      return new TestConnectionResponse(true, "Connection successful");
+    } catch (SQLException e) {
+      log.warn(
+          "Connection test failed",
+          kv("connection_id", connectionId),
+          kv("connection_name", resolved.name()),
+          kv("sql_state", e.getSQLState()),
+          e);
+      String message =
+          e.getMessage() != null && !e.getMessage().isBlank()
+              ? e.getMessage()
+              : "Connection failed";
+      return new TestConnectionResponse(false, message);
+    }
   }
 
   /** Resolves JDBC settings for embedded SQL execution (internal API). */

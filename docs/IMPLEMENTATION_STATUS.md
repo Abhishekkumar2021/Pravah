@@ -117,6 +117,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-12.08 Run detail | Implemented | Per-stage status, expandable logs, retry/cancel |
 | US-12.09 Log viewer | Implemented | Syntax highlighting, level filter, search, download, jump to error |
 | US-12.06 Visual DAG editor | Implemented (alpha) | `WorkflowDAGEditor` — React Flow, palette add, connect handles, config panel, undo/redo, YAML export, minimap |
+| US-12.16 Connection management | Implemented | `/app/connections` — list, create/edit, test (`POST /api/v1/connections/{id}/test`), masked credential refs |
 
 ---
 
@@ -131,6 +132,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Runs list / detail | Implemented | Retry from failed stage (US-02.05), retryOf lineage |
 | Cancel run | Implemented | |
 | Schedules on workflow | Implemented | |
+| Connections | Implemented | `/app/connections` — postgres CRUD + test; passwords as `env:` / vault / `${secret.*}` refs only (US-12.16) |
 | Real-time run status | Implemented (WebSocket) | |
 | Log viewer | Implemented | Level filter, search, download, jump to error (US-12.09) |
 | Stage output debug panel | Implemented | `RunJobOutputPanel` (US-02.10), resource panel |

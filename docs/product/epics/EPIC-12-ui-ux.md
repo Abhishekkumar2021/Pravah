@@ -282,10 +282,10 @@ The web application interface — beautiful, fast, and intuitive. The UI is how 
 **So that** I connect to sources
 
 **Acceptance Criteria:**
-- [ ] Connection list
-- [ ] Create/edit forms
-- [ ] Test connection
-- [ ] Credential masking
+- [x] Connection list
+- [x] Create/edit forms
+- [x] Test connection
+- [x] Credential masking
 
 **Story Points:** 8  
 **Priority:** P0

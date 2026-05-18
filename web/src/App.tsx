@@ -12,6 +12,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunListPage } from "./pages/RunListPage";
 import { WorkflowDetailPage } from "./pages/WorkflowDetailPage";
+import { ConnectionListPage } from "./pages/ConnectionListPage";
 import { WorkflowListPage } from "./pages/WorkflowListPage";
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="workflows" element={<WorkflowListPage />} />
           <Route path="workflows/:workflowId" element={<WorkflowDetailPage />} />
+          <Route path="connections" element={<ConnectionListPage />} />
           <Route path="runs" element={<RunListPage />} />
           <Route path="runs/:executionId" element={<RunDetailPage />} />
         </Route>
