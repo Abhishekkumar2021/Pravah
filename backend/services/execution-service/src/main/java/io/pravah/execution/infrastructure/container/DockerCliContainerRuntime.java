@@ -53,6 +53,7 @@ public class DockerCliContainerRuntime implements ContainerRuntime {
       return finished && process.exitValue() == 0;
     } catch (IOException | InterruptedException e) {
       Thread.currentThread().interrupt();
+      log.debug("Docker availability check interrupted or failed", e);
       return false;
     }
   }
