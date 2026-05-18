@@ -14,6 +14,10 @@ import { RunListPage } from "./pages/RunListPage";
 import { WorkflowDetailPage } from "./pages/WorkflowDetailPage";
 import { ConnectionListPage } from "./pages/ConnectionListPage";
 import { WorkflowListPage } from "./pages/WorkflowListPage";
+import AlertRulesPage from "./pages/AlertRulesPage";
+import AuditLogPage from "./pages/AuditLogPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import NotificationPreferencesPage from "./pages/NotificationPreferencesPage";
 
 export default function App() {
   return (
@@ -34,6 +38,10 @@ export default function App() {
           <Route path="connections" element={<ConnectionListPage />} />
           <Route path="runs" element={<RunListPage />} />
           <Route path="runs/:executionId" element={<RunDetailPage />} />
+          <Route path="alert-rules" element={<AlertRulesPage />} />
+          <Route path="audit-log" element={<AuditLogPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notification-preferences" element={<NotificationPreferencesPage />} />
         </Route>
       </Route>
       <Route path="/" element={<HomeRedirect />} />

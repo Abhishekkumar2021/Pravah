@@ -6,6 +6,7 @@ import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.common.domain.RetryPolicy;
 import io.pravah.common.domain.RetryPolicyParser;
+import io.pravah.execution.domain.ExecutionEventTypes;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -33,12 +34,14 @@ public class JobFailureService {
 
   private static final Logger log = LoggerFactory.getLogger(JobFailureService.class);
   private static final String AGGREGATE_JOB = "job";
+  private static final String AGGREGATE_EXECUTION = "execution";
 
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
   private final JobLogService jobLogService;
   private final CheckpointService checkpointService;
   private final String jobCreatedTopic;
+  private final String executionEventsTopic;
   private final int maxJobAttempts;
 
   public JobFailureService(
@@ -47,12 +50,14 @@ public class JobFailureService {
       JobLogService jobLogService,
       CheckpointService checkpointService,
       @Value("${pravah.outbox.topic.job-created}") String jobCreatedTopic,
+      @Value("${pravah.outbox.topic.execution-events}") String executionEventsTopic,
       @Value("${pravah.job.max-attempts:3}") int maxJobAttempts) {
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
     this.jobLogService = jobLogService;
     this.checkpointService = checkpointService;
     this.jobCreatedTopic = jobCreatedTopic;
+    this.executionEventsTopic = executionEventsTopic;
     this.maxJobAttempts = maxJobAttempts;
   }
 
@@ -144,6 +149,7 @@ public class JobFailureService {
     if (anyActive) {
       return;
     }
+    UUID tenantId = execution.getTenantId();
     if (anyFailed) {
       JobEntity failed =
           jobs.stream().filter(j -> j.getStatus() == JobState.FAILED).findFirst().orElseThrow();
@@ -151,10 +157,72 @@ public class JobFailureService {
           false,
           failed.getErrorMessage() != null ? failed.getErrorMessage() : "Job failed",
           "JOB_FAILED");
+      publishExecutionTerminalEvent(execution, tenantId, ExecutionEventTypes.EXECUTION_FAILED);
     } else {
       execution.complete(true, null, null);
       checkpointService.clearForExecution(execution.getId());
+      publishExecutionTerminalEvent(execution, tenantId, ExecutionEventTypes.EXECUTION_COMPLETED);
     }
+  }
+
+  private void publishExecutionTerminalEvent(
+      ExecutionEntity execution, UUID tenantId, String eventType) {
+    Instant now = Instant.now();
+    UUID eventId = UUID.randomUUID();
+    Map<String, Object> payload =
+        buildExecutionTerminalPayload(eventId, now, tenantId, execution, eventType);
+    outboxRepository.save(
+        new OutboxEntity(
+            AGGREGATE_EXECUTION,
+            execution.getId(),
+            eventType,
+            executionEventsTopic,
+            execution.getId().toString(),
+            payload,
+            now));
+    log.info(
+        "Queued execution terminal event",
+        kv("execution_id", execution.getId()),
+        kv("event_type", eventType),
+        kv("status", execution.getStatus().asDatabaseValue()));
+  }
+
+  private static Map<String, Object> buildExecutionTerminalPayload(
+      UUID eventId,
+      Instant occurredAt,
+      UUID tenantId,
+      ExecutionEntity execution,
+      String eventType) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("eventId", eventId.toString());
+    m.put("eventType", eventType);
+    m.put("occurredAt", occurredAt.toString());
+    m.put("aggregateType", AGGREGATE_EXECUTION);
+    m.put("aggregateId", execution.getId().toString());
+    m.put("tenantId", tenantId.toString());
+    m.put("executionId", execution.getId().toString());
+    m.put("pipelineId", execution.getPipelineId().toString());
+    m.put("pipelineVersion", execution.getPipelineVersion());
+    m.put("status", execution.getStatus().asDatabaseValue());
+    String pipelineName = pipelineNameFromSnapshot(execution.getDefinitionSnapshot());
+    if (pipelineName != null) {
+      m.put("pipelineName", pipelineName);
+    }
+    if (execution.getErrorMessage() != null) {
+      m.put("errorMessage", execution.getErrorMessage());
+    }
+    if (execution.getErrorCategory() != null) {
+      m.put("errorCategory", execution.getErrorCategory());
+    }
+    return m;
+  }
+
+  private static String pipelineNameFromSnapshot(Map<String, Object> definitionSnapshot) {
+    if (definitionSnapshot == null) {
+      return null;
+    }
+    Object name = definitionSnapshot.get("name");
+    return name != null ? name.toString() : null;
   }
 
   private static Map<String, Object> buildJobCreatedPayload(

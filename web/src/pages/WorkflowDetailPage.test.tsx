@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ThemeProvider } from "@/lib/theme";
@@ -9,6 +10,10 @@ const WORKFLOW_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0001";
 
 vi.mock("@/components/workspace/WorkflowSchedulePanel", () => ({
   WorkflowSchedulePanel: () => <div data-testid="schedule-panel" />,
+}));
+
+vi.mock("@/components/alerts/AlertRulesPanel", () => ({
+  AlertRulesPanel: () => <div data-testid="alert-rules-panel" />,
 }));
 
 function renderPage() {
@@ -52,6 +57,14 @@ describe("WorkflowDetailPage", () => {
     renderPage();
     await waitFor(() => expect(api.getPipeline).toHaveBeenCalledWith(WORKFLOW_ID));
     expect(await screen.findByRole("heading", { name: "ETL Pipeline" })).toBeVisible();
+  });
+
+  it("shows alert rules panel on Alerts tab", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(api.getPipeline).toHaveBeenCalledWith(WORKFLOW_ID));
+    await user.click(await screen.findByRole("tab", { name: "Alerts" }));
+    expect(await screen.findByTestId("alert-rules-panel")).toBeVisible();
   });
 
 });

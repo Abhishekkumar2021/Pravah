@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
+import io.pravah.execution.domain.ExecutionEventTypes;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
@@ -63,6 +64,7 @@ class JobCreatedProcessingServiceTest {
             jobLogService,
             checkpointService,
             JOB_CREATED_TOPIC,
+            "pravah.execution.execution.events",
             3);
     service =
         new JobCreatedProcessingService(
@@ -346,7 +348,13 @@ class JobCreatedProcessingServiceTest {
             execId.toString()));
 
     assertThat(job.getStatus()).isEqualTo(JobState.FAILED);
-    verify(outboxRepository, never()).save(any());
+    assertThat(execution.getStatus()).isEqualTo(ExecutionState.FAILED);
+    verify(outboxRepository)
+        .save(
+            argThat(
+                row -> ExecutionEventTypes.EXECUTION_FAILED.equals(row.getEventType())));
+    verify(outboxRepository, never())
+        .save(argThat(row -> JobEventTypes.JOB_CREATED.equals(row.getEventType())));
   }
 
   @Test

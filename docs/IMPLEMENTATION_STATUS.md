@@ -2,7 +2,7 @@
 
 > **Source of truth** for what is built in this repository vs what is documented as the long-term target architecture.  
 > Update this file whenever you ship or stub a user-facing capability.  
-> **Last updated:** 2026-05-17
+> **Last updated:** 2026-05-18
 
 ---
 
@@ -27,7 +27,8 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Engineering foundation | **Partial** | Gradle multi-module, CI, `backend/docker-compose.yml`, local scripts |
 | Core control plane | **Partial** | tenant, pipeline, execution, scheduler, gateway |
 | Web alpha (EPIC-12) | **Partial** | REST + WebSocket, visual DAG editor (US-12.06); no GraphQL read model |
-| Remaining microservices | **Stub** | agent, connect, metadata, notification, runner-service, graphql |
+| Remaining microservices | **Stub** | agent, connect, metadata, runner-service, graphql |
+| Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
 | Runner fleet + gRPC | **Planned** | `runner/` CLI skeleton; no live runner dispatch |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
@@ -48,7 +49,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
 | **runner-service** | 8086 | Stub | Boot app only |
 | **metadata-service** | 8087 | Stub | Boot app only |
-| **notification-service** | 8088 | Stub | Boot app only |
+| **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer (`pravah.execution.execution.events` incl. `execution.failed`/`execution.completed`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API |
 | **agent-service** | 8089 | Stub | Boot app only |
 | **connect-service** | 8090 | Stub | Boot app only |
 
@@ -94,6 +95,24 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 ---
 
+## Monitoring & alerting (EPIC-04) — Sprint 1 (partial)
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-04.04 Alert on failure | Partial | Kafka listener → `AlertDispatchService`; per-workflow/tenant rules; email/Slack/webhook; environment filter in rule conditions (requires event payload `environment`) |
+| US-04.07 Email channel | Partial | `EmailChannel` + `alert-email.html` template; links to run/workflow in UI |
+| US-04.08 Slack channel | Partial | Incoming webhook + rich blocks/buttons; no thread/ack |
+| US-04.10 Webhook channel | Partial | JSON POST, custom headers, retry on 5xx |
+| US-04.12 Alert deduplication | Partial | Per-rule `dedup_window_seconds` + `alert_history` dedup key |
+| US-04.15 In-app notification center | Partial | Bell dropdown (`NotificationBell`), `/app/notifications`, mark read; `/app/notification-preferences` for email/in-app toggles and quiet hours |
+| US-04.19 Audit log view | Partial | Append-only `audit_log` table + `GET /api/v1/audit-logs` + `/app/audit-log` UI; no CSV export |
+
+**APIs (via gateway → notification-service):** `GET/POST/PUT/DELETE /api/v1/alert-rules`, `GET /api/v1/audit-logs`, `GET/POST /api/v1/notifications`, `GET/PUT /api/v1/notification-preferences`.
+
+**Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards, metrics pipeline.
+
+---
+
 ## Security (EPIC-10)
 
 | Story | Status | Evidence |
@@ -112,12 +131,14 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-12.02 Global navigation | Implemented | Sidebar, active state, breadcrumbs |
 | US-12.03 Dashboard home | Implemented | Recent workflows, active runs, failures, quick actions |
 | US-12.04 Workflow list | Implemented | Sortable table, status filter, search, pagination |
-| US-12.05 Workflow detail | Implemented | Header, visual DAG, recent runs, schedules |
+| US-12.05 Workflow detail | Implemented | Header, visual DAG, recent runs, schedules, Alerts tab (per-workflow rules) |
 | US-12.07 Run list | Implemented | Filter, status badges, duration |
 | US-12.08 Run detail | Implemented | Per-stage status, expandable logs, retry/cancel |
 | US-12.09 Log viewer | Implemented | Syntax highlighting, level filter, search, download, jump to error |
 | US-12.06 Visual DAG editor | Implemented (alpha) | `WorkflowDAGEditor` — React Flow, palette add, connect handles, config panel, undo/redo, YAML export, minimap |
 | US-12.16 Connection management | Implemented | `/app/connections` — list, create/edit, test (`POST /api/v1/connections/{id}/test`), masked credential refs |
+| US-04.04 / US-04.15 Alerts UI | Partial | `/app/alert-rules`, workflow **Alerts** tab, bell + `/app/notifications`, `/app/notification-preferences` |
+| US-04.19 Audit log UI | Partial | `/app/audit-log` — filter by action/resource, pagination |
 
 ---
 
@@ -133,6 +154,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Cancel run | Implemented | |
 | Schedules on workflow | Implemented | |
 | Connections | Implemented | `/app/connections` — postgres CRUD + test; passwords as `env:` / vault / `${secret.*}` refs only (US-12.16) |
+| Alert rules | Partial | `/app/alert-rules` and workflow **Alerts** tab — CRUD, email/Slack/webhook, event filters (US-04.04, US-04.07, US-04.08) |
+| Audit log | Partial | `/app/audit-log` — paginated list, action/resource filters (US-04.19) |
+| Notification center | Partial | Bell + unread count + `/app/notifications` + `/app/notification-preferences` (US-04.15) |
 | Real-time run status | Implemented (WebSocket) | |
 | Log viewer | Implemented | Level filter, search, download, jump to error (US-12.09) |
 | Stage output debug panel | Implemented | `RunJobOutputPanel` (US-02.10), resource panel |

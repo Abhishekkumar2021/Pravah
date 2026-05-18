@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow } from "lucide-react";
+import { Bell, Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow } from "lucide-react";
+import { AlertRulesPanel } from "@/components/alerts/AlertRulesPanel";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
@@ -23,6 +24,7 @@ const tabs = [
   { id: "Editor", icon: Pencil },
   { id: "Runs", icon: Play },
   { id: "Schedule", icon: Calendar },
+  { id: "Alerts", icon: Bell },
   { id: "Settings", icon: Settings },
 ] as const;
 
@@ -302,6 +304,12 @@ export function WorkflowDetailPage() {
               </CardHeader>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="Alerts">
+          {workflowId && isUuid ? (
+            <AlertRulesPanel pipelineId={workflowId} embedded />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="Settings">

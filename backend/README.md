@@ -39,7 +39,7 @@ backend/
 └── build.gradle.kts             # Root build configuration
 ```
 
-**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler. Stubs: graphql, runner-service, metadata, notification, agent, connect.
+**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler. Partial: notification (alerts, audit log, in-app notifications). Stubs: graphql, runner-service, metadata, agent, connect.
 
 ## Prerequisites
 
@@ -73,11 +73,19 @@ Gateway: `http://localhost:8080`
 | `spring.mail.port` | `MAIL_PORT` | `1025` | SMTP port (Mailhog) |
 | `spring.mail.username` | `MAIL_USERNAME` | _(empty)_ | SMTP auth user |
 | `spring.mail.password` | `MAIL_PASSWORD` | _(empty)_ | SMTP auth password |
-| `pravah.auth.frontend-base-url` | `PRAVAH_FRONTEND_URL` | `http://localhost:5173` | Prefix for reset links in email |
-| `pravah.auth.mail-from` | `PRAVAH_MAIL_FROM` | `noreply@localhost.pravah` | From address |
-| `pravah.auth.email-verification-token-ttl` | _(none)_ | `24h` | Verification link validity |
 
-**Auth API (public):** `POST /api/v1/auth/register` (creates `PENDING` user, sends verification email), `POST /api/v1/auth/verify-email`, `POST /api/v1/auth/verify-email/resend`. Sign-in requires verified (`ACTIVE`) account.
+### notification-service (alerts, audit log, in-app notifications)
+
+Database: `pravah_notification` (created by `docker/postgres/init.sql`). Consumes Kafka topic `pravah.execution.execution.events` (`execution.failed`, `execution.completed`, etc.). Idempotent consumer via `processed_events`.
+
+| Property | Env | Default | Description |
+|----------|-----|---------|-------------|
+| `spring.mail.host` | `SMTP_HOST` | `localhost` | SMTP for alert emails (Mailhog `1025` locally) |
+| `spring.mail.port` | `SMTP_PORT` | `1025` | SMTP port |
+| `pravah.ui.base-url` | `PRAVAH_UI_BASE_URL` | `http://localhost:5173` | Links in email/Slack alerts |
+| `pravah.security.jwt.jwks-url` | `PRAVAH_JWKS_URL` | tenant JWKS | API auth |
+
+**REST (via gateway):** `GET/POST/PUT/DELETE /api/v1/alert-rules`, `GET /api/v1/audit-logs`, `GET/POST /api/v1/notifications`, `GET/PUT /api/v1/notification-preferences`.
 
 ### Local Kubernetes (Helm, US-09.04)
 

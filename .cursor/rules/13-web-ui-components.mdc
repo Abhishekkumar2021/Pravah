@@ -26,6 +26,17 @@ alwaysApply: false
 
 Keeps EPIC-12 and future UI aligned with one visual system (blue accent, neutral palette, rounded-xl) and consistent accessibility/focus behavior via Radix.
 
+## No `motion.div` (hard rule)
+
+**Never** emit `motion.div`, `motion.span`, or any `motion.*` JSX in Pravah web code.
+
+- This repo does **not** use Framer Motion (`framer-motion` is not a dependency).
+- `motion.div` is a recurring typo for `div` and breaks compile/lint.
+- Use plain HTML elements (`div`, `span`, `section`) or existing `@/components/ui/*` primitives.
+- If animation is required later: add `framer-motion` to `web/package.json`, import explicitly (`import { motion } from "framer-motion"`), and use only in reviewed components — never by habit.
+
+Before finishing any `web/**/*.tsx` edit, mentally verify: **no `motion.` identifiers in the diff.**
+
 ## Regression guard
 
 - `Button` must render `{children}` inside the native `<button>` (never a self-closing `<button />` without children).

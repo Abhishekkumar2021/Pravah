@@ -25,7 +25,7 @@ check_port "Redis" 6379
 
 echo ""
 echo "Java services (pid files):"
-for svc in tenant-service pipeline-service execution-service scheduler-service gateway; do
+for svc in tenant-service pipeline-service execution-service scheduler-service notification-service gateway; do
   pidfile="$PRAVAH_LOCAL_PID_DIR/${svc}.pid"
   if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
     echo "  OK  $svc (pid $(cat "$pidfile"))"
@@ -40,3 +40,4 @@ check_port "Tenant" 8082
 check_port "Pipeline" 8083
 check_port "Execution" 8084
 check_port "Scheduler" 8085
+check_port "Notification" 8088

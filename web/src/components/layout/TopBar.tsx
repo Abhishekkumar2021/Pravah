@@ -3,6 +3,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useTheme } from "@/lib/theme";
 import { signOut, subscribeSession, type AuthUserResponse } from "@/lib/api";
 
@@ -68,6 +69,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <IconButton
             type="button"
             onClick={cyclePreference}

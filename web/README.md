@@ -33,7 +33,9 @@ Copy `env.example` to `.env.local` for local overrides (gitignored).
 3. Sign in at `/login` (seeded user after `make local-seed`: `dev@localhost.pravah` / `PravahDev1!`). The access token is stored as `localStorage.pravah.accessToken`.
 4. Open **Workflows** or **Dashboard** — set **Project scope** (or `VITE_PRAVAH_PROJECT_ID`) so pipeline lists resolve.
 5. Open **Connections** (`/app/connections`) to create named JDBC sources for SQL stages (`connection: name` in stage config).
-6. Open **Runs** and pick a row, or navigate to `/app/runs/{executionId}`.
+6. Open **Alert rules** (`/app/alert-rules`) or a workflow **Alerts** tab to configure failure/completion notifications (email, Slack, webhook). Requires **notification-service** on port 8088.
+7. Open **Notifications** (`/app/notifications`) and **Preferences** (`/app/notification-preferences`) for the in-app center and delivery settings.
+8. Open **Runs** and pick a row, or navigate to `/app/runs/{executionId}`.
 
 Cancel uses `POST /api/v1/executions/{id}/cancel` (US-02.04).
 
@@ -65,6 +67,9 @@ npm run test:e2e
 | Workflow table | US-12.04 |
 | Workflow detail tabs | US-12.05 |
 | Connection management | US-12.16 (`/app/connections`, `GET/POST/PUT/DELETE /api/v1/connections`, `POST …/{id}/test`) |
+| Alert rules | US-04.04 / US-04.07 / US-04.08 (`/app/alert-rules`, workflow **Alerts** tab, `GET/POST/PUT/DELETE /api/v1/alert-rules`) |
+| Audit log | US-04.19 (`/app/audit-log`, `GET /api/v1/audit-logs`) |
+| Notification center | US-04.15 (bell in top bar, `/app/notifications`, `/app/notification-preferences`, `GET/PUT /api/v1/notification-preferences`) |
 | Run list | US-12.07 |
 | Run detail + cancel | US-12.08 / US-02.04 |
 | Run detail stage output panel | US-02.10 (`RunJobOutputPanel`, `GET /api/v1/executions/{id}` job `output`) |
