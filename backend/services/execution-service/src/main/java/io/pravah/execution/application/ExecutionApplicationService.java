@@ -711,6 +711,9 @@ public class ExecutionApplicationService {
                       j.getStatus().asDatabaseValue(),
                       j.getAttempt(),
                       retry.maxAttempts(),
+                      j.getQueuedAt(),
+                      j.getStartedAt(),
+                      j.getCompletedAt(),
                       j.getOutput());
                 })
             .toList();

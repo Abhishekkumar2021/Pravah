@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -15,9 +17,19 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
+/**
+ * Kafka consumer configuration for execution-service (US-02.09 parallel execution).
+ *
+ * <p>The job-worker listener supports configurable concurrency via {@code
+ * pravah.kafka.job-worker.concurrency} (default 4). Each concurrent consumer can process a job in
+ * parallel, enabling true parallel stage execution across multiple Kafka partitions.
+ */
 @Configuration
 @EnableKafka
 public class ExecutionKafkaConsumerConfiguration {
+
+  private static final Logger log =
+      LoggerFactory.getLogger(ExecutionKafkaConsumerConfiguration.class);
 
   @Bean
   @ConditionalOnProperty(
@@ -53,8 +65,13 @@ public class ExecutionKafkaConsumerConfiguration {
   @ConditionalOnProperty(name = "pravah.kafka.job-worker-listener-enabled", havingValue = "true")
   public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
       jobWorkerKafkaListenerContainerFactory(
-          ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory) {
-    return manualAckFactory(jobWorkerKafkaConsumerFactory);
+          ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory,
+          @Value("${pravah.kafka.job-worker.concurrency:4}") int concurrency) {
+    ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
+        manualAckFactory(jobWorkerKafkaConsumerFactory);
+    factory.setConcurrency(concurrency);
+    log.info("Job worker Kafka listener configured with concurrency={}", concurrency);
+    return factory;
   }
 
   @SuppressWarnings("unchecked")

@@ -166,11 +166,11 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** my workflow completes faster
 
 **Acceptance Criteria:**
-- [ ] Stages without dependencies run concurrently
-- [ ] Configurable parallelism limit per workflow
-- [ ] Resource-aware scheduling
-- [ ] Gantt chart shows parallel execution
-- [ ] Stage start time reflects actual scheduling
+- [x] Stages without dependencies run concurrently
+- [x] Configurable parallelism limit per workflow (`definition.execution.maxParallelStages`)
+- [ ] Resource-aware scheduling (deferred to US-02.20)
+- [x] Gantt chart shows parallel execution (`RunStageGantt` with proportional timing bars)
+- [x] Stage start time reflects actual scheduling (API returns `queuedAt`, `startedAt`, `completedAt`)
 
 **Story Points:** 8  
 **Priority:** P0

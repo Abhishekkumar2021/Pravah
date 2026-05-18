@@ -143,6 +143,58 @@ Test utilities:
 - `KafkaContainerExtension` - Shared Kafka container
 - Fixture classes for test data generation
 
+## Parallel stage execution (US-02.09)
+
+Stages without dependencies can run concurrently, subject to a configurable parallelism cap. The cap is resolved per-execution:
+1. `definition.execution.maxParallelStages` (workflow definition) overrides the system default.
+2. System default: `pravah.execution.max-parallel-stages` (env: `PRAVAH_EXECUTION_MAX_PARALLEL_STAGES`, default `4`).
+
+Example workflow definition snippet:
+```yaml
+execution:
+  maxParallelStages: 2
+stages:
+  - id: a
+    name: Stage A
+  - id: b
+    name: Stage B
+  - id: c
+    name: Stage C
+    dependsOn: [a, b]
+```
+With `maxParallelStages: 2`, stages A and B run in parallel; stage C waits for both.
+
+### Configuration
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.execution.max-parallel-stages` | `PRAVAH_EXECUTION_MAX_PARALLEL_STAGES` | `4` | Max concurrent stages per execution (system default) |
+| `pravah.kafka.job-worker.concurrency` | `PRAVAH_JOB_WORKER_CONCURRENCY` | `4` | Kafka consumer threads for parallel job processing |
+
+### Job timing API
+
+The execution detail API (`GET /api/v1/executions/{id}`) returns timing fields on each job for Gantt chart visualization:
+
+```json
+{
+  "jobs": [
+    {
+      "id": "...",
+      "stageId": "build",
+      "stageName": "Build",
+      "status": "succeeded",
+      "queuedAt": "2026-05-16T10:00:00Z",
+      "startedAt": "2026-05-16T10:00:05Z",
+      "completedAt": "2026-05-16T10:01:00Z"
+    }
+  ]
+}
+```
+
+- `queuedAt`: dependencies satisfied, waiting for worker
+- `startedAt`: worker picked up the job
+- `completedAt`: execution finished (success, failure, or cancellation)
+
 ## Stage output and value resolution (US-02.10)
 
 Embedded stages (echo, SQL, container) resolve `${stages.<stageId>.output.<path>}` at run time via `execution-service` (`StageOutputResolverProvider`, `ExecutionStageConfigResolver`). Pipeline publish validates references with `StageOutputReferenceValidator` in `libs:common` (wired from `pipeline-service`).

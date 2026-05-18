@@ -13,6 +13,14 @@ function apiUrl(path: string): string {
   return apiBase ? `${apiBase}${path}` : path;
 }
 
+/**
+ * Job summary with timing fields for Gantt chart visualization (US-02.09).
+ *
+ * Timing fields:
+ * - queuedAt: when the job was queued (dependencies satisfied, waiting for worker)
+ * - startedAt: when execution began (worker picked up the job)
+ * - completedAt: when execution finished (success, failure, or cancellation)
+ */
 export type JobSummary = {
   id: string;
   stageId: string;
@@ -20,6 +28,9 @@ export type JobSummary = {
   status: string;
   attempt: number;
   maxAttempts: number;
+  queuedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
   output?: Record<string, unknown> | null;
 };
 

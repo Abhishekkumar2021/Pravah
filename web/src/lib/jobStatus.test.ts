@@ -35,8 +35,28 @@ describe("jobStatus", () => {
 
   it("sorts jobs by stage id", () => {
     const jobs: JobSummary[] = [
-      { id: "2", stageId: "z-stage", stageName: "Z", status: "pending", attempt: 1, maxAttempts: 3 },
-      { id: "1", stageId: "a-stage", stageName: "A", status: "pending", attempt: 1, maxAttempts: 3 },
+      {
+        id: "2",
+        stageId: "z-stage",
+        stageName: "Z",
+        status: "pending",
+        attempt: 1,
+        maxAttempts: 3,
+        queuedAt: null,
+        startedAt: null,
+        completedAt: null,
+      },
+      {
+        id: "1",
+        stageId: "a-stage",
+        stageName: "A",
+        status: "pending",
+        attempt: 1,
+        maxAttempts: 3,
+        queuedAt: null,
+        startedAt: null,
+        completedAt: null,
+      },
     ];
     expect(sortJobsByStage(jobs).map((j) => j.stageId)).toEqual(["a-stage", "z-stage"]);
   });

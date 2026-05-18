@@ -62,6 +62,8 @@ pravah:
       # Production: set PRAVAH_WS_ALLOWED_ORIGINS to every SPA origin (scheme + host + port) or
       # handshakes will fail with no JSON error body.
       allowed-origins: ${PRAVAH_WS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  execution:
+    max-parallel-stages: ${PRAVAH_EXECUTION_MAX_PARALLEL_STAGES:4}
   job:
     max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
     timeout:
@@ -93,6 +95,7 @@ pravah:
     job-worker-listener-enabled: ${PRAVAH_JOB_WORKER_LISTENER_ENABLED:true}
     job-worker:
       consumer-group-id: ${PRAVAH_JOB_WORKER_KAFKA_GROUP:execution-service-job-worker}
+      concurrency: ${PRAVAH_JOB_WORKER_CONCURRENCY:4}
 
 management:
   endpoints:
