@@ -24,7 +24,7 @@ public class PlannedStageExecutor implements EmbeddedStageExecutor {
     output.put("stageType", stageType);
     output.put(
         "message",
-        "Stage type '%s' is defined in the pipeline but execution is not available in alpha yet"
+        "Stage type '%s' is defined in the pipeline but execution is not available yet"
             .formatted(stageType));
     return new StageExecutionResult(1, output);
   }

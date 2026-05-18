@@ -269,11 +269,11 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** I can do custom transformations
 
 **Acceptance Criteria:**
-- [ ] Python 3.9+ support
-- [ ] Requirements.txt for dependencies
-- [ ] Virtual environment per stage
-- [ ] Access to stage context (inputs, config)
-- [ ] Structured output return
+- [x] Python 3.9+ support (`python3` / `config.python_version` publish validation)
+- [x] Requirements via `config.requirements` list (written to `requirements.txt` in job workspace)
+- [x] Virtual environment per stage (temp workspace + `venv`)
+- [x] Access to stage context (`context.json` + `PRAVAH_CONTEXT_PATH` env)
+- [x] Structured output return (JSON line or `__PRAVAH_OUTPUT__:` prefix on stdout)
 
 **Story Points:** 8  
 **Priority:** P0

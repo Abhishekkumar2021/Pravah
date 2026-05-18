@@ -34,4 +34,38 @@ class PythonStageValidatorTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("config.script");
   }
+
+  @Test
+  void requirementsList_passes() {
+    Map<String, Object> definition =
+        Map.of(
+            "stages",
+            List.of(
+                Map.of(
+                    "id",
+                    "run_py",
+                    "type",
+                    "python",
+                    "config",
+                    Map.of("script", "print('ok')", "requirements", List.of("pandas==2.0.0")))));
+    assertThatCode(() -> PythonStageValidator.validateDefinition(definition))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void pythonVersionBelow39_fails() {
+    Map<String, Object> definition =
+        Map.of(
+            "stages",
+            List.of(
+                Map.of(
+                    "id",
+                    "run_py",
+                    "type",
+                    "python",
+                    "config",
+                    Map.of("script", "print(1)", "python_version", "3.8"))));
+    assertThatThrownBy(() -> PythonStageValidator.validateDefinition(definition))
+        .hasMessageContaining("3.9");
+  }
 }

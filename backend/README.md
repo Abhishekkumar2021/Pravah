@@ -195,6 +195,35 @@ The execution detail API (`GET /api/v1/executions/{id}`) returns timing fields o
 - `startedAt`: worker picked up the job
 - `completedAt`: execution finished (success, failure, or cancellation)
 
+## Python stage execution (US-02.15)
+
+Embedded Python stages run on the execution-service host using a per-job virtualenv.
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.python.enabled` | `PRAVAH_PYTHON_ENABLED` | `true` | Enable Python stage execution |
+| `pravah.python.binary` | `PRAVAH_PYTHON_BINARY` | `python3` | Base interpreter for `venv` creation |
+
+Example stage:
+
+```yaml
+stages:
+  - id: transform
+    type: python
+    config:
+      script: |
+        import json
+        print(json.dumps({"rows": 42}))
+      requirements:
+        - pandas==2.0.0
+      env:
+        MODE: batch
+```
+
+- `context.json` in the job workspace includes execution/job metadata and resolved config.
+- Set env `PRAVAH_CONTEXT_PATH` to read it from the script.
+- Emit structured output as a final JSON object line or `__PRAVAH_OUTPUT__:{...}` on stdout.
+
 ## Stage output and value resolution (US-02.10)
 
 Embedded stages (echo, SQL, container) resolve `${stages.<stageId>.output.<path>}` at run time via `execution-service` (`StageOutputResolverProvider`, `ExecutionStageConfigResolver`). Pipeline publish validates references with `StageOutputReferenceValidator` in `libs:common` (wired from `pipeline-service`).
