@@ -1,4 +1,5 @@
 import {
+  Cable,
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
@@ -24,6 +25,7 @@ const SIDEBAR_KEY = "pravah.sidebar.collapsed";
 const NAV_ITEMS = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/app/workflows", label: "Workflows", icon: Workflow, end: false },
+  { to: "/app/connections", label: "Connections", icon: Cable, end: true },
   { to: "/app/runs", label: "Runs", icon: PlayCircle, end: false },
 ] as const;
 

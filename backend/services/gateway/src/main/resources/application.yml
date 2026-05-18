@@ -19,7 +19,7 @@ spring:
         - id: pipeline-service
           uri: lb://pipeline-service
           predicates:
-            - Path=/api/v1/pipelines/**
+            - Path=/api/v1/pipelines/**,/api/v1/connections/**
         
         - id: execution-service
           uri: lb://execution-service

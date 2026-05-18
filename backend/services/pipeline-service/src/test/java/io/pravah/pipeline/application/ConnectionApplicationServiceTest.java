@@ -3,6 +3,7 @@ package io.pravah.pipeline.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +13,7 @@ import io.pravah.pipeline.api.dto.CreateConnectionRequest;
 import io.pravah.pipeline.infrastructure.persistence.entity.ConnectionEntity;
 import io.pravah.pipeline.infrastructure.persistence.repository.ConnectionRepository;
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.test.containers.PostgresContainerExtension;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -146,5 +148,36 @@ class ConnectionApplicationServiceTest {
                             "credentials", Map.of("password", "invalid-format")))))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported credential reference");
+  }
+
+  @Test
+  void testConnection_success_againstTestcontainersPostgres() {
+    // Use a mock resolver that returns the actual Testcontainers password
+    @SuppressWarnings("unchecked")
+    ConnectionCredentialResolver mockResolver =
+        org.mockito.Mockito.mock(ConnectionCredentialResolver.class);
+    when(mockResolver.resolvePassword(anyMap()))
+        .thenReturn(PostgresContainerExtension.getPassword());
+    ConnectionApplicationService testService =
+        new ConnectionApplicationService(connectionRepository, mockResolver, new ObjectMapper());
+
+    UUID connectionId = UUID.randomUUID();
+    Map<String, Object> config =
+        Map.of(
+            "url", PostgresContainerExtension.getJdbcUrl(),
+            "username", PostgresContainerExtension.getUsername(),
+            "credentials", Map.of("password", "env:PRAVAH_IT_DB_PASSWORD"));
+    ObjectMapper mapper = new ObjectMapper();
+    ConnectionEntity entity =
+        new ConnectionEntity(
+            tenantId, "warehouse", "postgres", mapper.valueToTree(config), userId, Instant.now());
+    when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(entity));
+    when(connectionRepository.findByTenantIdAndName(tenantId, "warehouse"))
+        .thenReturn(Optional.of(entity));
+
+    var result = testService.testConnection(connectionId);
+
+    assertThat(result.success()).isTrue();
+    assertThat(result.message()).containsIgnoringCase("successful");
   }
 }
