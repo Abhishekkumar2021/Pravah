@@ -11,6 +11,9 @@ const job: JobSummary = {
   status: "succeeded",
   attempt: 1,
   maxAttempts: 3,
+  queuedAt: "2026-05-16T09:59:55Z",
+  startedAt: "2026-05-16T10:00:00Z",
+  completedAt: "2026-05-16T10:00:30Z",
 };
 
 describe("RunLogPanel", () => {

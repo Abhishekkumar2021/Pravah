@@ -13,9 +13,22 @@ const jobs: JobSummary[] = [
     status: "succeeded",
     attempt: 1,
     maxAttempts: 3,
+    queuedAt: "2026-05-16T10:00:00Z",
+    startedAt: "2026-05-16T10:00:01Z",
+    completedAt: "2026-05-16T10:00:30Z",
     output: { row_count: 10 },
   },
-  { id: "j-bad", stageId: "deploy", stageName: "Deploy", status: "failed", attempt: 2, maxAttempts: 3 },
+  {
+    id: "j-bad",
+    stageId: "deploy",
+    stageName: "Deploy",
+    status: "failed",
+    attempt: 2,
+    maxAttempts: 3,
+    queuedAt: "2026-05-16T10:00:30Z",
+    startedAt: "2026-05-16T10:00:31Z",
+    completedAt: "2026-05-16T10:01:00Z",
+  },
 ];
 
 describe("RunJobStages", () => {
@@ -59,6 +72,9 @@ describe("RunJobStages", () => {
             status: "succeeded",
             attempt: 1,
             maxAttempts: 3,
+            queuedAt: "2026-05-16T10:00:00Z",
+            startedAt: "2026-05-16T10:00:01Z",
+            completedAt: "2026-05-16T10:00:30Z",
             output: { row_count: 1 },
           },
         ]}

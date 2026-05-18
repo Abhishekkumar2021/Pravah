@@ -83,6 +83,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-02.14 SQL stage | Implemented | `SqlEmbeddedStageExecutor` |
 | US-02.08 Resource requests | Implemented | `config.resources.profile` presets + explicit `memory`/`cpus` |
 | US-02.17 Container stage | Implemented | `ContainerEmbeddedStageExecutor` (Docker) |
+| US-02.09 Parallel execution | Implemented | `ExecutionParallelismPolicy`, Kafka worker concurrency, `maxParallelStages` per workflow, timing-based Gantt chart |
 
 **Not yet:** US-02.11 artifacts, external runner dispatch, Spark/dbt stages.
 

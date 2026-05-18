@@ -17,6 +17,17 @@ public record GetExecutionResponse(
     Instant createdAt,
     List<JobSummary> jobs) {
 
+  /**
+   * Job summary with timing fields for Gantt chart visualization (US-02.09).
+   *
+   * <p>Timing fields:
+   *
+   * <ul>
+   *   <li>{@code queuedAt}: when the job was queued (dependencies satisfied, waiting for worker)
+   *   <li>{@code startedAt}: when execution began (worker picked up the job)
+   *   <li>{@code completedAt}: when execution finished (success, failure, or cancellation)
+   * </ul>
+   */
   public record JobSummary(
       UUID id,
       String stageId,
@@ -24,5 +35,8 @@ public record GetExecutionResponse(
       String status,
       int attempt,
       int maxAttempts,
+      Instant queuedAt,
+      Instant startedAt,
+      Instant completedAt,
       Map<String, Object> output) {}
 }
