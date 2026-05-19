@@ -1121,3 +1121,234 @@ export async function generateArtifactDownloadUrl(
   });
   return handleResponse<PresignedUrlResponse>(res);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connector API (Connect Service)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ConnectorType = "DATABASE" | "FILE" | "PROTOCOL" | "STREAMING" | "SAAS" | "CDC";
+export type ConnectorMode = "SOURCE" | "SINK" | "BIDIRECTIONAL";
+
+export type ConfigField = {
+  name: string;
+  label: string;
+  description: string;
+  type: "STRING" | "PASSWORD" | "NUMBER" | "BOOLEAN" | "SELECT" | "MULTI_SELECT" | "TEXTAREA" | "FILE" | "JSON" | "KEY_VALUE" | "CRON" | "URL";
+  required: boolean;
+  defaultValue: unknown;
+  options: string[] | null;
+  placeholder: string | null;
+  group: string;
+  order: number;
+  dependsOn: string | null;
+  condition: string | null;
+};
+
+export type ConnectorSpec = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  type: ConnectorType;
+  mode: ConnectorMode;
+  version: string;
+  configFields: ConfigField[];
+  capabilities: Record<string, unknown>;
+  tags: string[];
+};
+
+export type ConnectionStatus = "ACTIVE" | "INACTIVE" | "FAILED" | "TESTING";
+
+export type Connection = {
+  id: string;
+  name: string;
+  description: string | null;
+  connectorId: string;
+  status: ConnectionStatus;
+  lastTestedAt: string | null;
+  lastTestSuccess: boolean | null;
+  lastTestMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ValidationResult = {
+  valid: boolean;
+  errors: Record<string, string>;
+};
+
+export type TestResult = {
+  success: boolean;
+  message: string;
+  latencyMs: number;
+  metadata: Record<string, unknown>;
+};
+
+export type StreamInfo = {
+  name: string;
+  namespace: string | null;
+  fields: Array<{
+    name: string;
+    type: string;
+    nullable: boolean;
+    description: string | null;
+  }>;
+  primaryKeys: string[];
+  metadata: Record<string, unknown>;
+};
+
+// Connector catalog API (connect-service)
+
+export async function listConnectors(params?: { type?: ConnectorType; search?: string }): Promise<ConnectorSpec[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  // Note: connect-service runs on port 8090, would need API gateway routing
+  const res = await fetch(apiUrl(`/connect/api/v1/connectors${query ? `?${query}` : ""}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function listSourceConnectors(): Promise<ConnectorSpec[]> {
+  const res = await fetch(apiUrl("/connect/api/v1/connectors/sources"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function listSinkConnectors(): Promise<ConnectorSpec[]> {
+  const res = await fetch(apiUrl("/connect/api/v1/connectors/sinks"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function getConnectorSpec(connectorId: string): Promise<ConnectorSpec> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec>(res);
+}
+
+export async function validateConnectorConfig(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<ValidationResult> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/validate`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<ValidationResult>(res);
+}
+
+export async function testConnectorConfig(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<TestResult> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/test`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<TestResult>(res);
+}
+
+export async function discoverStreams(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<StreamInfo[]> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/discover`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<StreamInfo[]>(res);
+}
+
+// Data Connection management API (connect-service)
+// Note: These are different from pipeline-service connections (for SQL stages).
+// These are for the connect-service's data connector framework.
+
+export async function listDataConnections(params?: { connectorId?: string; search?: string }): Promise<Connection[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.connectorId) searchParams.set("connectorId", params.connectorId);
+  if (params?.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  // Note: connect-service runs on port 8090, would need API gateway routing
+  const res = await fetch(apiUrl(`/connect/api/v1/connections${query ? `?${query}` : ""}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<Connection[]>(res);
+}
+
+export async function getDataConnection(connectionId: string): Promise<Connection> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function createDataConnection(body: {
+  name: string;
+  description?: string;
+  connectorId: string;
+  config: Record<string, unknown>;
+}): Promise<Connection> {
+  const res = await fetch(apiUrl("/connect/api/v1/connections"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function updateDataConnection(
+  connectionId: string,
+  body: {
+    name?: string;
+    description?: string;
+    config?: Record<string, unknown>;
+  },
+): Promise<Connection> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function deleteDataConnection(connectionId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || `Failed to delete connection: ${res.status}`);
+  }
+}
+
+export async function testDataConnection(connectionId: string): Promise<TestResult> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}/test`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<TestResult>(res);
+}
+
+export async function testDataConnectionConfig(body: {
+  connectorId: string;
+  config: Record<string, unknown>;
+}): Promise<TestResult> {
+  const res = await fetch(apiUrl("/connect/api/v1/connections/test"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<TestResult>(res);
+}

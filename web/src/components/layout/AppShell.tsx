@@ -1,6 +1,7 @@
 import {
   Bell,
   Cable,
+  Database,
   FileText,
   LayoutDashboard,
   PanelLeft,
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/app/workflows", label: "Workflows", icon: Workflow, end: false },
   { to: "/app/connections", label: "Connections", icon: Cable, end: true },
+  { to: "/app/connectors", label: "Connectors", icon: Database, end: true },
   { to: "/app/runs", label: "Runs", icon: PlayCircle, end: false },
   { to: "/app/alert-rules", label: "Alerts", icon: Bell, end: true },
   { to: "/app/audit-log", label: "Audit Log", icon: FileText, end: true },

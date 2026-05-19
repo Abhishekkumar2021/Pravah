@@ -13,6 +13,7 @@ import { RunDetailPage } from "./pages/RunDetailPage";
 import { RunListPage } from "./pages/RunListPage";
 import { WorkflowDetailPage } from "./pages/WorkflowDetailPage";
 import { ConnectionListPage } from "./pages/ConnectionListPage";
+import { ConnectorCatalogPage } from "./pages/ConnectorCatalogPage";
 import { WorkflowListPage } from "./pages/WorkflowListPage";
 import AlertRulesPage from "./pages/AlertRulesPage";
 import AuditLogPage from "./pages/AuditLogPage";
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="workflows" element={<WorkflowListPage />} />
           <Route path="workflows/:workflowId" element={<WorkflowDetailPage />} />
           <Route path="connections" element={<ConnectionListPage />} />
+          <Route path="connectors" element={<ConnectorCatalogPage />} />
           <Route path="runs" element={<RunListPage />} />
           <Route path="runs/:executionId" element={<RunDetailPage />} />
           <Route path="alert-rules" element={<AlertRulesPage />} />
