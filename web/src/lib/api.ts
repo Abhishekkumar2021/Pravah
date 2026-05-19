@@ -44,6 +44,9 @@ export type ExecutionResponse = {
   retryOf: string | null;
   retryCount: number;
   createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  parameters?: Record<string, string | number | boolean> | null;
   jobs: JobSummary[];
 };
 

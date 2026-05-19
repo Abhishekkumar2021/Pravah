@@ -18,6 +18,8 @@ import AlertRulesPage from "./pages/AlertRulesPage";
 import AuditLogPage from "./pages/AuditLogPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import NotificationPreferencesPage from "./pages/NotificationPreferencesPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 export default function App() {
   return (
@@ -42,10 +44,12 @@ export default function App() {
           <Route path="audit-log" element={<AuditLogPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="notification-preferences" element={<NotificationPreferencesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
       <Route path="/" element={<HomeRedirect />} />
-      <Route path="*" element={<HomeRedirect />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

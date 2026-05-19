@@ -6,6 +6,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   PlayCircle,
+  Settings,
   Workflow,
   X,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { to: "/app/runs", label: "Runs", icon: PlayCircle, end: false },
   { to: "/app/alert-rules", label: "Alerts", icon: Bell, end: true },
   { to: "/app/audit-log", label: "Audit Log", icon: FileText, end: true },
+  { to: "/app/settings", label: "Settings", icon: Settings, end: true },
 ] as const;
 
 function isNavItemActive(pathname: string, to: string, end: boolean): boolean {

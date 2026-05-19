@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Bell, Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow } from "lucide-react";
 import { AlertRulesPanel } from "@/components/alerts/AlertRulesPanel";
+import { WorkflowRunsTable } from "@/components/runs/WorkflowRunsTable";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { WorkflowSettings } from "@/components/workflow/WorkflowSettings";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
 import { WorkflowDAG } from "@/components/workflow/WorkflowDAG";
-import { WorkflowDAGEditor } from "@/components/workflow/WorkflowDAGEditor";
+import { PipelineEditor } from "@/components/workflow/editor";
+import { publishPipeline, validatePipelineDefinition } from "@/lib/api";
+import { stagesToYaml } from "@/lib/pipelineYaml";
 import {
   ApiError,
   getPipeline,
@@ -253,44 +257,42 @@ export function WorkflowDetailPage() {
 
         <TabsContent value="Editor">
           {pipeline && workflowId ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Visual editor</CardTitle>
-                <CardDescription>
-                  Drag stages, connect dependencies, and publish (<span className="font-medium">US-12.06</span>).
-                </CardDescription>
-              </CardHeader>
-              <WorkflowDAGEditor
+            <div className="h-[calc(100vh-280px)] min-h-[500px]">
+              <PipelineEditor
                 pipelineId={workflowId}
                 pipelineName={pipeline.name}
-                pipelineDescription={pipeline.description}
-                initialStages={stages}
-                onPublished={() => {
-                  void getPipeline(workflowId).then((p) => {
-                    setPipeline(p);
-                    return getPipelineVersionDefinition(workflowId, p.currentVersion);
-                  }).then((def) => {
-                    if (def.definition?.stages) setStages(def.definition.stages);
-                  });
+                pipelineDescription={pipeline.description ?? null}
+                stages={stages}
+                onPublish={async (updatedStages) => {
+                  const yaml = stagesToYaml(pipeline.name, updatedStages, pipeline.description);
+                  await validatePipelineDefinition(yaml);
+                  await publishPipeline(workflowId, yaml);
+                  const p = await getPipeline(workflowId);
+                  setPipeline(p);
+                  const def = await getPipelineVersionDefinition(workflowId, p.currentVersion);
+                  if (def.definition?.stages) {
+                    setStages(def.definition.stages);
+                  }
                 }}
               />
-            </Card>
+            </div>
           ) : null}
         </TabsContent>
 
         <TabsContent value="Runs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Runs</CardTitle>
-              <CardDescription>
-                Open the{" "}
-                <Link className="font-medium text-blue-600 hover:underline dark:text-blue-400" to="/app/runs">
-                  Runs
-                </Link>{" "}
-                page and filter by this pipeline in a later iteration.
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {workflowId && isUuid ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Runs</CardTitle>
+                <CardDescription>
+                  Recent executions of this workflow
+                </CardDescription>
+              </CardHeader>
+              <div className="p-4 pt-0">
+                <WorkflowRunsTable pipelineId={workflowId} pipelineName={pipeline?.name} />
+              </div>
+            </Card>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="Schedule">
@@ -313,12 +315,15 @@ export function WorkflowDetailPage() {
         </TabsContent>
 
         <TabsContent value="Settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-              <CardDescription>Content for this tab is not implemented yet.</CardDescription>
-            </CardHeader>
-          </Card>
+          {pipeline ? (
+            <WorkflowSettings
+              pipeline={pipeline}
+              onUpdate={async (patch) => {
+                console.log("Update workflow:", patch);
+                // TODO: Implement API call to update pipeline
+              }}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>
