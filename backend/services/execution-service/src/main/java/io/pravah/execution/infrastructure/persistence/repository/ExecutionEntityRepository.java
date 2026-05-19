@@ -2,6 +2,8 @@ package io.pravah.execution.infrastructure.persistence.repository;
 
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,4 +34,21 @@ public interface ExecutionEntityRepository extends JpaRepository<ExecutionEntity
       Pageable pageable);
 
   long countByRetryOf(UUID retryOf);
+
+  /**
+   * Find completed executions older than the given cutoff time.
+   * Used for artifact cleanup - only returns terminal state executions.
+   */
+  @Query(
+      """
+      SELECT e FROM ExecutionEntity e
+      WHERE e.completedAt IS NOT NULL
+        AND e.completedAt < :cutoff
+        AND e.status IN (
+          io.pravah.common.domain.ExecutionState.SUCCEEDED,
+          io.pravah.common.domain.ExecutionState.FAILED,
+          io.pravah.common.domain.ExecutionState.CANCELLED
+        )
+      """)
+  List<ExecutionEntity> findCompletedBefore(@Param("cutoff") Instant cutoff);
 }
