@@ -85,6 +85,16 @@ pravah:
   stage:
     max-output-bytes: ${PRAVAH_STAGE_MAX_OUTPUT_BYTES:1048576}
     output-warn-bytes: ${PRAVAH_STAGE_OUTPUT_WARN_BYTES:102400}
+  artifact:
+    enabled: ${PRAVAH_ARTIFACT_ENABLED:true}
+    endpoint: ${PRAVAH_ARTIFACT_ENDPOINT:http://localhost:9000}
+    region: ${PRAVAH_ARTIFACT_REGION:us-east-1}
+    access-key: ${PRAVAH_ARTIFACT_ACCESS_KEY:pravah}
+    secret-key: ${PRAVAH_ARTIFACT_SECRET_KEY:pravah123}
+    bucket: ${PRAVAH_ARTIFACT_BUCKET:pravah-artifacts}
+    presigned-url-expiry: ${PRAVAH_ARTIFACT_PRESIGNED_URL_EXPIRY:15m}
+    max-artifact-size-bytes: ${PRAVAH_ARTIFACT_MAX_SIZE_BYTES:5368709120}
+    retention-days: ${PRAVAH_ARTIFACT_RETENTION_DAYS:30}
   outbox:
     relay:
       enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
