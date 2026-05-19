@@ -64,6 +64,9 @@ mssql = "12.8.1.jre11"
 oracle = "23.7.0.25.01"
 mongodb = "5.3.1"
 
+# Messaging
+rabbitmq = "5.24.0"
+
 # Utilities
 guava = "33.6.0-jre"
 commons-lang3 = "3.17.0"
@@ -194,6 +197,9 @@ aws-sts = { module = "software.amazon.awssdk:sts", version.ref = "aws-sdk" }
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
 commons-net = { module = "commons-net:commons-net", version.ref = "commons-net" }
 jsch = { module = "com.github.mwiede:jsch", version.ref = "jsch" }
+
+# Messaging
+amqp-client = { module = "com.rabbitmq:amqp-client", version.ref = "rabbitmq" }
 
 # Additional database drivers
 mysql-connector = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }

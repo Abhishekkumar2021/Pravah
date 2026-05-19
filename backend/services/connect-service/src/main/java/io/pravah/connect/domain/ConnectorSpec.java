@@ -23,8 +23,12 @@ public record ConnectorSpec(
     return new Builder(id);
   }
 
+  public static Builder builder() {
+    return new Builder("");
+  }
+
   public static class Builder {
-    private final String id;
+    private String id;
     private String name;
     private String description = "";
     private String icon;
@@ -39,6 +43,14 @@ public record ConnectorSpec(
     private Builder(String id) {
       this.id = id;
       this.name = id;
+    }
+
+    public Builder id(String id) {
+      this.id = id;
+      if (this.name == null || this.name.isEmpty()) {
+        this.name = id;
+      }
+      return this;
     }
 
     public Builder name(String name) {

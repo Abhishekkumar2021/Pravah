@@ -38,6 +38,10 @@ public record ConfigField(
     return new Builder(name);
   }
 
+  public static Builder builder() {
+    return new Builder("");
+  }
+
   public static class Builder {
     private final String name;
     private String label;
@@ -74,6 +78,25 @@ public record ConfigField(
 
     public Builder required() {
       this.required = true;
+      return this;
+    }
+
+    public Builder required(boolean required) {
+      this.required = required;
+      return this;
+    }
+
+    public Builder name(String name) {
+      return new Builder(name);
+    }
+
+    public Builder dependsOn(String dependsOn) {
+      this.dependsOn = dependsOn;
+      return this;
+    }
+
+    public Builder condition(String condition) {
+      this.condition = condition;
       return this;
     }
 

@@ -46,6 +46,9 @@ dependencies {
     // JSch for SFTP
     implementation(libs.jsch)
 
+    // Streaming - RabbitMQ
+    implementation(libs.amqp.client)
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

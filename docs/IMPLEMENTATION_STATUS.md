@@ -28,7 +28,7 @@
 | Run containers | ✅ Implemented | Container stage (Docker) |
 | Pass small data between stages | ✅ Implemented | JSON via `${stages.*.output.*}` with size limits |
 | Pass large files between stages | ✅ Implemented | Artifact storage in MinIO via `${stages.*.artifact.*}` |
-| Pre-built source connectors | ✅ Implemented | Connect Service connector framework (PostgreSQL, MySQL, MSSQL, Oracle, MongoDB, S3, FTP, SFTP, REST API) |
+| Pre-built source connectors | ✅ Implemented | Connect Service connector framework (PostgreSQL, MySQL, MSSQL, Oracle, MongoDB, S3, Local Files, FTP, SFTP, REST API, Kafka, RabbitMQ) |
 | dbt transformations | 🔮 Planned | dbt stage type defined, executor not built |
 | Spark jobs | 🔮 Planned | Spark stage type defined, executor not built |
 | Data lineage tracking | 🔮 Planned | Metadata Service with OpenLineage (ADR-019) |
