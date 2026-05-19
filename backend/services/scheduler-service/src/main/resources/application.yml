@@ -42,15 +42,51 @@ pravah:
   hooks:
     base-url: ${PRAVAH_HOOKS_BASE_URL:http://localhost:8080/api/v1/hooks}
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 5s
+        recordExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+    instances:
+      execution-service:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+    instances:
+      execution-service:
+        baseConfig: default
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    circuitbreakers:
+      enabled: true
 
 logging:
   level:
     io.pravah: INFO
+    io.github.resilience4j: INFO

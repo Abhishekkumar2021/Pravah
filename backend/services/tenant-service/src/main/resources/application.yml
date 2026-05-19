@@ -39,6 +39,11 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
 server:
   port: 8082
 
@@ -56,6 +61,8 @@ pravah:
     jwt:
       issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  cache:
+    enabled: ${PRAVAH_CACHE_ENABLED:true}
 
 management:
   endpoints:

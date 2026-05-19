@@ -20,11 +20,14 @@ dependencies {
     implementation(platform(libs.spring.cloud.dependencies))
     implementation(libs.spring.cloud.starter.gateway)
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j")
 
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
     implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
+
+    implementation(libs.logstash.logback.encoder)
 
     testImplementation(project(":libs:test-support"))
 }

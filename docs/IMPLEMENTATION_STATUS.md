@@ -2,7 +2,7 @@
 
 > **Source of truth** for what is built in this repository vs what is documented as the long-term target architecture.  
 > Update this file whenever you ship or stub a user-facing capability.  
-> **Last updated:** 2026-05-18
+> **Last updated:** 2026-05-19
 
 ---
 
@@ -41,11 +41,11 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Service | Port (local) | Status | Capabilities |
 |---------|--------------|--------|--------------|
-| **gateway** | 8080 | Implemented | Routes REST/WS to services (`application.yml`) |
-| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens |
+| **gateway** | 8080 | Implemented | Routes REST/WS, Redis rate limiting (token bucket per-tenant), JWT blocklist, circuit breakers, request logging (ADR-012) |
+| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens, Redis tenant config cache (ADR-012) |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
-| **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), rate limiting, idempotent Kafka consumers |
+| **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, circuit breaker + retry for inter-service calls (Resilience4j) |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), rate limiting, idempotent Kafka consumers, circuit breaker + retry for inter-service calls (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
 | **runner-service** | 8086 | Stub | Boot app only |
 | **metadata-service** | 8087 | Stub | Boot app only |
@@ -128,6 +128,32 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 **APIs (via gateway → notification-service):** `GET/POST/PUT/DELETE /api/v1/alert-rules`, `GET /api/v1/audit-logs`, `GET/POST /api/v1/notifications`, `GET/PUT /api/v1/notification-preferences`.
 
 **Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards, metrics pipeline.
+
+---
+
+## Resilience & Rate Limiting (Production-Grade)
+
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| Gateway rate limiting | Implemented | Redis token bucket algorithm per-tenant/per-token (ADR-012), HTTP 429 + Retry-After header |
+| JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012) |
+| Gateway circuit breaker | Implemented | Resilience4j reactive circuit breaker for all backend routes (LLD-01) |
+| Request logging | Implemented | Structured JSON logs with tenant_id, user_id, request_id, duration, route |
+| Service circuit breakers | Implemented | Resilience4j on `execution-service` → `pipeline-service` and `scheduler-service` → `execution-service` |
+| Retry with backoff | Implemented | Exponential backoff (1s → 2s → 4s) with max 3 attempts for transient failures |
+| Tenant config caching | Implemented | Redis cache-aside pattern with 10-minute TTL, invalidation on update (ADR-012) |
+
+**Configuration (environment variables):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PRAVAH_RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting |
+| `PRAVAH_RATE_LIMIT_RPS` | `100` | Default requests per second per tenant |
+| `PRAVAH_RATE_LIMIT_BURST` | `200` | Burst capacity for token bucket |
+| `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | RPS for API token access (lower) |
+| `PRAVAH_CACHE_ENABLED` | `true` | Enable/disable tenant config caching |
+
+**Not yet:** Redis Sentinel HA, distributed rate limiting across instances, per-endpoint rate limits, IP allowlisting.
 
 ---
 

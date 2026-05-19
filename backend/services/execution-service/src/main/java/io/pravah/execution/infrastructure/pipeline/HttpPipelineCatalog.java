@@ -3,6 +3,8 @@ package io.pravah.execution.infrastructure.pipeline;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.execution.application.port.PipelineCatalog;
 import io.pravah.execution.application.port.PublishedPipelineSnapshot;
@@ -16,10 +18,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * HTTP-based pipeline catalog that fetches pipeline definitions from pipeline-service.
+ *
+ * <p>Uses Resilience4j circuit breaker and retry patterns (ADR-012, LLD-01) to handle transient
+ * failures and prevent cascading failures when pipeline-service is unavailable.
+ */
 @Component
 public class HttpPipelineCatalog implements PipelineCatalog {
 
   private static final Logger log = LoggerFactory.getLogger(HttpPipelineCatalog.class);
+  private static final String CIRCUIT_BREAKER_NAME = "pipeline-service";
 
   private final RestClient restClient;
 
@@ -30,6 +39,8 @@ public class HttpPipelineCatalog implements PipelineCatalog {
   }
 
   @Override
+  @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "resolveFallback")
+  @Retry(name = CIRCUIT_BREAKER_NAME)
   public PublishedPipelineSnapshot resolve(
       UUID pipelineId, Integer pipelineVersionOrNull, String authorizationHeader) {
     PipelineSummaryJson summary =
@@ -75,6 +86,17 @@ public class HttpPipelineCatalog implements PipelineCatalog {
 
     return new PublishedPipelineSnapshot(
         pipelineId, versionBody.version(), versionBody.definition(), summary.status());
+  }
+
+  @SuppressWarnings("unused")
+  private PublishedPipelineSnapshot resolveFallback(
+      UUID pipelineId, Integer pipelineVersionOrNull, String authorizationHeader, Throwable t) {
+    log.error(
+        "Circuit breaker fallback triggered for pipeline-service",
+        kv("pipeline_id", pipelineId),
+        kv("error", t.getMessage()));
+    throw new ServiceUnavailableException(
+        "Pipeline service is temporarily unavailable. Please try again later.");
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)

@@ -34,6 +34,10 @@ dependencies {
     // Security (JWT per ADR-009) — JwtTokenVerifier + ApiTenantJwtFilter from :libs:spring-support
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // Resilience (circuit breaker + retry for inter-service calls per ADR-012, LLD-01)
+    implementation(libs.resilience4j.spring.boot3)
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

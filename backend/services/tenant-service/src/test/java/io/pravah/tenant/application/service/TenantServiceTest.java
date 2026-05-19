@@ -42,7 +42,8 @@ class TenantServiceTest {
   @BeforeEach
   void setUp() {
     tenantService =
-        new TenantService(tenantRepository, userRepository, memberRepository, passwordEncoder);
+        new TenantService(
+            tenantRepository, userRepository, memberRepository, passwordEncoder, Optional.empty());
   }
 
   @Test

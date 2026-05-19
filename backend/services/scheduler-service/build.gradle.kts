@@ -25,5 +25,9 @@ dependencies {
 
     implementation("com.cronutils:cron-utils:9.2.1")
 
+    // Resilience (circuit breaker + retry for inter-service calls per ADR-012, LLD-01)
+    implementation(libs.resilience4j.spring.boot3)
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     testImplementation(project(":libs:test-support"))
 }

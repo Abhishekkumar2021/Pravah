@@ -13,6 +13,8 @@ import io.pravah.tenant.domain.model.User;
 import io.pravah.tenant.domain.repository.TenantMemberRepository;
 import io.pravah.tenant.domain.repository.TenantRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
+import io.pravah.tenant.infrastructure.cache.TenantConfigCache;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Application service for tenant management.
  *
- * <p>Handles tenant lifecycle: creation, updates, and member management.
+ * <p>Handles tenant lifecycle: creation, updates, and member management. Uses Redis caching for
+ * tenant configuration per ADR-012.
  */
 @Service
 @Transactional
@@ -35,16 +38,19 @@ public class TenantService {
   private final UserRepository userRepository;
   private final TenantMemberRepository memberRepository;
   private final PasswordEncoder passwordEncoder;
+  private final Optional<TenantConfigCache> tenantConfigCache;
 
   public TenantService(
       TenantRepository tenantRepository,
       UserRepository userRepository,
       TenantMemberRepository memberRepository,
-      PasswordEncoder passwordEncoder) {
+      PasswordEncoder passwordEncoder,
+      Optional<TenantConfigCache> tenantConfigCache) {
     this.tenantRepository = tenantRepository;
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
+    this.tenantConfigCache = tenantConfigCache;
   }
 
   /**
@@ -101,6 +107,8 @@ public class TenantService {
   /**
    * Gets a tenant by ID.
    *
+   * <p>Uses cache-aside pattern: check cache first, then database on miss.
+   *
    * @param tenantId the tenant ID
    * @return the tenant
    * @throws EntityNotFoundException if not found
@@ -111,6 +119,9 @@ public class TenantService {
         tenantRepository
             .findById(tenantId)
             .orElseThrow(() -> new EntityNotFoundException("Tenant", tenantId));
+
+    tenantConfigCache.ifPresent(cache -> cache.put(tenant));
+
     return TenantResponse.from(tenant);
   }
 
@@ -133,6 +144,8 @@ public class TenantService {
   /**
    * Updates a tenant's name.
    *
+   * <p>Invalidates cache after update to ensure consistency.
+   *
    * @param tenantId the tenant ID
    * @param newName the new name
    * @return the updated tenant
@@ -146,12 +159,16 @@ public class TenantService {
     tenant.updateName(newName);
     tenant = tenantRepository.save(tenant);
 
+    tenantConfigCache.ifPresent(cache -> cache.invalidate(tenantId));
+
     log.info("Updated tenant name", kv("tenant_id", tenantId), kv("new_name", newName));
     return TenantResponse.from(tenant);
   }
 
   /**
    * Updates a tenant's tier.
+   *
+   * <p>Invalidates cache after update to ensure rate limits are immediately effective.
    *
    * @param tenantId the tenant ID
    * @param newTier the new tier
@@ -166,6 +183,8 @@ public class TenantService {
     Tenant.Tier oldTier = tenant.getTier();
     tenant.updateTier(newTier);
     tenant = tenantRepository.save(tenant);
+
+    tenantConfigCache.ifPresent(cache -> cache.invalidate(tenantId));
 
     log.info(
         "Updated tenant tier",
