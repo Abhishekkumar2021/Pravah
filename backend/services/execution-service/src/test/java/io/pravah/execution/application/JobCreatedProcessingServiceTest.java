@@ -350,9 +350,7 @@ class JobCreatedProcessingServiceTest {
     assertThat(job.getStatus()).isEqualTo(JobState.FAILED);
     assertThat(execution.getStatus()).isEqualTo(ExecutionState.FAILED);
     verify(outboxRepository)
-        .save(
-            argThat(
-                row -> ExecutionEventTypes.EXECUTION_FAILED.equals(row.getEventType())));
+        .save(argThat(row -> ExecutionEventTypes.EXECUTION_FAILED.equals(row.getEventType())));
     verify(outboxRepository, never())
         .save(argThat(row -> JobEventTypes.JOB_CREATED.equals(row.getEventType())));
   }

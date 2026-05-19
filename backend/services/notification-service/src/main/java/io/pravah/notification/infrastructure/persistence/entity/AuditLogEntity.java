@@ -48,7 +48,8 @@ public class AuditLogEntity {
   @JdbcTypeCode(SqlTypes.JSON)
   private String details;
 
-  @Column(name = "ip_address")
+  @Column(name = "ip_address", columnDefinition = "inet")
+  @JdbcTypeCode(SqlTypes.INET)
   private String ipAddress;
 
   @Column(name = "user_agent")
