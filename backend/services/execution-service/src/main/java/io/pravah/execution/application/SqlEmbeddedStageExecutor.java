@@ -232,15 +232,18 @@ public class SqlEmbeddedStageExecutor {
       ArtifactMetadata artifact =
           artifactPublisher.publishJsonIfLarge(job, execution, "result.json", allRows);
       if (artifact != null) {
-        output.put("artifact", Map.of(
-            "filename", artifact.filename(),
-            "key", artifact.key(),
-            "size_bytes", artifact.sizeBytes(),
-            "row_count", Math.min(rowCount, MAX_INLINE_ROWS),
-            "truncated", rowCount > MAX_INLINE_ROWS
-        ));
+        output.put(
+            "artifact",
+            Map.of(
+                "filename", artifact.filename(),
+                "key", artifact.key(),
+                "size_bytes", artifact.sizeBytes(),
+                "row_count", Math.min(rowCount, MAX_INLINE_ROWS),
+                "truncated", rowCount > MAX_INLINE_ROWS));
         if (rowCount > MAX_INLINE_ROWS) {
-          jobLogService.append(job.getId(), JobLogLevel.WARN,
+          jobLogService.append(
+              job.getId(),
+              JobLogLevel.WARN,
               "[sql] Result set truncated: only first %d of %d rows stored in artifact"
                   .formatted(MAX_INLINE_ROWS, rowCount));
         }

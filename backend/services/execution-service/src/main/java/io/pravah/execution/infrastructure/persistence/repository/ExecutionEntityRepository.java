@@ -36,8 +36,8 @@ public interface ExecutionEntityRepository extends JpaRepository<ExecutionEntity
   long countByRetryOf(UUID retryOf);
 
   /**
-   * Find completed executions older than the given cutoff time.
-   * Used for artifact cleanup - only returns terminal state executions.
+   * Find completed executions older than the given cutoff time. Used for artifact cleanup - only
+   * returns terminal state executions.
    */
   @Query(
       """

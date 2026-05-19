@@ -3,9 +3,8 @@ package io.pravah.common.domain.resolution;
 /**
  * Reference to an upstream stage's artifact: {@code ${stages.stageId.artifact.filename}}.
  *
- * <p>Resolved at stage execution time (deferred) by looking up the artifact metadata
- * from the completed upstream job's output. Returns a presigned URL for downloading
- * the artifact.
+ * <p>Resolved at stage execution time (deferred) by looking up the artifact metadata from the
+ * completed upstream job's output. Returns a presigned URL for downloading the artifact.
  *
  * <p>Examples:
  *
@@ -15,6 +14,7 @@ package io.pravah.common.domain.resolution;
  * </ul>
  *
  * <p>The property can be:
+ *
  * <ul>
  *   <li>{@code key} — returns the S3 key for direct access
  *   <li>{@code url} — returns a presigned download URL (default)
@@ -45,8 +45,10 @@ public record StageArtifactRef(String stageId, String filename, String property)
       property = DEFAULT_PROPERTY;
     }
     if (!property.matches("key|url|size_bytes|content_type")) {
-      throw new IllegalArgumentException("Invalid artifact property: " + property
-          + ". Supported: key, url, size_bytes, content_type");
+      throw new IllegalArgumentException(
+          "Invalid artifact property: "
+              + property
+              + ". Supported: key, url, size_bytes, content_type");
     }
   }
 

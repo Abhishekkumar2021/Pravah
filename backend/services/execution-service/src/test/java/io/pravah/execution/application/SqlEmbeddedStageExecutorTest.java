@@ -35,6 +35,7 @@ class SqlEmbeddedStageExecutorTest {
   @Mock private ConnectionCatalog connectionCatalog;
   @Mock private DataSource defaultDataSource;
   @Mock private ExecutionStageConfigResolver configResolver;
+  @Mock private ArtifactPublisher artifactPublisher;
   @Mock private Connection connection;
   @Mock private Statement statement;
   @Mock private ResultSet resultSet;
@@ -46,7 +47,7 @@ class SqlEmbeddedStageExecutorTest {
   void setUp() {
     executor =
         new SqlEmbeddedStageExecutor(
-            jobLogService, connectionCatalog, defaultDataSource, configResolver);
+            jobLogService, connectionCatalog, defaultDataSource, configResolver, artifactPublisher);
     when(configResolver.resolveConfig(any(), any()))
         .thenAnswer(invocation -> invocation.getArgument(1));
   }

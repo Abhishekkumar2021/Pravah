@@ -19,7 +19,14 @@ package io.pravah.common.domain.resolution;
  * @see ValueReferenceParser
  */
 public sealed interface ValueReference
-    permits VariableRef, SecretRef, BuiltinRef, EnvRef, VaultRef, StageOutputRef, StageArtifactRef, LiteralValue {
+    permits VariableRef,
+        SecretRef,
+        BuiltinRef,
+        EnvRef,
+        VaultRef,
+        StageOutputRef,
+        StageArtifactRef,
+        LiteralValue {
 
   /** The original string representation of this reference. */
   String raw();

@@ -35,6 +35,7 @@ class PythonEmbeddedStageExecutorTest {
   @Mock private JobLogService jobLogService;
   @Mock private PythonRuntime pythonRuntime;
   @Mock private ExecutionStageConfigResolver configResolver;
+  @Mock private ArtifactPublisher artifactPublisher;
 
   private PythonEmbeddedStageExecutor executor;
 
@@ -44,7 +45,7 @@ class PythonEmbeddedStageExecutorTest {
   void setUp() {
     executor =
         new PythonEmbeddedStageExecutor(
-            jobLogService, pythonRuntime, configResolver, new ObjectMapper());
+            jobLogService, pythonRuntime, configResolver, new ObjectMapper(), artifactPublisher);
   }
 
   @Test

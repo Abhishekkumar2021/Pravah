@@ -10,10 +10,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * <p>Manages the runner fleet: registration, heartbeats, job assignment, and monitoring.
  *
  * <ul>
- *   <li>gRPC server for runner communication (bidirectional streaming)</li>
- *   <li>REST API for fleet management</li>
- *   <li>Heartbeat monitoring and stale runner detection</li>
- *   <li>Job assignment to available runners</li>
+ *   <li>gRPC server for runner communication (bidirectional streaming)
+ *   <li>REST API for fleet management
+ *   <li>Heartbeat monitoring and stale runner detection
+ *   <li>Job assignment to available runners
  * </ul>
  *
  * @see <a href="../../../docs/adr/ADR-005-grpc-runner-communication.md">ADR-005</a>

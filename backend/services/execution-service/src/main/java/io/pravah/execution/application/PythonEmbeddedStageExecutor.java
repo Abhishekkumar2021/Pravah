@@ -11,10 +11,10 @@ import io.pravah.execution.application.port.PythonRunRequest;
 import io.pravah.execution.application.port.PythonRunResult;
 import io.pravah.execution.application.port.PythonRuntime;
 import io.pravah.execution.domain.JobLogLevel;
-import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
-import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import io.pravah.execution.infrastructure.artifact.ArtifactMetadata;
 import io.pravah.execution.infrastructure.artifact.ArtifactType;
+import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
+import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -346,16 +346,18 @@ public class PythonEmbeddedStageExecutor {
       try (var stream = Files.list(outputDir)) {
         stream
             .filter(Files::isRegularFile)
-            .forEach(file -> {
-              ArtifactMetadata metadata = artifactPublisher.publishFile(
-                  job, execution, ArtifactType.OUTPUT, file);
-              if (metadata != null) {
-                published.add(metadata);
-              }
-            });
+            .forEach(
+                file -> {
+                  ArtifactMetadata metadata =
+                      artifactPublisher.publishFile(job, execution, ArtifactType.OUTPUT, file);
+                  if (metadata != null) {
+                    published.add(metadata);
+                  }
+                });
       }
     } catch (IOException e) {
-      log.warn("Failed to list output directory for artifact upload",
+      log.warn(
+          "Failed to list output directory for artifact upload",
           kv("job_id", job.getId()),
           kv("output_dir", outputDir),
           e);
