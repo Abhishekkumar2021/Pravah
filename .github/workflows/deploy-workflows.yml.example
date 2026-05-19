@@ -1,0 +1,80 @@
+# Example: Deploy Pravah Workflows on push to main
+#
+# Copy this file to .github/workflows/deploy-workflows.yml and configure:
+# 1. Set PRAVAH_API_TOKEN secret in your repository
+# 2. Update api-url if not using the default
+# 3. Adjust workflow-files path to match your directory structure
+#
+# See .github/actions/deploy/README.md for full documentation.
+
+name: Deploy Workflows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workflows/**/*.yaml'
+      - 'workflows/**/*.yml'
+
+  pull_request:
+    paths:
+      - 'workflows/**/*.yaml'
+      - 'workflows/**/*.yml'
+
+jobs:
+  # Validate on PR (dry-run)
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate workflows
+        uses: ./.github/actions/deploy
+        with:
+          api-url: ${{ vars.PRAVAH_API_URL || 'https://api.pravah.io' }}
+          api-token: ${{ secrets.PRAVAH_API_TOKEN }}
+          workflow-files: ./workflows/
+          dry-run: 'true'
+
+  # Deploy on push to main
+  deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy workflows
+        id: deploy
+        uses: ./.github/actions/deploy
+        with:
+          api-url: ${{ vars.PRAVAH_API_URL || 'https://api.pravah.io' }}
+          api-token: ${{ secrets.PRAVAH_API_TOKEN }}
+          workflow-files: ./workflows/
+          project-id: ${{ vars.PRAVAH_PROJECT_ID }}
+
+      - name: Comment deployment status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.deploy.outputs.deployment-status }}';
+            const changes = JSON.parse('${{ steps.deploy.outputs.changes }}');
+            
+            let emoji = '✅';
+            if (status === 'failed') emoji = '❌';
+            if (status === 'no-changes') emoji = 'ℹ️';
+            
+            const body = `## ${emoji} Pravah Deployment
+            
+            **Status:** ${status}
+            
+            | Change Type | Count |
+            |-------------|-------|
+            | Created | ${changes.created} |
+            | Updated | ${changes.updated} |
+            | Unchanged | ${changes.unchanged} |
+            | Errors | ${changes.errors} |
+            `;
+            
+            console.log(body);

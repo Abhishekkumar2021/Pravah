@@ -23,6 +23,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
+    // API Documentation (US-11.12)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
+
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 

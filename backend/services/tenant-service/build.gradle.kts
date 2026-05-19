@@ -23,6 +23,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-mail")
 
+    // API Documentation (US-11.12)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
+
     // Security (JWT per ADR-009)
     // - JwtTokenVerifier from :libs:spring-support for token verification
     // - JwtTokenIssuer locally for RS256 token issuance (holds private key)

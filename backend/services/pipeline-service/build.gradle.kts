@@ -23,6 +23,9 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // API Documentation (US-11.12)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
+
     // Security (JWT per ADR-009) — JwtTokenVerifier + ApiTenantJwtFilter from :libs:spring-support
     implementation("org.springframework.boot:spring-boot-starter-security")
 

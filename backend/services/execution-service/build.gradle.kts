@@ -28,6 +28,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
+    // API Documentation (US-11.12)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
+
     // Redis pub/sub for multi-instance WebSocket fan-out (US-12.10)
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 

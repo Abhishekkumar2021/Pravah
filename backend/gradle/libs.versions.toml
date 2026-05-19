@@ -60,6 +60,9 @@ slf4j = "2.0.16"
 # Test data
 datafaker = "2.5.4"
 
+# API Documentation
+springdoc = "2.8.8"
+
 # Build
 spotless = "6.25.0"
 owasp-dependencycheck = "9.0.10"
@@ -170,6 +173,10 @@ javax-annotation-api = { module = "javax.annotation:javax.annotation-api", versi
 
 # Test data
 datafaker = { module = "net.datafaker:datafaker", version.ref = "datafaker" }
+
+# API Documentation
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+springdoc-openapi-starter-webflux-ui = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 
 # buildSrc — Gradle plugin classpath (same versions as [plugins] below)
 spring-boot-gradle-plugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "spring-boot" }

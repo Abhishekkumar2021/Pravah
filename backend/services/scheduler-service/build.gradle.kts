@@ -24,6 +24,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
+    // API Documentation (US-11.12)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
+
     implementation("com.cronutils:cron-utils:9.2.1")
 
     // Resilience (circuit breaker + retry for inter-service calls per ADR-012, LLD-01)
