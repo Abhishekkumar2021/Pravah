@@ -13,5 +13,11 @@ public final class ExecutionEventTypes {
 
   public static final String EXECUTION_CANCELLED = "execution.cancelled";
 
+  /** Published when an execution reaches a terminal success state. */
+  public static final String EXECUTION_COMPLETED = "execution.completed";
+
+  /** Published when an execution reaches a terminal failure state. */
+  public static final String EXECUTION_FAILED = "execution.failed";
+
   private ExecutionEventTypes() {}
 }

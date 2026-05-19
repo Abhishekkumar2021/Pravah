@@ -1,15 +1,15 @@
 package io.pravah.execution.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
+import io.pravah.execution.domain.ExecutionEventTypes;
+import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
-import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
 import java.lang.reflect.Field;
@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class JobFailureServiceTest {
 
   private static final String JOB_CREATED_TOPIC = "pravah.job.created";
+  private static final String EXECUTION_EVENTS_TOPIC = "pravah.execution.execution.events";
 
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
@@ -43,6 +44,7 @@ class JobFailureServiceTest {
             jobLogService,
             checkpointService,
             JOB_CREATED_TOPIC,
+            EXECUTION_EVENTS_TOPIC,
             3);
   }
 
@@ -67,6 +69,7 @@ class JobFailureServiceTest {
     setId(job, UUID.randomUUID());
     job.queue();
     job.assign(EmbeddedRunnerIds.LOCAL);
+    when(jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execId)).thenReturn(List.of(job));
 
     boolean handled =
         service.handleStageFailure(
@@ -80,7 +83,10 @@ class JobFailureServiceTest {
     assertThat(handled).isTrue();
     assertThat(job.getStatus()).isEqualTo(JobState.QUEUED);
     assertThat(job.getExitCode()).isEqualTo(JobFailureService.EXIT_CODE_TIMEOUT);
-    verify(outboxRepository).save(any(OutboxEntity.class));
+    verify(outboxRepository)
+        .save(
+            org.mockito.ArgumentMatchers.argThat(
+                row -> JobEventTypes.JOB_CREATED.equals(row.getEventType())));
   }
 
   @Test
@@ -108,6 +114,12 @@ class JobFailureServiceTest {
     service.finalizeExecutionIfDone(execution);
 
     assertThat(execution.getStatus()).isEqualTo(ExecutionState.FAILED);
+    verify(outboxRepository)
+        .save(
+            org.mockito.ArgumentMatchers.argThat(
+                row ->
+                    ExecutionEventTypes.EXECUTION_FAILED.equals(row.getEventType())
+                        && EXECUTION_EVENTS_TOPIC.equals(row.getTopic())));
   }
 
   private static void setId(Object entity, UUID id) throws Exception {

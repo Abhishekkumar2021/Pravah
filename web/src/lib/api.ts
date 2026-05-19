@@ -776,3 +776,291 @@ export async function testConnection(connectionId: string): Promise<TestConnecti
   });
   return handleResponse<TestConnectionResponse>(res);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Alert Rules API (US-04.04, US-04.07, US-04.08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AlertRuleConditions = {
+  events?: string[];
+  environments?: string[];
+};
+
+export type AlertRuleChannelConfig = {
+  type: "email" | "slack" | "webhook";
+  recipients?: string[];
+  from?: string;
+  webhookUrl?: string;
+  url?: string;
+  headers?: Record<string, string>;
+};
+
+export type AlertRuleResponse = {
+  id: string;
+  pipelineId: string | null;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  conditions: string;
+  channels: string;
+  dedupWindowSeconds: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateAlertRuleRequest = {
+  pipelineId?: string;
+  name: string;
+  description?: string;
+  conditions: string;
+  channels: string;
+  dedupWindowSeconds?: number;
+};
+
+export type UpdateAlertRuleRequest = {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  conditions?: string;
+  channels?: string;
+  dedupWindowSeconds?: number;
+};
+
+export async function listAlertRules(pipelineId?: string): Promise<AlertRuleResponse[]> {
+  const path = pipelineId
+    ? withQuery("/api/v1/alert-rules", { pipelineId })
+    : "/api/v1/alert-rules";
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<AlertRuleResponse[]>(res);
+}
+
+export async function getAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function createAlertRule(
+  body: CreateAlertRuleRequest,
+): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl("/api/v1/alert-rules"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function updateAlertRule(
+  ruleId: string,
+  body: UpdateAlertRuleRequest,
+): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function deleteAlertRule(ruleId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function enableAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}/enable`), {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function disableAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}/disable`), {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Notifications API (US-04.19)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type UserNotificationResponse = {
+  id: string;
+  title: string;
+  message: string | null;
+  type: "alert" | "info" | "success" | "warning";
+  resourceType: string | null;
+  resourceId: string | null;
+  linkUrl: string | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationPage = {
+  content: UserNotificationResponse[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export async function listNotifications(
+  page = 0,
+  size = 20,
+): Promise<NotificationPage> {
+  const path = withQuery("/api/v1/notifications", { page, size });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<NotificationPage>(res);
+}
+
+export async function getUnreadNotifications(): Promise<UserNotificationResponse[]> {
+  const res = await fetch(apiUrl("/api/v1/notifications/unread"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<UserNotificationResponse[]>(res);
+}
+
+export async function getUnreadNotificationCount(): Promise<{ count: number }> {
+  const res = await fetch(apiUrl("/api/v1/notifications/unread/count"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<{ count: number }>(res);
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/notifications/${notificationId}/read`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ marked: number }> {
+  const res = await fetch(apiUrl("/api/v1/notifications/read-all"), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<{ marked: number }>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit Log API (US-04.19)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AuditLogEntry = {
+  id: string;
+  actorId: string | null;
+  actorType: string;
+  actorName: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  resourceName: string | null;
+  details: string | null;
+  ipAddress: string | null;
+  requestId: string | null;
+  createdAt: string;
+};
+
+export type AuditLogPage = {
+  content: AuditLogEntry[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export async function listAuditLogs(opts?: {
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  actorId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+}): Promise<AuditLogPage> {
+  const path = withQuery("/api/v1/audit-logs", {
+    action: opts?.action,
+    resourceType: opts?.resourceType,
+    resourceId: opts?.resourceId,
+    actorId: opts?.actorId,
+    from: opts?.from,
+    to: opts?.to,
+    page: opts?.page ?? 0,
+    size: opts?.size ?? 50,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<AuditLogPage>(res);
+}
+
+export async function getResourceAuditHistory(
+  resourceType: string,
+  resourceId: string,
+  page = 0,
+  size = 20,
+): Promise<AuditLogPage> {
+  const path = withQuery("/api/v1/audit-logs/resource", {
+    resourceType,
+    resourceId,
+    page,
+    size,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<AuditLogPage>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notification preferences API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type NotificationPreferenceResponse = {
+  emailEnabled: boolean;
+  inAppEnabled: boolean;
+  eventPreferences: string;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  quietHoursTz: string | null;
+  updatedAt: string;
+};
+
+export type UpdateNotificationPreferenceRequest = {
+  emailEnabled?: boolean;
+  inAppEnabled?: boolean;
+  eventPreferences?: string;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  quietHoursTz?: string | null;
+};
+
+export async function getNotificationPreferences(): Promise<NotificationPreferenceResponse> {
+  const res = await fetch(apiUrl("/api/v1/notification-preferences"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<NotificationPreferenceResponse>(res);
+}
+
+export async function updateNotificationPreferences(
+  body: UpdateNotificationPreferenceRequest,
+): Promise<NotificationPreferenceResponse> {
+  const res = await fetch(apiUrl("/api/v1/notification-preferences"), {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<NotificationPreferenceResponse>(res);
+}

@@ -521,8 +521,21 @@ Build error classification model.
 
 ---
 
+## Repo implementation (Sprint 1 — partial)
+
+Tracked in `docs/IMPLEMENTATION_STATUS.md`. Shipped on branch `feat/sprint1-production-alerts`:
+
+- **notification-service:** alert rules CRUD, Kafka `execution.failed`/`execution.completed` dispatch, email/Slack/webhook, dedup, audit log API, in-app notifications + user preferences API.
+- **execution-service:** publishes terminal execution events to `pravah.execution.execution.events` when jobs fail/complete.
+- **Web:** `/app/alert-rules`, workflow **Alerts** tab, audit log page, notification bell + center + preferences.
+
+Epic acceptance checkboxes below remain the full target; unchecked items are not yet built.
+
+---
+
 ## Changelog
 
 | Date | Author | Changes |
 |------|--------|---------|
+| 2026-05-18 | Engineering | Sprint 1 partial: notification-service + alerts UI (see repo implementation section) |
 | 2026-05-13 | PM | Initial epic definition |

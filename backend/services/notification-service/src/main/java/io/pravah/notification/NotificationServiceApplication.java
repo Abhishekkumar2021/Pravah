@@ -2,6 +2,7 @@ package io.pravah.notification;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 
 /**
  * Notification Service Application Entry Point.
@@ -12,6 +13,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/lld/02-database-erd.md">Database ERD - Notification Domain</a>
  */
 @SpringBootApplication
+@ComponentScan(
+    basePackages = {
+      "io.pravah.notification",
+      "io.pravah.spring.multitenancy",
+      "io.pravah.spring.security"
+    })
 public class NotificationServiceApplication {
 
   public static void main(String[] args) {

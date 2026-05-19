@@ -47,6 +47,7 @@ sleep 3
 start_one pipeline-service :services:pipeline-service
 start_one execution-service :services:execution-service
 start_one scheduler-service :services:scheduler-service
+start_one notification-service :services:notification-service
 sleep 3
 start_one gateway :services:gateway
 
