@@ -45,7 +45,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API, triggers execution-service |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), rate limiting, idempotent Kafka consumers |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
 | **runner-service** | 8086 | Stub | Boot app only |
 | **metadata-service** | 8087 | Stub | Boot app only |
@@ -92,6 +92,24 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 **Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 
 **Done (resource requests):** US-02.08 resource profiles (`config.resources.profile: small|medium|large|xlarge`) + explicit `memory`/`cpus` with profile override; container run UI shows image and duration.
+
+---
+
+## Scheduling & triggers (EPIC-03) — partial
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-03.01 Cron schedules | Implemented | Cron parser, schedule evaluation job, leader election |
+| US-03.06 Kafka triggers | Implemented | Dynamic Kafka listeners, filter matching, idempotent consumer with dedup table |
+| US-03.07 Webhook triggers | Implemented | Public hook endpoint, BCrypt secret validation, per-trigger rate limiting |
+
+**APIs (via gateway → scheduler-service):**
+
+- Schedules: `GET/POST/PUT/DELETE /api/v1/schedules`
+- Triggers: `GET/POST/PUT/DELETE /api/v1/triggers`, `POST /api/v1/triggers/{id}/enable`, `POST /api/v1/triggers/{id}/disable`
+- Webhooks: `POST /api/v1/hooks/{triggerId}` (public, no auth required)
+
+**Not yet:** event trigger UI, trigger history/logs, manual test trigger, webhook retry on failure.
 
 ---
 

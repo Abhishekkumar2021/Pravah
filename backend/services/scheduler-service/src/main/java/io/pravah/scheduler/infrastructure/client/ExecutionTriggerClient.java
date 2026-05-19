@@ -3,6 +3,7 @@ package io.pravah.scheduler.infrastructure.client;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.scheduler.infrastructure.security.InternalServiceHeaders;
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,45 @@ public class ExecutionTriggerClient {
     }
   }
 
+  public UUID triggerEventExecution(
+      UUID tenantId,
+      UUID pipelineId,
+      String triggerType,
+      UUID triggerId,
+      Map<String, Object> parameters) {
+    try {
+      EventExecutionResponse response =
+          restClient
+              .post()
+              .uri("/api/v1/internal/executions/event")
+              .header(InternalServiceHeaders.SECRET_HEADER, internalSecret)
+              .header(InternalServiceHeaders.TENANT_HEADER, tenantId.toString())
+              .body(new EventExecutionRequest(pipelineId, triggerType, triggerId, parameters))
+              .retrieve()
+              .body(EventExecutionResponse.class);
+      if (response == null || response.executionId() == null) {
+        throw new IllegalStateException("Execution service returned empty response");
+      }
+      return response.executionId();
+    } catch (RestClientResponseException e) {
+      log.warn(
+          "Event execution trigger failed",
+          kv("tenant_id", tenantId),
+          kv("pipeline_id", pipelineId),
+          kv("trigger_type", triggerType),
+          kv("trigger_id", triggerId),
+          kv("status", e.getStatusCode().value()),
+          kv("body", e.getResponseBodyAsString()));
+      throw e;
+    }
+  }
+
   public record ScheduledExecutionRequest(UUID pipelineId, UUID scheduleId) {}
 
   public record ScheduledExecutionResponse(UUID executionId) {}
+
+  public record EventExecutionRequest(
+      UUID pipelineId, String triggerType, UUID triggerId, Map<String, Object> parameters) {}
+
+  public record EventExecutionResponse(UUID executionId) {}
 }

@@ -66,6 +66,8 @@ public class ExecutionApplicationService {
   public static final String TRIGGER_MANUAL = "manual";
   public static final String TRIGGER_SCHEDULED = "scheduled";
   public static final String TRIGGER_API = "api";
+  public static final String TRIGGER_WEBHOOK = "webhook";
+  public static final String TRIGGER_KAFKA = "kafka";
 
   private static final String AGGREGATE_EXECUTION = "execution";
 
@@ -159,6 +161,33 @@ public class ExecutionApplicationService {
         kv("pipeline_id", pipelineId),
         kv("schedule_id", scheduleId));
     return materializeExecution(tenantId, null, TRIGGER_SCHEDULED, snapshot, Map.of());
+  }
+
+  /**
+   * Creates an execution for webhook or Kafka triggers (US-03.06, US-03.07).
+   *
+   * @param triggerType {@link #TRIGGER_WEBHOOK} or {@link #TRIGGER_KAFKA}
+   */
+  @Transactional
+  public CreateExecutionResponse startEventExecution(
+      UUID tenantId,
+      UUID pipelineId,
+      String triggerType,
+      UUID triggerId,
+      Map<String, Object> parameters) {
+    if (!TRIGGER_WEBHOOK.equals(triggerType) && !TRIGGER_KAFKA.equals(triggerType)) {
+      throw new IllegalArgumentException("Unsupported event trigger type: " + triggerType);
+    }
+    PublishedPipelineSnapshot snapshot =
+        internalPipelineCatalog.resolvePublished(tenantId, pipelineId);
+    log.debug(
+        "Resolved pipeline for event trigger",
+        kv("tenant_id", tenantId),
+        kv("pipeline_id", pipelineId),
+        kv("trigger_id", triggerId),
+        kv("trigger_type", triggerType));
+    return materializeExecution(
+        tenantId, null, triggerType, snapshot, normalizeParameters(parameters));
   }
 
   private static Map<String, Object> normalizeParameters(Map<String, Object> parameters) {

@@ -35,7 +35,7 @@ spring:
         - id: scheduler-service
           uri: lb://scheduler-service
           predicates:
-            - Path=/api/v1/schedules/**
+            - Path=/api/v1/schedules/**,/api/v1/triggers/**,/api/v1/hooks/**
 
         - id: tenant-service
           uri: lb://tenant-service

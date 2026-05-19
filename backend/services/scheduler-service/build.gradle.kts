@@ -10,6 +10,7 @@
 plugins {
     id("pravah.spring-boot-conventions")
     id("pravah.jpa-conventions")
+    id("pravah.kafka-conventions")
 }
 
 description = "Pravah Scheduler Service - Pipeline scheduling"
