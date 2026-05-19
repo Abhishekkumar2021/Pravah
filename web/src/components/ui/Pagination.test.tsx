@@ -68,20 +68,20 @@ describe("Pagination", () => {
     expect(screen.queryByRole("button", { name: /last/i })).not.toBeInTheDocument();
   });
 
-  it("shows jump button when totalPages > 5", async () => {
+  it("shows jump link when totalPages > 5", async () => {
     const user = userEvent.setup();
     render(<Pagination page={0} totalPages={10} totalElements={100} onPageChange={() => {}} />);
     
-    const jumpButton = screen.getByRole("button", { name: /go to page/i });
-    expect(jumpButton).toBeInTheDocument();
+    const jumpLink = screen.getByText(/jump to page/i);
+    expect(jumpLink).toBeInTheDocument();
     
-    await user.click(jumpButton);
+    await user.click(jumpLink);
     expect(screen.getByRole("spinbutton")).toBeInTheDocument();
   });
 
-  it("hides jump button when totalPages <= 5", () => {
+  it("hides jump link when totalPages <= 5", () => {
     render(<Pagination page={0} totalPages={5} totalElements={50} onPageChange={() => {}} />);
-    expect(screen.queryByRole("button", { name: /go to page/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/jump to page/i)).not.toBeInTheDocument();
   });
 
   it("jumps to page when entering number and pressing Enter", async () => {
@@ -90,7 +90,7 @@ describe("Pagination", () => {
 
     render(<Pagination page={0} totalPages={20} totalElements={200} onPageChange={onChange} />);
 
-    await user.click(screen.getByRole("button", { name: /go to page/i }));
+    await user.click(screen.getByText(/jump to page/i));
     await user.type(screen.getByRole("spinbutton"), "15");
     await user.keyboard("{Enter}");
 
