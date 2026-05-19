@@ -16,7 +16,7 @@
 | **Extract** from APIs | Python or Container stage |
 | **Transform** data | Python stage, SQL stage, or Container |
 | **Load** to destinations | SQL stage (INSERT), Container stage |
-| **Pass data between stages** | `${stages.<id>.output.<path>}` for JSON; Artifacts for files (planned) |
+| **Pass data between stages** | `${stages.<id>.output.<path>}` for JSON; `${stages.<id>.artifact.<file>}` for files |
 | **CDC / streaming ingestion** | Kafka trigger + Container stage (Connect Service planned) |
 
 ### ETL Capabilities Matrix
@@ -27,7 +27,7 @@
 | Run Python scripts | ✅ Implemented | Python stage (auto venv, pip install) |
 | Run containers | ✅ Implemented | Container stage (Docker) |
 | Pass small data between stages | ✅ Implemented | JSON via `${stages.*.output.*}` with size limits |
-| Pass large files between stages | 🔮 Planned | Artifact storage in MinIO (US-02.11) |
+| Pass large files between stages | ✅ Implemented | Artifact storage in MinIO via `${stages.*.artifact.*}` |
 | Pre-built source connectors | 🔮 Planned | Connect Service with Debezium (ADR-029) |
 | dbt transformations | 🔮 Planned | dbt stage type defined, executor not built |
 | Spark jobs | 🔮 Planned | Spark stage type defined, executor not built |
