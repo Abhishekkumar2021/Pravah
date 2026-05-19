@@ -52,6 +52,7 @@ export function PythonConfigForm({ config, onChange, errors }: PythonConfigFormP
         <Label htmlFor="python-version">Python Version</Label>
         <Select
           id="python-version"
+          aria-label="Python version"
           value={config.pythonVersion ?? "3.11"}
           onValueChange={(value) => onChange({ ...config, pythonVersion: value })}
           options={PYTHON_VERSIONS}

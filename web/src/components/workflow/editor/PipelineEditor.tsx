@@ -4,8 +4,6 @@ import {
   Controls,
   MiniMap,
   type Connection,
-  type OnNodesChange,
-  type OnEdgesChange,
   useReactFlow,
   ReactFlowProvider,
   Panel,
@@ -64,15 +62,15 @@ function PipelineEditorContent({
     initialize(pipelineId, pipelineName, pipelineDescription, stages);
   }, [initialize, pipelineId, pipelineName, pipelineDescription, stages]);
 
-  const handleNodesChange: OnNodesChange = useCallback(
-    (changes) => {
+  const handleNodesChange = useCallback(
+    (changes: Parameters<typeof onNodesChange>[0]) => {
       onNodesChange(changes);
     },
     [onNodesChange]
   );
 
-  const handleEdgesChange: OnEdgesChange = useCallback(
-    (changes) => {
+  const handleEdgesChange = useCallback(
+    (changes: Parameters<typeof onEdgesChange>[0]) => {
       onEdgesChange(changes);
     },
     [onEdgesChange]

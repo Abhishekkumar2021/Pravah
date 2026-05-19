@@ -59,10 +59,8 @@ export function WorkflowRunsTable({ pipelineId, pipelineName }: WorkflowRunsTabl
 
   useExecutionRealtime({
     enabled: hasActiveRuns,
-    onExecutionUpdated: (exec) => {
-      if (exec.pipelineId === pipelineId) {
-        void load();
-      }
+    onExecutionUpdated: () => {
+      void load();
     },
   });
 

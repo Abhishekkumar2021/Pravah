@@ -61,6 +61,16 @@ export function Button({
   const Comp = asChild ? Slot : "button";
   const isDisabled = disabled || loading;
 
+  const content =
+    loading && !asChild ? (
+      <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+        {children}
+      </>
+    ) : (
+      children
+    );
+
   return (
     <Comp
       type={asChild ? undefined : type}
@@ -75,8 +85,7 @@ export function Button({
       )}
       {...props}
     >
-      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
-      {children}
+      {content}
     </Comp>
   );
 }

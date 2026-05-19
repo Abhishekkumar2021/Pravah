@@ -373,7 +373,7 @@ export function RunDetailPage() {
                     <div className="flex items-center justify-between px-6 py-3">
                       <span className="text-sm text-neutral-500">Duration</span>
                       <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-1.5 py-0.5 font-mono text-xs text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
-                        {formatExecutionWallDuration({ createdAt: data.createdAt, completedAt: data.completedAt ?? undefined })}
+                        {formatExecutionWallDuration({ status: data.status, createdAt: data.createdAt, startedAt: data.startedAt ?? null, completedAt: data.completedAt ?? null })}
                       </span>
                     </div>
                     <div className="flex items-center justify-between px-6 py-3">

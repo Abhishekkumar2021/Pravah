@@ -45,6 +45,7 @@ export function SqlConfigForm({ config, onChange, errors }: SqlConfigFormProps) 
         <Label htmlFor="sql-connection">Connection</Label>
         <Select
           id="sql-connection"
+          aria-label="Database connection"
           value={config.connectionId ?? ""}
           onValueChange={(value) => onChange({ ...config, connectionId: value })}
           options={connectionOptions}

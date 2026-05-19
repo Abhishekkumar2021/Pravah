@@ -173,6 +173,7 @@ export function ConnectionFormDialog({
                   <Label htmlFor="conn-type">Type</Label>
                   <Select
                     id="conn-type"
+                    aria-label="Connection type"
                     value={type}
                     onValueChange={(v) => handleTypeChange(v as ConnectionType)}
                     options={TYPE_OPTIONS}

@@ -149,6 +149,7 @@ export function StageConfigPanel() {
           <Label htmlFor="stage-type">Stage Type</Label>
           <Select
             id="stage-type"
+            aria-label="Stage type"
             value={stageType}
             onValueChange={(v) => handleTypeChange(v as StageType)}
             options={typeOptions}

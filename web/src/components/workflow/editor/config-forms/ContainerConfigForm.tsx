@@ -175,6 +175,7 @@ export function ContainerConfigForm({ config, onChange, errors }: ContainerConfi
         <Label htmlFor="container-resources">Resource Profile</Label>
         <Select
           id="container-resources"
+          aria-label="Resource profile"
           value={resources.profile ?? ""}
           onValueChange={(value) =>
             onChange({ ...config, resources: { ...resources, profile: value || undefined } })

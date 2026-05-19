@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ThemeProvider } from "@/lib/theme";
+import { TooltipProvider } from "@/components/ui/Tooltip";
 import * as api from "@/lib/api";
 import { LoginPage } from "./LoginPage";
 
@@ -20,7 +21,9 @@ function renderLogin() {
   return render(
     <MemoryRouter>
       <ThemeProvider>
-        <LoginPage />
+        <TooltipProvider>
+          <LoginPage />
+        </TooltipProvider>
       </ThemeProvider>
     </MemoryRouter>,
   );

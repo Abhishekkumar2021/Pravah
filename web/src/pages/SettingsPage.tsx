@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { useTheme } from "@/lib/theme";
-import { useAuth } from "@/lib/useAuth";
+import { useTheme, type ThemePreference } from "@/lib/theme";
+import { getStoredUser } from "@/lib/api";
 
 const tabs = [
   { id: "profile", icon: User, label: "Profile" },
@@ -19,8 +19,8 @@ const tabs = [
 ] as const;
 
 export function SettingsPage() {
-  const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
+  const { preference: theme, setPreference: setTheme } = useTheme();
+  const user = getStoredUser();
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("profile");
 
   const [displayName, setDisplayName] = useState(user?.name ?? "");
@@ -138,8 +138,9 @@ export function SettingsPage() {
                 <Label htmlFor="theme-select">Theme</Label>
                 <Select
                   id="theme-select"
+                  aria-label="Theme preference"
                   value={theme}
-                  onValueChange={(v) => setTheme(v as "system" | "light" | "dark")}
+                  onValueChange={(v) => setTheme(v as ThemePreference)}
                   options={themeOptions}
                   className="mt-1.5 w-full sm:w-48"
                 />
