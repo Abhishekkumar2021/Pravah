@@ -79,7 +79,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 		user, err := apiClient.GetCurrentUser(ctx)
 		if err != nil {
-			store.Delete()
+			_ = store.Delete()
 			return fmt.Errorf("validating token: %w", err)
 		}
 

@@ -110,7 +110,11 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv()
-	viper.ReadInConfig()
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			cobra.CheckErr(err)
+		}
+	}
 }
 
 // versionCmd represents the version command

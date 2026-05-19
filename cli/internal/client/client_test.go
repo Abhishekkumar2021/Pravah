@@ -23,7 +23,9 @@ func TestClient_Get(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "success"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "success"}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -47,13 +49,17 @@ func TestClient_Post(t *testing.T) {
 		}
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
 		if body["name"] != "test" {
 			t.Errorf("expected name 'test', got %q", body["name"])
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"id": "123", "name": body["name"]})
+		if err := json.NewEncoder(w).Encode(map[string]string{"id": "123", "name": body["name"]}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -74,10 +80,12 @@ func TestClient_ErrorHandling(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"message": "validation failed",
 			"code":    "VALIDATION_ERROR",
-		})
+		}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -112,7 +120,9 @@ func TestClient_Retry(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -188,5 +198,7 @@ func TestClient_ProjectIDHeader(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, WithToken("token"), WithProjectID("proj-123"))
-	client.Get(context.Background(), "/api/v1/test", nil)
+	if err := client.Get(context.Background(), "/api/v1/test", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }

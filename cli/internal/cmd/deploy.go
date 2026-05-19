@@ -61,11 +61,11 @@ func init() {
 	deployCmd.Flags().StringVarP(&deployFile, "file", "f", "", "workflow file or directory (required)")
 	deployCmd.Flags().BoolVar(&deployRecursive, "recursive", false, "recursively process directories")
 	deployCmd.Flags().BoolVar(&deployDryRun, "dry-run", false, "preview changes without applying")
-	deployCmd.MarkFlagRequired("file")
+	cobra.CheckErr(deployCmd.MarkFlagRequired("file"))
 
 	diffCmd.Flags().StringVarP(&deployFile, "file", "f", "", "workflow file or directory (required)")
 	diffCmd.Flags().BoolVar(&deployRecursive, "recursive", false, "recursively process directories")
-	diffCmd.MarkFlagRequired("file")
+	cobra.CheckErr(diffCmd.MarkFlagRequired("file"))
 }
 
 // DeployResult represents the result of a deployment

@@ -135,7 +135,7 @@ func init() {
 	workflowListCmd.Flags().IntVar(&workflowSize, "size", 20, "page size")
 
 	workflowCreateCmd.Flags().StringVarP(&workflowFile, "file", "f", "", "workflow definition file (required)")
-	workflowCreateCmd.MarkFlagRequired("file")
+	cobra.CheckErr(workflowCreateCmd.MarkFlagRequired("file"))
 
 	workflowRunCmd.Flags().StringArrayVar(&workflowParams, "param", nil, "parameter in key=value format")
 	workflowRunCmd.Flags().BoolVar(&workflowWait, "wait", false, "wait for execution to complete")
@@ -143,7 +143,7 @@ func init() {
 	workflowLogsCmd.Flags().BoolVar(&workflowFollow, "follow", false, "follow log output")
 
 	workflowValidateCmd.Flags().StringVarP(&workflowFile, "file", "f", "", "workflow definition file (required)")
-	workflowValidateCmd.MarkFlagRequired("file")
+	cobra.CheckErr(workflowValidateCmd.MarkFlagRequired("file"))
 }
 
 func getClient() (*client.Client, error) {
@@ -227,7 +227,7 @@ func runWorkflowGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if out.IsJSON() || out.IsTable() == false {
+	if out.IsJSON() || !out.IsTable() {
 		return out.Print(pipeline)
 	}
 

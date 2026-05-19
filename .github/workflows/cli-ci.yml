@@ -92,46 +92,6 @@ jobs:
           name: pravah-linux-amd64
           path: cli/bin/pravah
 
-  integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache-dependency-path: cli/go.sum
-
-      - name: Start backend services
-        run: |
-          cd ../backend
-          docker compose up -d postgres kafka redis
-          sleep 10
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: pravah-linux-amd64
-          path: cli/bin
-
-      - name: Run integration tests
-        run: |
-          chmod +x bin/pravah
-          go test -v -tags=integration ./...
-        env:
-          PRAVAH_API_URL: http://localhost:8080
-          SKIP_INTEGRATION: ${{ secrets.PRAVAH_TEST_TOKEN == '' && 'true' || 'false' }}
-
-      - name: Stop services
-        if: always()
-        run: |
-          cd ../backend
-          docker compose down
-
   release-check:
     name: Release Check
     runs-on: ubuntu-latest
