@@ -13,6 +13,8 @@ import io.pravah.execution.application.port.PythonRuntime;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
+import io.pravah.execution.infrastructure.artifact.ArtifactMetadata;
+import io.pravah.execution.infrastructure.artifact.ArtifactType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -58,21 +60,25 @@ public class PythonEmbeddedStageExecutor {
   private static final int MAX_LOG_LINE_LENGTH = 16_384;
   private static final String CONTEXT_FILE = "context.json";
   private static final String SCRIPT_FILE = "main.py";
+  private static final String OUTPUT_DIR = "output";
 
   private final JobLogService jobLogService;
   private final PythonRuntime pythonRuntime;
   private final ExecutionStageConfigResolver configResolver;
   private final ObjectMapper objectMapper;
+  private final ArtifactPublisher artifactPublisher;
 
   public PythonEmbeddedStageExecutor(
       JobLogService jobLogService,
       PythonRuntime pythonRuntime,
       ExecutionStageConfigResolver configResolver,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      ArtifactPublisher artifactPublisher) {
     this.jobLogService = jobLogService;
     this.pythonRuntime = pythonRuntime;
     this.configResolver = configResolver;
     this.objectMapper = objectMapper;
+    this.artifactPublisher = artifactPublisher;
   }
 
   public EmbeddedStageExecutor.StageExecutionResult execute(
@@ -116,6 +122,7 @@ public class PythonEmbeddedStageExecutor {
     Path workspace = null;
     try {
       workspace = Files.createTempDirectory("pravah-py-" + job.getId());
+      Path outputDir = Files.createDirectory(workspace.resolve(OUTPUT_DIR));
       writeContextFile(workspace, job, execution, resolvedConfig);
 
       List<String> requirements = parseRequirements(resolvedConfig);
@@ -126,6 +133,7 @@ public class PythonEmbeddedStageExecutor {
       Map<String, String> environment = parseEnv(resolvedConfig);
       environment = new LinkedHashMap<>(environment);
       environment.put("PRAVAH_CONTEXT_PATH", workspace.resolve(CONTEXT_FILE).toString());
+      environment.put("PRAVAH_OUTPUT_DIR", outputDir.toString());
       environment.put("PRAVAH_STAGE_ID", job.getStageId());
       environment.put("PRAVAH_EXECUTION_ID", execution.getId().toString());
 
@@ -153,6 +161,11 @@ public class PythonEmbeddedStageExecutor {
       Optional<Map<String, Object>> structured =
           PythonStageOutputParser.parseStdout(result.stdout());
       structured.ifPresent(parsed -> output.put("result", parsed));
+
+      List<ArtifactMetadata> artifacts = publishOutputArtifacts(job, execution, outputDir);
+      if (!artifacts.isEmpty()) {
+        output.put("artifacts", artifactPublisher.toOutputReference(artifacts));
+      }
 
       if (result.timedOut()) {
         jobLogService.append(
@@ -319,6 +332,36 @@ public class PythonEmbeddedStageExecutor {
       return (Map<String, Object>) config;
     }
     return null;
+  }
+
+  private List<ArtifactMetadata> publishOutputArtifacts(
+      JobEntity job, ExecutionEntity execution, Path outputDir) {
+    List<ArtifactMetadata> published = new ArrayList<>();
+
+    try {
+      if (!Files.exists(outputDir)) {
+        return published;
+      }
+
+      try (var stream = Files.list(outputDir)) {
+        stream
+            .filter(Files::isRegularFile)
+            .forEach(file -> {
+              ArtifactMetadata metadata = artifactPublisher.publishFile(
+                  job, execution, ArtifactType.OUTPUT, file);
+              if (metadata != null) {
+                published.add(metadata);
+              }
+            });
+      }
+    } catch (IOException e) {
+      log.warn("Failed to list output directory for artifact upload",
+          kv("job_id", job.getId()),
+          kv("output_dir", outputDir),
+          e);
+    }
+
+    return published;
   }
 
   private static void deleteRecursively(Path root) {

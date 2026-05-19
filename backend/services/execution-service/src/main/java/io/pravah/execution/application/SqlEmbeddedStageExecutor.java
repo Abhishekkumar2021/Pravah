@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import io.pravah.execution.application.port.ConnectionCatalog;
 import io.pravah.execution.application.port.ResolvedJdbcConnection;
 import io.pravah.execution.domain.JobLogLevel;
+import io.pravah.execution.infrastructure.artifact.ArtifactMetadata;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import java.sql.Connection;
@@ -71,22 +72,26 @@ public class SqlEmbeddedStageExecutor {
   private static final Logger log = LoggerFactory.getLogger(SqlEmbeddedStageExecutor.class);
 
   private static final int MAX_PREVIEW_ROWS = 10;
+  private static final int MAX_INLINE_ROWS = 1000;
   private static final int QUERY_TIMEOUT_SECONDS = 300;
 
   private final JobLogService jobLogService;
   private final ConnectionCatalog connectionCatalog;
   private final DataSource defaultDataSource;
   private final ExecutionStageConfigResolver configResolver;
+  private final ArtifactPublisher artifactPublisher;
 
   public SqlEmbeddedStageExecutor(
       JobLogService jobLogService,
       ConnectionCatalog connectionCatalog,
       DataSource defaultDataSource,
-      ExecutionStageConfigResolver configResolver) {
+      ExecutionStageConfigResolver configResolver,
+      ArtifactPublisher artifactPublisher) {
     this.jobLogService = jobLogService;
     this.connectionCatalog = connectionCatalog;
     this.defaultDataSource = defaultDataSource;
     this.configResolver = configResolver;
+    this.artifactPublisher = artifactPublisher;
   }
 
   /**
@@ -155,7 +160,7 @@ public class SqlEmbeddedStageExecutor {
 
       if (hasResultSet) {
         try (ResultSet rs = stmt.getResultSet()) {
-          populateResultOutput(rs, output);
+          populateResultOutput(rs, output, job, execution);
         }
       } else {
         int updateCount = stmt.getUpdateCount();
@@ -189,7 +194,9 @@ public class SqlEmbeddedStageExecutor {
     }
   }
 
-  private void populateResultOutput(ResultSet rs, Map<String, Object> output) throws SQLException {
+  private void populateResultOutput(
+      ResultSet rs, Map<String, Object> output, JobEntity job, ExecutionEntity execution)
+      throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     int columnCount = meta.getColumnCount();
 
@@ -199,15 +206,20 @@ public class SqlEmbeddedStageExecutor {
     }
     output.put("columns", columns);
 
+    List<Map<String, Object>> allRows = new ArrayList<>();
     List<Map<String, Object>> preview = new ArrayList<>();
     int rowCount = 0;
     while (rs.next()) {
       rowCount++;
+      Map<String, Object> row = new LinkedHashMap<>();
+      for (int i = 1; i <= columnCount; i++) {
+        row.put(columns.get(i - 1), rs.getObject(i));
+      }
+
+      if (rowCount <= MAX_INLINE_ROWS) {
+        allRows.add(row);
+      }
       if (preview.size() < MAX_PREVIEW_ROWS) {
-        Map<String, Object> row = new LinkedHashMap<>();
-        for (int i = 1; i <= columnCount; i++) {
-          row.put(columns.get(i - 1), rs.getObject(i));
-        }
         preview.add(row);
       }
     }
@@ -215,6 +227,25 @@ public class SqlEmbeddedStageExecutor {
     output.put("row_count", rowCount);
     output.put("preview", preview);
     output.put("query_type", "SELECT");
+
+    if (rowCount > MAX_PREVIEW_ROWS) {
+      ArtifactMetadata artifact =
+          artifactPublisher.publishJsonIfLarge(job, execution, "result.json", allRows);
+      if (artifact != null) {
+        output.put("artifact", Map.of(
+            "filename", artifact.filename(),
+            "key", artifact.key(),
+            "size_bytes", artifact.sizeBytes(),
+            "row_count", Math.min(rowCount, MAX_INLINE_ROWS),
+            "truncated", rowCount > MAX_INLINE_ROWS
+        ));
+        if (rowCount > MAX_INLINE_ROWS) {
+          jobLogService.append(job.getId(), JobLogLevel.WARN,
+              "[sql] Result set truncated: only first %d of %d rows stored in artifact"
+                  .formatted(MAX_INLINE_ROWS, rowCount));
+        }
+      }
+    }
   }
 
   private DataSource resolveDataSource(Map<String, Object> stageConfig, ExecutionEntity execution) {
