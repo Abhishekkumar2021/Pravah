@@ -41,6 +41,13 @@ server:
   port: 8086
 
 pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+  execution-service:
+    base-url: ${EXECUTION_SERVICE_BASE_URL:http://localhost:8084}
   runner:
     heartbeat-timeout-seconds: 30
     job-assignment-lock-ttl-seconds: 60

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { FileText, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { FileText, ChevronLeft, ChevronRight, Download, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { DataTable } from "@/components/ui/DataTable";
@@ -68,6 +68,41 @@ export default function AuditLogPage() {
     setPage(0);
   }
 
+  const exportToCsv = useCallback(() => {
+    if (logs.length === 0) return;
+
+    const headers = ["Timestamp", "Actor Type", "Actor Name", "Action", "Resource Type", "Resource ID", "Resource Name", "IP Address"];
+    const rows = logs.map((entry) => [
+      entry.createdAt,
+      entry.actorType,
+      entry.actorName ?? "",
+      entry.action,
+      entry.resourceType,
+      entry.resourceId,
+      entry.resourceName ?? "",
+      entry.ipAddress ?? "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    addToast({
+      type: "success",
+      title: "Export complete",
+      description: `Exported ${logs.length} entries to CSV`,
+    });
+  }, [logs, addToast]);
+
   if (loading && page === 0) {
     return (
       <div className="p-6 space-y-6">
@@ -90,10 +125,20 @@ export default function AuditLogPage() {
             Track all system activity and changes
           </p>
         </div>
-        <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
-          <Filter className="w-4 h-4 mr-2" />
-          Filters
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={exportToCsv}
+            disabled={logs.length === 0}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+          </Button>
+        </div>
       </div>
 
       {showFilters && (

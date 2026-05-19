@@ -2,17 +2,24 @@ package io.pravah.runnerservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Runner Service Application Entry Point.
  *
- * <p>Manages runner registration, heartbeats, and job assignment. Implements the gRPC bidirectional
- * streaming for runner communication.
+ * <p>Manages the runner fleet: registration, heartbeats, job assignment, and monitoring.
  *
- * @see <a href="../../../docs/lld/03-state-machines.md">State Machines - Runner States</a>
- * @see <a href="../../../docs/architecture/api-contracts.md">API Contracts - gRPC</a>
+ * <ul>
+ *   <li>gRPC server for runner communication (bidirectional streaming)
+ *   <li>REST API for fleet management
+ *   <li>Heartbeat monitoring and stale runner detection
+ *   <li>Job assignment to available runners
+ * </ul>
+ *
+ * @see <a href="../../../docs/adr/ADR-005-grpc-runner-communication.md">ADR-005</a>
  */
 @SpringBootApplication
+@EnableScheduling
 public class RunnerServiceApplication {
 
   public static void main(String[] args) {

@@ -6,10 +6,17 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * Connect Service Application Entry Point.
  *
- * <p>Manages external integrations with source control (GitHub, GitLab, Bitbucket) and other
- * third-party services.
+ * <p>Provides a unified connector framework for data sources and destinations:
  *
- * @see <a href="../../../docs/lld/02-database-erd.md">Database ERD - Connect Domain</a>
+ * <ul>
+ *   <li>Database connectors (PostgreSQL, MySQL, SQL Server, Oracle, MongoDB)
+ *   <li>File storage connectors (S3, GCS, Azure Blob, Local FS)
+ *   <li>Protocol connectors (FTP, SFTP, REST API)
+ *   <li>Streaming connectors (Kafka)
+ *   <li>CDC connectors (Debezium)
+ * </ul>
+ *
+ * @see <a href="../../../docs/adr/ADR-029-connect-service-kafka-connect.md">ADR-029</a>
  */
 @SpringBootApplication
 public class ConnectServiceApplication {

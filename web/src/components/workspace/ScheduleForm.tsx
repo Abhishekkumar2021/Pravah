@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
+import { TimezoneSelect } from "@/components/ui/TimezoneSelect";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TimePicker } from "@/components/ui/TimePicker";
@@ -22,7 +23,6 @@ import {
   buildCronFromPreset,
   defaultTimeForPreset,
   SCHEDULE_PRESETS,
-  timezoneOptions,
   WEEKDAY_OPTIONS,
   type SchedulePresetId,
 } from "@/lib/schedulePresets";
@@ -44,16 +44,23 @@ const PRESET_ICONS: Record<SchedulePresetId, string> = {
   custom: "⚙️",
 };
 
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 export function ScheduleForm({ pipelineId, onCreated, onError }: ScheduleFormProps) {
   const { addToast } = useToast();
-  const tzOptions = useMemo(() => timezoneOptions(), []);
 
   const [name, setName] = useState("");
   const [preset, setPreset] = useState<SchedulePresetId>("daily");
   const [time, setTime] = useState(defaultTimeForPreset());
   const [dayOfWeek, setDayOfWeek] = useState("1");
   const [customCron, setCustomCron] = useState("0 9 * * *");
-  const [timezone, setTimezone] = useState(() => tzOptions[0]?.value ?? "UTC");
+  const [timezone, setTimezone] = useState(() => getBrowserTimezone());
 
   const [saving, setSaving] = useState(false);
 
@@ -287,12 +294,11 @@ export function ScheduleForm({ pipelineId, onCreated, onError }: ScheduleFormPro
                 <Globe className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
                 Timezone
               </Label>
-              <Select
+              <TimezoneSelect
                 id="schedule-timezone"
                 aria-label="Timezone"
                 value={timezone}
                 onValueChange={setTimezone}
-                options={tzOptions.map((t) => ({ value: t.value, label: t.label }))}
                 className="max-w-xs"
               />
             </div>

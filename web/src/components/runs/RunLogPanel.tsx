@@ -203,20 +203,26 @@ export function RunLogPanel({ executionId, job, active = true, className }: RunL
         {!loading && !error && filtered.length === 0 && (
           <p className="text-neutral-500">No log lines yet for this stage.</p>
         )}
-        {filtered.map((line) => {
+        {filtered.map((line, index) => {
           const isError = line.level.toUpperCase() === "ERROR";
+          const lineNumber = index + 1;
           return (
             <p
               key={line.id}
               ref={isError ? (el) => { if (el) errorLineRefs.current.set(line.id, el); } : undefined}
               className={cn(
-                "whitespace-pre-wrap break-words",
+                "flex whitespace-pre-wrap break-words",
                 isError && "rounded bg-rose-950/50 px-1 -mx-1",
               )}
             >
-              <span className="text-neutral-500">{formatLogTime(line.logTime)} </span>
-              <span className={levelClass(line.level)}>[{line.level}]</span>{" "}
-              <span className="text-neutral-200">{line.message}</span>
+              <span className="mr-3 inline-block w-8 shrink-0 select-none text-right text-neutral-600">
+                {lineNumber}
+              </span>
+              <span className="flex-1">
+                <span className="text-neutral-500">{formatLogTime(line.logTime)} </span>
+                <span className={levelClass(line.level)}>[{line.level}]</span>{" "}
+                <span className="text-neutral-200">{line.message}</span>
+              </span>
             </p>
           );
         })}

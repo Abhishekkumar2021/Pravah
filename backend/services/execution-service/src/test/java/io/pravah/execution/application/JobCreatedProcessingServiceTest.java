@@ -45,6 +45,7 @@ class JobCreatedProcessingServiceTest {
   @Mock private OutboxRepository outboxRepository;
   @Mock private ProcessedEventRepository processedEventRepository;
   @Mock private StageExecutorRouter stageExecutorRouter;
+  @Mock private io.pravah.execution.application.port.RunnerDispatchPort runnerDispatchPort;
   @Mock private JobLogService jobLogService;
   @Mock private CheckpointService checkpointService;
   @Mock private ExecutionJobQueueingService executionJobQueueingService;
@@ -73,6 +74,7 @@ class JobCreatedProcessingServiceTest {
             outboxRepository,
             processedEventRepository,
             stageExecutorRouter,
+            runnerDispatchPort,
             jobLogService,
             jobFailureService,
             checkpointService,
@@ -266,6 +268,7 @@ class JobCreatedProcessingServiceTest {
             outboxRepository,
             processedEventRepository,
             stageExecutorRouter,
+            runnerDispatchPort,
             jobLogService,
             jobFailureService,
             checkpointService,

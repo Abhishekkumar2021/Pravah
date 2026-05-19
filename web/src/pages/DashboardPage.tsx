@@ -86,7 +86,9 @@ export function DashboardPage() {
     const s = e.status.toLowerCase();
     return s === "pending" || s === "running";
   });
-  const failedRuns = executions.filter((e) => e.status.toLowerCase() === "failed").slice(0, 4);
+  const allFailedRuns = executions.filter((e) => e.status.toLowerCase() === "failed");
+  const failedRunsCount = allFailedRuns.length;
+  const failedRunsDisplay = allFailedRuns.slice(0, 4);
   const succeededCount = executions.filter((e) => e.status.toLowerCase() === "succeeded").length;
 
   const { liveConnected } = useExecutionRealtime({
@@ -183,7 +185,7 @@ export function DashboardPage() {
           <StatCard
             icon={<TriangleAlert className="h-5 w-5" />}
             label="Failed"
-            value={failedRuns.length}
+            value={failedRunsCount}
             iconBg="bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400"
           />
         </div>
@@ -351,7 +353,7 @@ export function DashboardPage() {
 
           {loading && projectId ? (
             <DashboardFailuresSkeleton rows={2} />
-          ) : failedRuns.length === 0 ? (
+          ) : failedRunsDisplay.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/50">
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
@@ -365,7 +367,7 @@ export function DashboardPage() {
             </div>
           ) : (
             <ul className="space-y-3">
-              {failedRuns.map((f) => (
+              {failedRunsDisplay.map((f) => (
                 <li key={f.id}>
                   <Link
                     to={`/app/runs/${f.id}`}

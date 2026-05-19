@@ -18,10 +18,9 @@ import org.springframework.stereotype.Component;
  *   <li>{@code container} — runs a Docker image (US-02.17)
  *   <li>{@code python} — runs a script in a per-job virtualenv (US-02.15)
  *   <li>{@code echo} — dev/test executor (default fallback)
+ *   <li>{@code dbt} — runs dbt CLI in a project directory
+ *   <li>{@code spark} — runs spark-submit for JAR applications
  * </ul>
- *
- * <p>{@code dbt} and {@code spark} are validated at publish but routed to {@link
- * PlannedStageExecutor} until dedicated executors ship.
  */
 @Component
 public class StageExecutorRouter implements EmbeddedStageExecutor {
@@ -31,20 +30,23 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
   private final SqlEmbeddedStageExecutor sqlExecutor;
   private final ContainerEmbeddedStageExecutor containerExecutor;
   private final PythonEmbeddedStageExecutor pythonExecutor;
+  private final DbtEmbeddedStageExecutor dbtExecutor;
+  private final SparkEmbeddedStageExecutor sparkExecutor;
   private final EchoEmbeddedStageExecutor echoExecutor;
-  private final PlannedStageExecutor plannedStageExecutor;
 
   public StageExecutorRouter(
       SqlEmbeddedStageExecutor sqlExecutor,
       ContainerEmbeddedStageExecutor containerExecutor,
       PythonEmbeddedStageExecutor pythonExecutor,
-      EchoEmbeddedStageExecutor echoExecutor,
-      PlannedStageExecutor plannedStageExecutor) {
+      DbtEmbeddedStageExecutor dbtExecutor,
+      SparkEmbeddedStageExecutor sparkExecutor,
+      EchoEmbeddedStageExecutor echoExecutor) {
     this.sqlExecutor = sqlExecutor;
     this.containerExecutor = containerExecutor;
     this.pythonExecutor = pythonExecutor;
+    this.dbtExecutor = dbtExecutor;
+    this.sparkExecutor = sparkExecutor;
     this.echoExecutor = echoExecutor;
-    this.plannedStageExecutor = plannedStageExecutor;
   }
 
   @Override
@@ -59,7 +61,8 @@ public class StageExecutorRouter implements EmbeddedStageExecutor {
       case "sql" -> sqlExecutor.execute(job, execution, stageConfig);
       case "container" -> containerExecutor.execute(job, execution, stageConfig);
       case "python" -> pythonExecutor.execute(job, execution, stageConfig);
-      case "dbt", "spark" -> plannedStageExecutor.execute(job, execution);
+      case "dbt" -> dbtExecutor.execute(job, execution, stageConfig);
+      case "spark" -> sparkExecutor.execute(job, execution, stageConfig);
       default -> echoExecutor.execute(job, execution);
     };
   }

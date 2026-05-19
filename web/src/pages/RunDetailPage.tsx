@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Ban, ChevronRight, PlayCircle, RotateCcw } from "lucide-react";
+import { Ban, ChevronRight, Clock, Folder, Hash, PlayCircle, RotateCcw, Settings2 } from "lucide-react";
 import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -20,11 +20,13 @@ import {
   retryExecution,
   type ExecutionResponse,
 } from "@/lib/api";
+import { RunArtifacts } from "@/components/runs/RunArtifacts";
 import { RunJobStages } from "@/components/runs/RunJobStages";
 import { RunStageGantt } from "@/components/runs/RunStageGantt";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { isFailedJob } from "@/lib/jobStatus";
 import { useExecutionRealtime } from "@/lib/useExecutionRealtime";
+import { formatShortDateTime, formatExecutionWallDuration } from "@/lib/format";
 
 function isCancellable(status: string) {
   const s = status.toLowerCase();
@@ -48,7 +50,7 @@ export function RunDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [pipelineName, setPipelineName] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("timeline");
+  const [activeTab, setActiveTab] = useState("summary");
   const reloadGeneration = useRef(0);
   const tabInitializedForExecution = useRef<string | null>(null);
 
@@ -87,7 +89,7 @@ export function RunDetailPage() {
 
   useEffect(() => {
     tabInitializedForExecution.current = null;
-    setActiveTab("timeline");
+    setActiveTab("summary");
   }, [executionId]);
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export function RunDetailPage() {
       return;
     }
     tabInitializedForExecution.current = data.id;
-    setActiveTab(data.jobs.some((j) => isFailedJob(j.status)) ? "stages" : "timeline");
+    setActiveTab(data.jobs.some((j) => isFailedJob(j.status)) ? "stages" : "summary");
   }, [data]);
 
   const liveWsEnabled = Boolean(data && isCancellable(data.status));
@@ -303,9 +305,124 @@ export function RunDetailPage() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList aria-label="Run detail sections">
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="stages">Stages &amp; logs</TabsTrigger>
+              <TabsTrigger value="summary" className="gap-1.5">
+                <Hash className="h-3.5 w-3.5" />
+                Summary
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger value="stages" className="gap-1.5">
+                <PlayCircle className="h-3.5 w-3.5" />
+                Stages
+              </TabsTrigger>
+              <TabsTrigger value="artifacts" className="gap-1.5">
+                <Folder className="h-3.5 w-3.5" />
+                Artifacts
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="summary">
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Run details card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-neutral-400" />
+                      Run details
+                    </CardTitle>
+                    <CardDescription>Execution metadata and timing</CardDescription>
+                  </CardHeader>
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Execution ID</span>
+                      <span className="font-mono text-sm text-neutral-900 dark:text-neutral-100">{data.id}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Status</span>
+                      <StatusBadge status={data.status} />
+                    </div>
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Pipeline version</span>
+                      <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-1.5 py-0.5 font-mono text-xs text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
+                        v{data.pipelineVersion}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Trigger type</span>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{data.triggerType}</span>
+                    </div>
+                    {data.triggeredBy && (
+                      <div className="flex items-center justify-between px-6 py-3">
+                        <span className="text-sm text-neutral-500">Triggered by</span>
+                        <span className="font-mono text-sm text-neutral-900 dark:text-neutral-100">{data.triggeredBy}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Created</span>
+                      <span className="text-sm text-neutral-900 dark:text-neutral-100">{formatShortDateTime(data.createdAt)}</span>
+                    </div>
+                    {data.startedAt && (
+                      <div className="flex items-center justify-between px-6 py-3">
+                        <span className="text-sm text-neutral-500">Started</span>
+                        <span className="text-sm text-neutral-900 dark:text-neutral-100">{formatShortDateTime(data.startedAt)}</span>
+                      </div>
+                    )}
+                    {data.completedAt && (
+                      <div className="flex items-center justify-between px-6 py-3">
+                        <span className="text-sm text-neutral-500">Completed</span>
+                        <span className="text-sm text-neutral-900 dark:text-neutral-100">{formatShortDateTime(data.completedAt)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Duration</span>
+                      <span className="inline-flex items-center rounded-md bg-neutral-100/80 px-1.5 py-0.5 font-mono text-xs text-neutral-600 ring-1 ring-neutral-200/50 dark:bg-neutral-800/80 dark:text-neutral-400 dark:ring-neutral-700/50">
+                        {formatExecutionWallDuration({ status: data.status, createdAt: data.createdAt, startedAt: data.startedAt ?? null, completedAt: data.completedAt ?? null })}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-6 py-3">
+                      <span className="text-sm text-neutral-500">Total stages</span>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{data.jobs.length}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Parameters card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-neutral-400" />
+                      Parameters
+                    </CardTitle>
+                    <CardDescription>Runtime parameters for this execution</CardDescription>
+                  </CardHeader>
+                  {data.parameters && Object.keys(data.parameters).length > 0 ? (
+                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {Object.entries(data.parameters).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between px-6 py-3">
+                          <span className="font-mono text-sm text-neutral-500">{key}</span>
+                          <span className="font-mono text-sm text-neutral-900 dark:text-neutral-100">
+                            {typeof value === "boolean" ? (value ? "true" : "false") : String(value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-8 text-center">
+                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                        <Settings2 className="h-5 w-5 text-neutral-400" />
+                      </div>
+                      <p className="text-sm text-neutral-500">No parameters</p>
+                      <p className="mt-1 text-xs text-neutral-400">
+                        This run was triggered without any custom parameters.
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </TabsContent>
+
             <TabsContent value="timeline">
               <Card>
                 <CardHeader>
@@ -319,6 +436,7 @@ export function RunDetailPage() {
                 </div>
               </Card>
             </TabsContent>
+
             <TabsContent value="stages">
               <Card>
                 <CardHeader>
@@ -345,6 +463,20 @@ export function RunDetailPage() {
                         : undefined
                     }
                   />
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="artifacts">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Artifacts</CardTitle>
+                  <CardDescription>
+                    Files produced by stages. Large query results, Python outputs, and logs are stored here.
+                  </CardDescription>
+                </CardHeader>
+                <div className="px-6 pb-6">
+                  <RunArtifacts executionId={data.id} jobs={data.jobs} />
                 </div>
               </Card>
             </TabsContent>

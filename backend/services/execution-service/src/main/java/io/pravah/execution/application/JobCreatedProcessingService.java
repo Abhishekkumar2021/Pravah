@@ -7,6 +7,7 @@ import io.pravah.common.domain.ExecutionState;
 import io.pravah.common.domain.JobState;
 import io.pravah.common.domain.StageOutputSizeEnforcement;
 import io.pravah.common.domain.StageOutputSizeGuard;
+import io.pravah.execution.application.port.RunnerDispatchPort;
 import io.pravah.execution.domain.JobEventTypes;
 import io.pravah.execution.domain.JobLogLevel;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -19,7 +20,9 @@ import io.pravah.execution.infrastructure.persistence.repository.ProcessedEventR
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +49,7 @@ public class JobCreatedProcessingService {
   private final OutboxRepository outboxRepository;
   private final ProcessedEventRepository processedEventRepository;
   private final StageExecutorRouter stageExecutorRouter;
+  private final RunnerDispatchPort runnerDispatchPort;
   private final JobLogService jobLogService;
   private final JobFailureService jobFailureService;
   private final CheckpointService checkpointService;
@@ -62,6 +66,7 @@ public class JobCreatedProcessingService {
       OutboxRepository outboxRepository,
       ProcessedEventRepository processedEventRepository,
       StageExecutorRouter stageExecutorRouter,
+      RunnerDispatchPort runnerDispatchPort,
       JobLogService jobLogService,
       JobFailureService jobFailureService,
       CheckpointService checkpointService,
@@ -76,6 +81,7 @@ public class JobCreatedProcessingService {
     this.outboxRepository = outboxRepository;
     this.processedEventRepository = processedEventRepository;
     this.stageExecutorRouter = stageExecutorRouter;
+    this.runnerDispatchPort = runnerDispatchPort;
     this.jobLogService = jobLogService;
     this.jobFailureService = jobFailureService;
     this.checkpointService = checkpointService;
@@ -127,6 +133,35 @@ public class JobCreatedProcessingService {
     }
 
     ExecutionState executionStatusBeforeJob = execution.getStatus();
+
+    Map<String, Object> stageConfig =
+        findStageConfig(execution.getDefinitionSnapshot(), job.getStageId());
+    String stageType = resolveStageType(stageConfig);
+    if (shouldRunOnRemoteRunner(stageConfig)) {
+      Optional<UUID> remoteRunner =
+          runnerDispatchPort.dispatch(
+              tenantId, jobId, execution.getId(), stageType, extractRunnerLabels(stageConfig));
+      if (remoteRunner.isPresent()) {
+        job.assign(remoteRunner.get());
+        jobEntityRepository.saveAndFlush(job);
+        jobLogService.append(
+            job.getId(),
+            JobLogLevel.INFO,
+            "Dispatched stage %s to remote runner %s"
+                .formatted(job.getStageName(), remoteRunner.get()));
+        recordProcessed(eventId);
+        publishExecutionStatusIfChanged(executionStatusBeforeJob, execution, tenantId);
+        log.info(
+            "Job dispatched to remote runner",
+            kv("job_id", jobId),
+            kv("runner_id", remoteRunner.get()));
+        return;
+      }
+      jobLogService.append(
+          job.getId(),
+          JobLogLevel.WARN,
+          "No remote runner available; falling back to embedded execution");
+    }
 
     job.assign(EmbeddedRunnerIds.LOCAL);
     jobLogService.append(
@@ -203,6 +238,69 @@ public class JobCreatedProcessingService {
 
   private static Map<String, Object> resolveDefinitionSnapshot(ExecutionEntity execution) {
     return execution.getDefinitionSnapshot();
+  }
+
+  private static boolean shouldRunOnRemoteRunner(Map<String, Object> stageConfig) {
+    if (stageConfig == null) {
+      return false;
+    }
+    Object runOn = stageConfig.get("runOn");
+    if (runOn != null && "runner".equalsIgnoreCase(runOn.toString())) {
+      return true;
+    }
+    Object configObj = stageConfig.get("config");
+    if (configObj instanceof Map<?, ?> config) {
+      Object nested = config.get("runOn");
+      return nested != null && "runner".equalsIgnoreCase(nested.toString());
+    }
+    return false;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, String> extractRunnerLabels(Map<String, Object> stageConfig) {
+    if (stageConfig == null) {
+      return Map.of();
+    }
+    Object configObj = stageConfig.get("config");
+    if (!(configObj instanceof Map<?, ?> config)) {
+      return Map.of();
+    }
+    Object labels = config.get("runnerLabels");
+    if (labels instanceof Map<?, ?> labelMap) {
+      Map<String, String> result = new java.util.HashMap<>();
+      labelMap.forEach((k, v) -> result.put(k.toString(), v != null ? v.toString() : ""));
+      return result;
+    }
+    return Map.of();
+  }
+
+  private static String resolveStageType(Map<String, Object> stageConfig) {
+    if (stageConfig == null) {
+      return "echo";
+    }
+    Object typeObj = stageConfig.get("type");
+    return typeObj != null ? typeObj.toString().toLowerCase() : "echo";
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> findStageConfig(
+      Map<String, Object> definition, String stageId) {
+    if (definition == null) {
+      return null;
+    }
+    Object stagesObj = definition.get("stages");
+    if (!(stagesObj instanceof List<?> stages)) {
+      return null;
+    }
+    for (Object stageObj : stages) {
+      if (stageObj instanceof Map<?, ?> stage) {
+        Object id = stage.get("id");
+        if (id != null && stageId.equals(id.toString())) {
+          return (Map<String, Object>) stage;
+        }
+      }
+    }
+    return null;
   }
 
   private static UUID requireUuid(Map<String, Object> payload, String key) {

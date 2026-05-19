@@ -39,7 +39,9 @@ backend/
 └── build.gradle.kts             # Root build configuration
 ```
 
-**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler. Partial: notification (alerts, audit log, in-app notifications). Stubs: graphql, runner-service, metadata, agent, connect.
+**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, connect. Partial: notification, runner-service. Stubs: graphql, metadata, agent.
+
+**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`.
 
 ## Prerequisites
 

@@ -6,6 +6,35 @@
 
 ---
 
+## What Kind of Platform Is Pravah?
+
+**Pravah is a workflow orchestrator** (like Airflow, Dagster, Prefect) — **not** an ETL tool with pre-built connectors (like Fivetran, Airbyte).
+
+| You Want To... | How Pravah Handles It |
+|----------------|----------------------|
+| **Extract** from databases | SQL stage with configured connection |
+| **Extract** from APIs | Python or Container stage |
+| **Transform** data | Python stage, SQL stage, or Container |
+| **Load** to destinations | SQL stage (INSERT), Container stage |
+| **Pass data between stages** | `${stages.<id>.output.<path>}` for JSON; `${stages.<id>.artifact.<file>}` for files |
+| **CDC / streaming ingestion** | Kafka trigger + Container stage (Connect Service planned) |
+
+### ETL Capabilities Matrix
+
+| Capability | Status | How It Works |
+|------------|--------|--------------|
+| Query databases (Postgres, MySQL, etc.) | ✅ Implemented | SQL stage + Connections (`pipeline-service`) |
+| Run Python scripts | ✅ Implemented | Python stage (auto venv, pip install) |
+| Run containers | ✅ Implemented | Container stage (Docker) |
+| Pass small data between stages | ✅ Implemented | JSON via `${stages.*.output.*}` with size limits |
+| Pass large files between stages | ✅ Implemented | Artifact storage in MinIO via `${stages.*.artifact.*}` |
+| Pre-built source connectors | **Partial** | Connect Service: 19+ connector plugins (DB, file, protocol, streaming, SaaS). Google Sheets uses placeholder OAuth; PostgreSQL CDC is config/discovery only (no logical decoding stream yet) |
+| dbt transformations | ✅ Implemented | `DbtEmbeddedStageExecutor` runs `dbt run` in project directory |
+| Spark jobs | ✅ Implemented | `SparkEmbeddedStageExecutor` runs `spark-submit` for JAR apps |
+| Data lineage tracking | 🔮 Planned | Metadata Service with OpenLineage (ADR-019) |
+
+---
+
 ## How to read this document
 
 | Status | Meaning |
@@ -29,13 +58,13 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Web alpha (EPIC-12) | **Partial** | REST + WebSocket, visual DAG editor (US-12.06); no GraphQL read model |
 | CLI (EPIC-11) | **Implemented** | Go CLI with Cobra; auth, workflow, run, deploy commands; GitHub Action |
 | API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
-| Remaining microservices | **Stub** | agent, connect, metadata, runner-service, graphql |
+| Remaining microservices | **Partial** | agent (stub), metadata (stub), graphql (stub), connect + runner-service (implemented) |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
-| Runner fleet + gRPC | **Planned** | `runner/` CLI skeleton; no live runner dispatch |
+| Runner fleet + gRPC | **Partial** | gRPC server on 9091, internal assignment API, execution `runOn: runner` dispatch + completion callback; runner agent (no stream token auth yet) |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
-**Rough progress vs full product vision (~180 user stories): ~40–45%.**  
-**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~75–80%.**
+**Rough progress vs full product vision (~180 user stories): ~50–55%.**  
+**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~85–90%.**
 
 ---
 
@@ -49,15 +78,15 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, circuit breaker + retry for inter-service calls (Resilience4j) |
 | **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, idempotent Kafka consumers, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
-| **runner-service** | 8086 | Stub | Boot app only |
+| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API, job assignment with label matching, stale runner detection |
 | **metadata-service** | 8087 | Stub | Boot app only |
 | **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer (`pravah.execution.execution.events` incl. `execution.failed`/`execution.completed`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API |
 | **agent-service** | 8089 | Stub | Boot app only |
-| **connect-service** | 8090 | Stub | Boot app only |
+| **connect-service** | 8090 | Implemented | Connector framework (17+ connectors), connection CRUD, test/discover streams, SaaS (Sheets, Stripe, Airtable, HubSpot), streaming (Kafka, RabbitMQ), CDC (PostgreSQL), Snowflake warehouse |
 
-**Standalone `backend/runner/`:** Picocli entrypoint skeleton (not wired to production control plane).
+**Standalone `backend/runner/`:** Picocli agent registers via gRPC, heartbeats, executes Docker/shell/Python+DuckDB jobs locally.
 
-**gRPC:** Proto definitions in `libs/proto` (`common`, `execution_service`, `runner_service`). No gRPC servers in services yet; alpha execution uses embedded executors inside `execution-service`.
+**gRPC:** Proto definitions in `libs/proto`; `runner-service` serves gRPC on port 9091 (`RunnerGrpcServerLifecycle`). Stages with `runOn: runner` dispatch via `POST /api/v1/internal/runners/assignments` (S2S secret). Requires `RUNNER_SERVICE_BASE_URL`, `PRAVAH_INTERNAL_SERVICE_SECRET`.
 
 ---
 
@@ -89,7 +118,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-02.09 Parallel execution | Implemented | `ExecutionParallelismPolicy`, Kafka worker concurrency, `maxParallelStages` per workflow, timing-based Gantt chart |
 | US-02.15 Python stage | Partial | `PythonEmbeddedStageExecutor`, per-job venv, `requirements`, structured stdout JSON; no remote script artifacts |
 
-**Not yet:** US-02.11 artifacts, external runner dispatch, Spark/dbt stages, Python `requirements_file` from pipeline repo.
+**Done:** US-02.11 artifacts (MinIO storage, presigned URLs, artifact browser UI, `${stages.*.artifact.*}` resolution).
+
+**Not yet:** Full runner job spec (image/commands from pipeline YAML), Python `requirements_file` from pipeline repo, connect-service integration tests with Testcontainers.
 
 **Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 

@@ -41,6 +41,11 @@ dependencies {
     implementation(libs.resilience4j.spring.boot3)
     implementation("org.springframework.boot:spring-boot-starter-aop")
 
+    // AWS S3 SDK (MinIO compatible) for artifact storage
+    implementation(libs.aws.s3)
+    implementation(libs.aws.s3.transfer.manager)
+
     // Test support
     testImplementation(project(":libs:test-support"))
+    testImplementation("org.testcontainers:minio:1.21.4")
 }

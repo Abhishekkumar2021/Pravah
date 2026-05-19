@@ -1,0 +1,280 @@
+package io.pravah.runnerservice.grpc;
+
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+import io.pravah.proto.common.Label;
+import io.pravah.proto.runner.*;
+import io.pravah.runnerservice.domain.Runner;
+import io.pravah.runnerservice.service.JobAssignmentService;
+import io.pravah.runnerservice.service.RunnerConnectionManager;
+import io.pravah.runnerservice.service.RunnerService;
+import io.pravah.spring.multitenancy.TenantContext;
+import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+/**
+ * gRPC service implementation for runner management. Note: This service needs to be registered with
+ * a gRPC server manually or via grpc-spring-boot-starter if added to dependencies.
+ */
+@Service
+public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBase {
+
+  private static final Logger log = LoggerFactory.getLogger(RunnerServiceGrpcImpl.class);
+
+  private final RunnerService runnerService;
+  private final RunnerConnectionManager connectionManager;
+  private final JobAssignmentService jobAssignmentService;
+
+  public RunnerServiceGrpcImpl(
+      RunnerService runnerService,
+      RunnerConnectionManager connectionManager,
+      JobAssignmentService jobAssignmentService) {
+    this.runnerService = runnerService;
+    this.connectionManager = connectionManager;
+    this.jobAssignmentService = jobAssignmentService;
+  }
+
+  @Override
+  public void registerRunner(
+      RegisterRunnerRequest request, StreamObserver<RegisterRunnerResponse> responseObserver) {
+    try {
+      UUID tenantId = requireTenantId();
+
+      var registerRequest =
+          new RunnerService.RegisterRequest(
+              request.getName(),
+              request.getVersion(),
+              labelsToMap(request.getLabelsList()),
+              request.getCapabilities().getMaxConcurrentJobs(),
+              request.getCapabilities().getSupportedExecutorsList(),
+              request.getCapabilities().getAvailableMemoryBytes(),
+              request.getCapabilities().getAvailableCpus());
+
+      var result = runnerService.registerRunner(tenantId, registerRequest);
+
+      responseObserver.onNext(
+          RegisterRunnerResponse.newBuilder()
+              .setRunnerId(result.runnerId().toString())
+              .setToken(result.token())
+              .setHeartbeatIntervalSeconds(result.heartbeatIntervalSeconds())
+              .build());
+      responseObserver.onCompleted();
+
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(
+          Status.ALREADY_EXISTS.withDescription(e.getMessage()).asRuntimeException());
+    } catch (Exception e) {
+      log.error("Failed to register runner", e);
+      responseObserver.onError(
+          Status.INTERNAL.withDescription("Registration failed").asRuntimeException());
+    }
+  }
+
+  @Override
+  public StreamObserver<RunnerMessage> connect(StreamObserver<ServerMessage> responseObserver) {
+    return new StreamObserver<>() {
+      private UUID runnerId;
+      private boolean authenticated = false;
+
+      @Override
+      public void onNext(RunnerMessage message) {
+        switch (message.getMessageCase()) {
+          case HEARTBEAT -> handleHeartbeat(message.getHeartbeat(), responseObserver);
+          case JOB_STATUS -> handleJobStatus(message.getJobStatus());
+          case LOG_CHUNK -> handleLogChunk(message.getLogChunk());
+          default -> log.warn("Unknown message type from runner");
+        }
+      }
+
+      private void handleHeartbeat(Heartbeat heartbeat, StreamObserver<ServerMessage> observer) {
+        try {
+          UUID heartbeatRunnerId = UUID.fromString(heartbeat.getRunnerId());
+
+          if (!authenticated) {
+            // First heartbeat establishes the connection
+            this.runnerId = heartbeatRunnerId;
+            connectionManager.register(runnerId, responseObserver);
+            runnerService.markOnline(runnerId);
+            authenticated = true;
+          }
+
+          runnerService.processHeartbeat(
+              heartbeatRunnerId,
+              new RunnerService.HeartbeatData(
+                  heartbeat.getMetrics().getCpuUsagePercent(),
+                  heartbeat.getMetrics().getMemoryUsedBytes(),
+                  heartbeat.getMetrics().getMemoryTotalBytes(),
+                  heartbeat.getMetrics().getActiveJobs(),
+                  heartbeat.getMetrics().getDiskAvailableBytes()));
+
+          // Send ack
+          observer.onNext(
+              ServerMessage.newBuilder()
+                  .setHeartbeatAck(
+                      HeartbeatAck.newBuilder()
+                          .setServerTimestamp(System.currentTimeMillis())
+                          .build())
+                  .build());
+
+        } catch (Exception e) {
+          log.error("Error processing heartbeat", e);
+        }
+      }
+
+      private void handleJobStatus(JobStatusUpdate status) {
+        log.info("Job status update: jobId={}, status={}", status.getJobId(), status.getStatus());
+        UUID jobId = UUID.fromString(status.getJobId());
+        int exitCode = status.getExitCode();
+        switch (status.getStatus()) {
+          case JOB_STATUS_RUNNING -> jobAssignmentService.markStarted(jobId);
+          case JOB_STATUS_SUCCEEDED -> jobAssignmentService.markCompleted(jobId, true, exitCode);
+          case JOB_STATUS_FAILED -> jobAssignmentService.markCompleted(jobId, false, exitCode);
+          case JOB_STATUS_CANCELLED, JOB_STATUS_TIMED_OUT ->
+              jobAssignmentService.markCompleted(jobId, false, exitCode);
+          default -> {}
+        }
+      }
+
+      private void handleLogChunk(JobLogChunk chunk) {
+        log.debug(
+            "Log chunk received: jobId={}, sequence={}, size={}",
+            chunk.getJobId(),
+            chunk.getSequence(),
+            chunk.getData().size());
+        // TODO: Forward to log aggregation
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        log.warn("Runner stream error: runnerId={}", runnerId, t);
+        cleanup();
+      }
+
+      @Override
+      public void onCompleted() {
+        log.info("Runner stream completed: runnerId={}", runnerId);
+        cleanup();
+        responseObserver.onCompleted();
+      }
+
+      private void cleanup() {
+        if (runnerId != null) {
+          connectionManager.unregister(runnerId);
+          runnerService.markOffline(runnerId);
+        }
+      }
+    };
+  }
+
+  @Override
+  public void getRunner(GetRunnerRequest request, StreamObserver<RunnerInfo> responseObserver) {
+    try {
+      UUID tenantId = requireTenantId();
+      UUID runnerId = UUID.fromString(request.getRunnerId());
+
+      runnerService
+          .getRunner(tenantId, runnerId)
+          .map(this::toRunnerInfo)
+          .ifPresentOrElse(
+              info -> {
+                responseObserver.onNext(info);
+                responseObserver.onCompleted();
+              },
+              () ->
+                  responseObserver.onError(
+                      Status.NOT_FOUND.withDescription("Runner not found").asRuntimeException()));
+
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(
+          Status.INVALID_ARGUMENT.withDescription("Invalid runner ID").asRuntimeException());
+    } catch (Exception e) {
+      log.error("Failed to get runner", e);
+      responseObserver.onError(
+          Status.INTERNAL.withDescription("Failed to get runner").asRuntimeException());
+    }
+  }
+
+  @Override
+  public void listRunners(
+      ListRunnersRequest request, StreamObserver<ListRunnersResponse> responseObserver) {
+    try {
+      UUID tenantId = requireTenantId();
+      List<Runner> runners = runnerService.listRunners(tenantId);
+
+      var response =
+          ListRunnersResponse.newBuilder()
+              .addAllRunners(runners.stream().map(this::toRunnerInfo).toList())
+              .build();
+
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+
+    } catch (Exception e) {
+      log.error("Failed to list runners", e);
+      responseObserver.onError(
+          Status.INTERNAL.withDescription("Failed to list runners").asRuntimeException());
+    }
+  }
+
+  private UUID requireTenantId() {
+    UUID tenantId = TenantContext.getCurrentTenantId();
+    if (tenantId == null) {
+      throw new IllegalStateException("Tenant context not set");
+    }
+    return tenantId;
+  }
+
+  private java.util.Map<String, String> labelsToMap(List<Label> labels) {
+    var map = new java.util.HashMap<String, String>();
+    for (Label label : labels) {
+      map.put(label.getKey(), label.getValue());
+    }
+    return map;
+  }
+
+  private RunnerInfo toRunnerInfo(Runner runner) {
+    var builder =
+        RunnerInfo.newBuilder()
+            .setRunnerId(runner.getId().toString())
+            .setName(runner.getName())
+            .setVersion(runner.getVersion())
+            .setStatus(toProtoStatus(runner.getStatus()))
+            .setCapabilities(
+                RunnerCapabilities.newBuilder()
+                    .setMaxConcurrentJobs(runner.getMaxConcurrentJobs())
+                    .setAvailableMemoryBytes(runner.getAvailableMemoryBytes())
+                    .setAvailableCpus(runner.getAvailableCpus())
+                    .build())
+            .setActiveJobs(runner.getActiveJobs())
+            .setRegisteredAt(runner.getRegisteredAt().toEpochMilli());
+
+    if (runner.getLastHeartbeatAt() != null) {
+      builder.setLastHeartbeatAt(runner.getLastHeartbeatAt().toEpochMilli());
+    }
+
+    for (var entry : runner.getLabels().entrySet()) {
+      builder.addLabels(
+          Label.newBuilder().setKey(entry.getKey()).setValue(entry.getValue()).build());
+    }
+
+    if (runner.getSupportedExecutors() != null) {
+      for (String executor : runner.getSupportedExecutors().split(",")) {
+        builder.getCapabilitiesBuilder().addSupportedExecutors(executor.trim());
+      }
+    }
+
+    return builder.build();
+  }
+
+  private RunnerStatus toProtoStatus(io.pravah.runnerservice.domain.RunnerStatus status) {
+    return switch (status) {
+      case OFFLINE -> RunnerStatus.RUNNER_STATUS_OFFLINE;
+      case ONLINE -> RunnerStatus.RUNNER_STATUS_ONLINE;
+      case BUSY -> RunnerStatus.RUNNER_STATUS_BUSY;
+      case DRAINING -> RunnerStatus.RUNNER_STATUS_DRAINING;
+    };
+  }
+}

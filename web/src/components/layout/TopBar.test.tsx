@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ThemeProvider } from "@/lib/theme";
+import { TooltipProvider } from "@/components/ui/Tooltip";
 import { TopBar } from "./TopBar";
 
 describe("TopBar", () => {
@@ -9,7 +10,9 @@ describe("TopBar", () => {
     render(
       <MemoryRouter>
         <ThemeProvider>
-          <TopBar />
+          <TooltipProvider>
+            <TopBar />
+          </TooltipProvider>
         </ThemeProvider>
       </MemoryRouter>,
     );

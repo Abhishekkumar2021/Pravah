@@ -20,12 +20,17 @@ description = "Pravah Runner Service - Runner management and job dispatch"
 dependencies {
     implementation(project(":libs:common"))
     implementation(project(":libs:proto"))
+    implementation(project(":libs:spring-support"))
 
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // Redis for distributed locking
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+    // OpenAPI documentation
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
 
     // Test support
     testImplementation(project(":libs:test-support"))
