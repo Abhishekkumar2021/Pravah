@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 import {
   type AlertRuleResponse,
@@ -151,19 +159,18 @@ export function AlertRuleFormDialog({ rule, pipelineId, onClose, onSuccess }: Pr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-background rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">
-            {isEdit ? "Edit Alert Rule" : "Create Alert Rule"}
-          </h2>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Alert Rule" : "Create Alert Rule"}</DialogTitle>
+          <DialogDescription>
+            {isEdit 
+              ? "Modify the alert rule settings below."
+              : "Configure when and how you want to be notified."}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-6">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-6">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Name</label>
@@ -289,16 +296,16 @@ export function AlertRuleFormDialog({ rule, pipelineId, onClose, onSuccess }: Pr
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <DialogFooter className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : isEdit ? "Update Rule" : "Create Rule"}
+            <Button type="submit" loading={submitting}>
+              {isEdit ? "Update Rule" : "Create Rule"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
