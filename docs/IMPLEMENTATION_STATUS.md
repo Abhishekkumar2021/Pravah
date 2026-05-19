@@ -27,13 +27,15 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Engineering foundation | **Partial** | Gradle multi-module, CI, `backend/docker-compose.yml`, local scripts |
 | Core control plane | **Partial** | tenant, pipeline, execution, scheduler, gateway |
 | Web alpha (EPIC-12) | **Partial** | REST + WebSocket, visual DAG editor (US-12.06); no GraphQL read model |
+| CLI (EPIC-11) | **Implemented** | Go CLI with Cobra; auth, workflow, run, deploy commands; GitHub Action |
+| API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
 | Remaining microservices | **Stub** | agent, connect, metadata, runner-service, graphql |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
 | Runner fleet + gRPC | **Planned** | `runner/` CLI skeleton; no live runner dispatch |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
-**Rough progress vs full product vision (~180 user stories): ~35–40%.**  
-**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~70–75%.**
+**Rough progress vs full product vision (~180 user stories): ~40–45%.**  
+**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~75–80%.**
 
 ---
 
@@ -215,6 +217,57 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 ---
 
+## CLI (EPIC-11 — Developer Experience)
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-11.01 Installation | Implemented | GoReleaser config, Homebrew tap, install script |
+| US-11.02 Authentication | Implemented | `pravah login`, API token, keyring storage, profiles |
+| US-11.03 Workflow Commands | Implemented | list, create, get, run, logs, validate |
+| US-11.04 Run Commands | Implemented | list, status, logs, cancel, retry |
+| US-11.05 Deploy Commands | Implemented | deploy, diff, dry-run, CI exit codes |
+| US-11.10 GitHub Action | Implemented | `.github/actions/deploy/` |
+| US-11.12 REST API Docs | Implemented | SpringDoc OpenAPI, Swagger UI per service |
+
+**CLI location:** `cli/` — Go module with Cobra framework.
+
+**Installation:**
+```bash
+# From source
+cd cli && make build && ./bin/pravah --help
+
+# Or install globally
+cd cli && make install
+```
+
+**Quick start:**
+```bash
+pravah login
+pravah workflow list
+pravah workflow run <id> --wait
+pravah deploy -f workflows/
+```
+
+**Not yet:** Python SDK (US-11.06–11.08), VS Code extension (US-11.09), GitLab CI template (US-11.11), GraphQL API (US-11.13), Webhooks API (US-11.14).
+
+---
+
+## API Documentation (US-11.12)
+
+All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
+
+| Service | Swagger UI | OpenAPI JSON |
+|---------|------------|--------------|
+| tenant-service | `http://localhost:8082/swagger-ui.html` | `/v3/api-docs` |
+| pipeline-service | `http://localhost:8083/swagger-ui.html` | `/v3/api-docs` |
+| execution-service | `http://localhost:8084/swagger-ui.html` | `/v3/api-docs` |
+| scheduler-service | `http://localhost:8085/swagger-ui.html` | `/v3/api-docs` |
+| notification-service | `http://localhost:8088/swagger-ui.html` | `/v3/api-docs` |
+
+**Via gateway:** Access individual service docs directly; gateway does not aggregate specs.
+
+---
+
 ## Local development
 
 | Component | Location |
@@ -223,10 +276,11 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Start Java services | `make local-services` (repo root → `backend/Makefile`) |
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
+| CLI | `cd cli && make build` or `make install` |
 | Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh` |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
-See [backend/README.md](../backend/README.md) and [web/README.md](../web/README.md).
+See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md), and [cli/README.md](../cli/README.md).
 
 ---
 

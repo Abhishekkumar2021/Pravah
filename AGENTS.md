@@ -131,11 +131,16 @@ Full details: `.cursor/rules/12-pre-commit-workflow.mdc`
 ### Quick Commands
 
 ```bash
-# Run all checks (backend + web + integration + e2e) — do this before every commit
+# Run checks for changed backend/, web/, and cli/ paths (CI parity)
 ./scripts/pre-commit.sh
+
+# Or per component:
+./scripts/ci-backend.sh
+./scripts/ci-web.sh
+./scripts/ci-cli.sh
 ```
 
-Requires JDK 21, Docker (integration tests), Node.js 22. Optional: `SKIP_INTEGRATION=1` or `SKIP_E2E=1` for scoped local runs only.
+Requires JDK 21, Docker (integration tests), Node.js 22, Go 1.22+. Optional: `SKIP_INTEGRATION=1`, `SKIP_E2E=1`, `SKIP_CLI=1`, or `FORCE_ALL=1`.
 
 ### Step-by-Step
 
@@ -146,6 +151,7 @@ Requires JDK 21, Docker (integration tests), Node.js 22. Optional: `SKIP_INTEGRA
 | 3. Backend unit tests | `./gradlew test` | All pass |
 | 4. Backend integration | `./gradlew integrationTest` | All pass (Docker) |
 | 5. Web | `cd web && npm ci && npm run lint && npm run test && npm run test:e2e && npm run build` | All pass |
+| 5b. CLI | `./scripts/ci-cli.sh` or `cd cli && go test -race ./...` | All pass |
 | 6. IDE lint | Use ReadLints tool | No new errors |
 | 7. Review | `git diff` | No debug/secrets |
 | 8. Self-review | Checklist below | All items checked |

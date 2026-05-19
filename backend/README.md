@@ -289,6 +289,26 @@ Start Redis from `docker-compose.yml` when running execution-service with defaul
 | Agent Service | 8089 | - |
 | Connect Service | 8090 | - |
 
+## API Documentation (US-11.12)
+
+Each implemented service exposes OpenAPI 3.0 documentation via SpringDoc:
+
+| Service | Swagger UI | OpenAPI Spec |
+|---------|------------|--------------|
+| tenant-service | http://localhost:8082/swagger-ui.html | `/v3/api-docs` |
+| pipeline-service | http://localhost:8083/swagger-ui.html | `/v3/api-docs` |
+| execution-service | http://localhost:8084/swagger-ui.html | `/v3/api-docs` |
+| scheduler-service | http://localhost:8085/swagger-ui.html | `/v3/api-docs` |
+| notification-service | http://localhost:8088/swagger-ui.html | `/v3/api-docs` |
+
+Features:
+- Interactive "Try it out" for all endpoints
+- JWT Bearer authentication configured
+- Request/response schemas with examples
+- Error response documentation
+
+**Note:** Access Swagger UI directly on the service port; the gateway does not aggregate specs.
+
 ## Documentation References
 
 - [Implementation Status](../docs/IMPLEMENTATION_STATUS.md)
