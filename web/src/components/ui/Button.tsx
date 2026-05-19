@@ -1,4 +1,5 @@
 import { Slot } from "@radix-ui/react-slot";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
@@ -42,6 +43,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
   asChild?: boolean;
+  loading?: boolean;
   children: ReactNode;
 };
 
@@ -50,14 +52,19 @@ export function Button({
   variant = "primary",
   size = "md",
   asChild = false,
+  loading = false,
   type = "button",
+  disabled,
   children,
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
+  const isDisabled = disabled || loading;
+
   return (
     <Comp
       type={asChild ? undefined : type}
+      disabled={isDisabled}
       className={cn(
         "inline-flex items-center justify-center font-medium transition-all duration-150",
         "disabled:pointer-events-none disabled:opacity-50",
@@ -68,6 +75,7 @@ export function Button({
       )}
       {...props}
     >
+      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
       {children}
     </Comp>
   );

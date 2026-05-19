@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { useTheme } from "@/lib/useTheme";
+import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/lib/useAuth";
 
 const tabs = [

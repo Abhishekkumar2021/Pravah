@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { ApiError, login } from "@/lib/api";
 
 const HERO_PATTERN =
@@ -260,24 +261,38 @@ export function LoginPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled
-              className="h-11 w-full rounded-xl text-neutral-500 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            >
-              <Github className="h-4 w-4" aria-hidden />
-              GitHub
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled
-              className="h-11 w-full rounded-xl text-neutral-500 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            >
-              <GoogleIcon />
-              Google
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block w-full">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled
+                    className="h-11 w-full rounded-xl text-neutral-500 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                  >
+                    <Github className="h-4 w-4" aria-hidden />
+                    GitHub
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>OAuth login coming soon in a future release</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block w-full">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled
+                    className="h-11 w-full rounded-xl text-neutral-500 transition-all hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                  >
+                    <GoogleIcon />
+                    Google
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>OAuth login coming soon in a future release</TooltipContent>
+            </Tooltip>
           </div>
 
           <p className="mt-8 text-center text-[13px] text-neutral-600 dark:text-neutral-400">
