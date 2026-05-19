@@ -180,7 +180,8 @@ public class KafkaConnector implements SourceConnector, SinkConnector {
           Map.of("topic_count", topicCount));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      return new TestResult(false, "Connection interrupted", System.currentTimeMillis() - start, null);
+      return new TestResult(
+          false, "Connection interrupted", System.currentTimeMillis() - start, null);
     } catch (ExecutionException e) {
       return new TestResult(
           false,
@@ -217,7 +218,11 @@ public class KafkaConnector implements SourceConnector, SinkConnector {
                 .map(
                     p ->
                         new PartitionInfo(
-                            topic, p.partition(), null, new org.apache.kafka.common.Node[0], new org.apache.kafka.common.Node[0]))
+                            topic,
+                            p.partition(),
+                            null,
+                            new org.apache.kafka.common.Node[0],
+                            new org.apache.kafka.common.Node[0]))
                 .toList();
 
         streams.add(
@@ -254,9 +259,12 @@ public class KafkaConnector implements SourceConnector, SinkConnector {
 
     try (KafkaProducer<String, String> producer = new KafkaProducer<>(props)) {
       for (Record record : records) {
-        String key = record.data().containsKey("key") ? String.valueOf(record.data().get("key")) : null;
+        String key =
+            record.data().containsKey("key") ? String.valueOf(record.data().get("key")) : null;
         String value =
-            record.data().containsKey("value") ? String.valueOf(record.data().get("value")) : record.data().toString();
+            record.data().containsKey("value")
+                ? String.valueOf(record.data().get("value"))
+                : record.data().toString();
 
         producer.send(new ProducerRecord<>(topic, key, value)).get(5, TimeUnit.SECONDS);
         written++;
@@ -290,7 +298,8 @@ public class KafkaConnector implements SourceConnector, SinkConnector {
     props.put(
         ConsumerConfig.GROUP_ID_CONFIG, config.getOrDefault("consumer_group", "pravah-connect"));
     props.put(
-        ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, config.getOrDefault("auto_offset_reset", "earliest"));
+        ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+        config.getOrDefault("auto_offset_reset", "earliest"));
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);

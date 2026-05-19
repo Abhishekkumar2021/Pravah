@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.mssql.jdbc)
     implementation(libs.oracle.jdbc)
     implementation(libs.mongodb.driver)
+    implementation(libs.snowflake.jdbc)
 
     // AWS S3 SDK for S3/MinIO connector
     implementation(libs.aws.s3)

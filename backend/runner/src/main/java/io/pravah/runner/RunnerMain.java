@@ -3,6 +3,7 @@ package io.pravah.runner;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import java.net.UnknownHostException;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,8 @@ public class RunnerMain implements Callable<Integer> {
   @Override
   public Integer call() {
     String resolvedName = name != null ? name : getDefaultName();
+    ParsedServer parsed = parseServerUrl(serverUrl);
+    Map<String, String> labelMap = parseLabels(labels);
 
     log.info(
         "Starting Pravah Runner",
@@ -94,15 +97,43 @@ public class RunnerMain implements Callable<Integer> {
         kv("maxJobs", maxJobs),
         kv("workDir", workDir));
 
-    // TODO(#1): Implement runner logic
-    // 1. Load configuration from file if provided
-    // 2. Register with Runner Service
-    // 3. Start heartbeat loop
-    // 4. Listen for job assignments
-    // 5. Execute jobs and report status
-
-    log.info("Runner implementation pending");
+    try (RunnerAgent agent =
+        new RunnerAgent(
+            parsed.host(), parsed.port(), token, resolvedName, labelMap, maxJobs, workDir)) {
+      agent.start();
+      Runtime.getRuntime().addShutdownHook(new Thread(agent::close));
+      agent.awaitTermination();
+    } catch (Exception e) {
+      log.error("Runner failed", e);
+      return 1;
+    }
     return 0;
+  }
+
+  private static Map<String, String> parseLabels(String[] labels) {
+    Map<String, String> map = new java.util.LinkedHashMap<>();
+    if (labels == null) {
+      return map;
+    }
+    for (String label : labels) {
+      int eq = label.indexOf('=');
+      if (eq > 0) {
+        map.put(label.substring(0, eq).trim(), label.substring(eq + 1).trim());
+      }
+    }
+    return map;
+  }
+
+  private record ParsedServer(String host, int port) {}
+
+  private static ParsedServer parseServerUrl(String url) {
+    String normalized = url.replace("grpc://", "").replace("http://", "").replace("https://", "");
+    int colon = normalized.lastIndexOf(':');
+    if (colon > 0) {
+      return new ParsedServer(
+          normalized.substring(0, colon), Integer.parseInt(normalized.substring(colon + 1)));
+    }
+    return new ParsedServer(normalized, 9091);
   }
 
   private String getDefaultName() {

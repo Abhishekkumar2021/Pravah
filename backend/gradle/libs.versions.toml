@@ -63,6 +63,7 @@ mysql = "9.1.0"
 mssql = "12.8.1.jre11"
 oracle = "23.7.0.25.01"
 mongodb = "5.3.1"
+snowflake = "3.20.0"
 
 # Messaging
 rabbitmq = "5.24.0"
@@ -206,6 +207,7 @@ mysql-connector = { module = "com.mysql:mysql-connector-j", version.ref = "mysql
 mssql-jdbc = { module = "com.microsoft.sqlserver:mssql-jdbc", version.ref = "mssql" }
 oracle-jdbc = { module = "com.oracle.database.jdbc:ojdbc11", version.ref = "oracle" }
 mongodb-driver = { module = "org.mongodb:mongodb-driver-sync", version.ref = "mongodb" }
+snowflake-jdbc = { module = "net.snowflake:snowflake-jdbc", version.ref = "snowflake" }
 
 # Test data
 datafaker = { module = "net.datafaker:datafaker", version.ref = "datafaker" }

@@ -5,6 +5,7 @@ import io.grpc.stub.StreamObserver;
 import io.pravah.proto.common.Label;
 import io.pravah.proto.runner.*;
 import io.pravah.runnerservice.domain.Runner;
+import io.pravah.runnerservice.service.JobAssignmentService;
 import io.pravah.runnerservice.service.RunnerConnectionManager;
 import io.pravah.runnerservice.service.RunnerService;
 import io.pravah.spring.multitenancy.TenantContext;
@@ -25,11 +26,15 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
 
   private final RunnerService runnerService;
   private final RunnerConnectionManager connectionManager;
+  private final JobAssignmentService jobAssignmentService;
 
   public RunnerServiceGrpcImpl(
-      RunnerService runnerService, RunnerConnectionManager connectionManager) {
+      RunnerService runnerService,
+      RunnerConnectionManager connectionManager,
+      JobAssignmentService jobAssignmentService) {
     this.runnerService = runnerService;
     this.connectionManager = connectionManager;
+    this.jobAssignmentService = jobAssignmentService;
   }
 
   @Override
@@ -121,7 +126,16 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
 
       private void handleJobStatus(JobStatusUpdate status) {
         log.info("Job status update: jobId={}, status={}", status.getJobId(), status.getStatus());
-        // TODO: Forward to execution-service via Kafka
+        UUID jobId = UUID.fromString(status.getJobId());
+        int exitCode = status.getExitCode();
+        switch (status.getStatus()) {
+          case JOB_STATUS_RUNNING -> jobAssignmentService.markStarted(jobId);
+          case JOB_STATUS_SUCCEEDED -> jobAssignmentService.markCompleted(jobId, true, exitCode);
+          case JOB_STATUS_FAILED -> jobAssignmentService.markCompleted(jobId, false, exitCode);
+          case JOB_STATUS_CANCELLED, JOB_STATUS_TIMED_OUT ->
+              jobAssignmentService.markCompleted(jobId, false, exitCode);
+          default -> {}
+        }
       }
 
       private void handleLogChunk(JobLogChunk chunk) {

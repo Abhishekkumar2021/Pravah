@@ -28,9 +28,9 @@
 | Run containers | ✅ Implemented | Container stage (Docker) |
 | Pass small data between stages | ✅ Implemented | JSON via `${stages.*.output.*}` with size limits |
 | Pass large files between stages | ✅ Implemented | Artifact storage in MinIO via `${stages.*.artifact.*}` |
-| Pre-built source connectors | ✅ Implemented | Connect Service connector framework (PostgreSQL, MySQL, MSSQL, Oracle, MongoDB, S3, Local Files, FTP, SFTP, REST API, Kafka, RabbitMQ) |
-| dbt transformations | 🔮 Planned | dbt stage type defined, executor not built |
-| Spark jobs | 🔮 Planned | Spark stage type defined, executor not built |
+| Pre-built source connectors | **Partial** | Connect Service: 19+ connector plugins (DB, file, protocol, streaming, SaaS). Google Sheets uses placeholder OAuth; PostgreSQL CDC is config/discovery only (no logical decoding stream yet) |
+| dbt transformations | ✅ Implemented | `DbtEmbeddedStageExecutor` runs `dbt run` in project directory |
+| Spark jobs | ✅ Implemented | `SparkEmbeddedStageExecutor` runs `spark-submit` for JAR apps |
 | Data lineage tracking | 🔮 Planned | Metadata Service with OpenLineage (ADR-019) |
 
 ---
@@ -60,7 +60,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
 | Remaining microservices | **Partial** | agent (stub), metadata (stub), graphql (stub), connect + runner-service (implemented) |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
-| Runner fleet + gRPC | **Partial** | `runner-service` with gRPC proto definitions, REST fleet API; runner binary not complete |
+| Runner fleet + gRPC | **Partial** | gRPC server on 9091, internal assignment API, execution `runOn: runner` dispatch + completion callback; runner agent (no stream token auth yet) |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
 **Rough progress vs full product vision (~180 user stories): ~50–55%.**  
@@ -78,15 +78,15 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, circuit breaker + retry for inter-service calls (Resilience4j) |
 | **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, idempotent Kafka consumers, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
-| **runner-service** | 8086 | Partial | gRPC streaming (proto-based), REST API for fleet management, runner registration, heartbeat monitoring, job assignment |
+| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API, job assignment with label matching, stale runner detection |
 | **metadata-service** | 8087 | Stub | Boot app only |
 | **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer (`pravah.execution.execution.events` incl. `execution.failed`/`execution.completed`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API |
 | **agent-service** | 8089 | Stub | Boot app only |
-| **connect-service** | 8090 | Implemented | Connector framework with catalog API, database connectors (PostgreSQL, MySQL, MSSQL, Oracle, MongoDB), file connectors (S3, Local), protocol connectors (FTP, SFTP, REST API), connection CRUD, test connection, schema discovery |
+| **connect-service** | 8090 | Implemented | Connector framework (17+ connectors), connection CRUD, test/discover streams, SaaS (Sheets, Stripe, Airtable, HubSpot), streaming (Kafka, RabbitMQ), CDC (PostgreSQL), Snowflake warehouse |
 
-**Standalone `backend/runner/`:** Picocli entrypoint skeleton (not wired to production control plane).
+**Standalone `backend/runner/`:** Picocli agent registers via gRPC, heartbeats, executes Docker/shell/Python+DuckDB jobs locally.
 
-**gRPC:** Proto definitions in `libs/proto` (`common`, `execution_service`, `runner_service`). No gRPC servers in services yet; alpha execution uses embedded executors inside `execution-service`.
+**gRPC:** Proto definitions in `libs/proto`; `runner-service` serves gRPC on port 9091 (`RunnerGrpcServerLifecycle`). Stages with `runOn: runner` dispatch via `POST /api/v1/internal/runners/assignments` (S2S secret). Requires `RUNNER_SERVICE_BASE_URL`, `PRAVAH_INTERNAL_SERVICE_SECRET`.
 
 ---
 
@@ -120,7 +120,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **Done:** US-02.11 artifacts (MinIO storage, presigned URLs, artifact browser UI, `${stages.*.artifact.*}` resolution).
 
-**Not yet:** External runner dispatch, Spark/dbt stages, Python `requirements_file` from pipeline repo.
+**Not yet:** Full runner job spec (image/commands from pipeline YAML), Python `requirements_file` from pipeline repo, connect-service integration tests with Testcontainers.
 
 **Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 

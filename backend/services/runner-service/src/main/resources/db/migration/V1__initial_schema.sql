@@ -41,12 +41,12 @@ CREATE INDEX idx_runners_last_heartbeat ON runners(last_heartbeat_at);
 ALTER TABLE runners ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY runners_tenant_isolation ON runners
-    USING (tenant_id = current_setting('app.tenant_id', true)::uuid);
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::uuid);
 
 ALTER TABLE runner_labels ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY runner_labels_tenant_isolation ON runner_labels
-    USING (runner_id IN (SELECT id FROM runners WHERE tenant_id = current_setting('app.tenant_id', true)::uuid));
+    USING (runner_id IN (SELECT id FROM runners WHERE tenant_id = current_setting('pravah.current_tenant_id', true)::uuid));
 
 -- Job assignments (tracking which runner has which job)
 CREATE TABLE job_assignments (

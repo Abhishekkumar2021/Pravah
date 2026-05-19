@@ -185,10 +185,7 @@ public class RabbitMqConnector implements SourceConnector, SinkConnector {
       }
     } catch (IOException | TimeoutException e) {
       return new TestResult(
-          false,
-          "Connection failed: " + e.getMessage(),
-          System.currentTimeMillis() - start,
-          null);
+          false, "Connection failed: " + e.getMessage(), System.currentTimeMillis() - start, null);
     }
   }
 
@@ -232,7 +229,10 @@ public class RabbitMqConnector implements SourceConnector, SinkConnector {
 
   @Override
   public WriteResult write(
-      Map<String, Object> config, String routingKey, List<Record> records, WriteOptions writeOptions) {
+      Map<String, Object> config,
+      String routingKey,
+      List<Record> records,
+      WriteOptions writeOptions) {
     long start = System.currentTimeMillis();
     int written = 0;
 

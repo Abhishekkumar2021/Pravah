@@ -73,6 +73,9 @@ pravah:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
   pipeline-service:
     base-url: ${PIPELINE_SERVICE_BASE_URL:http://localhost:8083}
+  runner-service:
+    enabled: ${PRAVAH_RUNNER_SERVICE_ENABLED:true}
+    base-url: ${RUNNER_SERVICE_BASE_URL:http://localhost:8086}
   internal-service:
     secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
   container:
