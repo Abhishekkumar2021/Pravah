@@ -59,6 +59,14 @@ func NewClient(baseURL string, opts ...ClientOption) *Client {
 	return c
 }
 
+func drainAndClose(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+}
+
 // SetToken updates the authentication token
 func (c *Client) SetToken(token string) {
 	c.token = token
@@ -105,7 +113,8 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 			if resp.StatusCode < 500 {
 				break
 			}
-			resp.Body.Close()
+			drainAndClose(resp)
+			resp = nil
 		}
 		if attempt < maxRetries-1 {
 			backoff := time.Duration(1<<attempt) * time.Second
@@ -132,7 +141,7 @@ func (c *Client) Get(ctx context.Context, path string, result interface{}) error
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp)
 
 	return c.handleResponse(resp, result)
 }
@@ -143,7 +152,7 @@ func (c *Client) Post(ctx context.Context, path string, body, result interface{}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp)
 
 	return c.handleResponse(resp, result)
 }
@@ -154,7 +163,7 @@ func (c *Client) Put(ctx context.Context, path string, body, result interface{})
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp)
 
 	return c.handleResponse(resp, result)
 }
@@ -165,7 +174,7 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer drainAndClose(resp)
 
 	return c.handleResponse(resp, nil)
 }

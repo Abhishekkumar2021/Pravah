@@ -4,6 +4,7 @@
 |----------|------|--------------|---------|
 | **Backend CI** | `backend-ci.yml` | PR/push to `main`/`develop` (backend paths) | Unit tests, Spotless, static analysis, integration tests, OWASP scan |
 | **Frontend CI** | `frontend-ci.yml` | PR/push to `main`/`develop` (web paths) | TypeScript, Vitest, Playwright E2E, Vite build |
+| **CLI CI** | `cli-ci.yml` | PR/push (`cli/**` paths) | golangci-lint, `go test -race`, build, GoReleaser check (main only) |
 | **Pull Request** | `pull-request.yml` | Every PR | Conventional title, doc link check, size guard |
 | **Deploy** | `deploy.yml` | Push to `main`, GitHub Release published | Build & push service/runner images to GHCR |
 | **Release** | `release.yml` | Manual (`workflow_dispatch`) | Tag version, changelog, GitHub Release (then Deploy) |
@@ -22,6 +23,12 @@ After this layout, prefer these **job names** in rulesets:
 
 - `Frontend · Lint, test & build`
 
+**CLI changes**
+
+- `Lint`
+- `Test`
+- `Build`
+
 **All PRs**
 
 - `PR · Conventional title`
@@ -31,5 +38,14 @@ Remove stale entries such as `Build & Test`, `Code Quality`, `Web Build`, or `Bu
 ## Local parity
 
 ```bash
+# Full suite (auto-detects changed backend/, web/, cli/ paths)
 ./scripts/pre-commit.sh
+
+# Per component (matches CI workflows)
+./scripts/ci-backend.sh
+./scripts/ci-web.sh
+./scripts/ci-cli.sh
+
+# Force every component
+FORCE_ALL=1 ./scripts/pre-commit.sh
 ```

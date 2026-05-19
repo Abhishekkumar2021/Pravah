@@ -31,7 +31,8 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
-          version: v1.57
+          # Must match cli/.golangci-version
+          version: v1.57.2
           working-directory: cli
 
   test:

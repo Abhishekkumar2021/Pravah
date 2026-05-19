@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/zalando/go-keyring"
+	gkeyring "github.com/zalando/go-keyring"
 )
 
 const serviceName = "pravah-cli"
@@ -40,7 +40,7 @@ func (s *Store) Save(creds *Credentials) error {
 		return fmt.Errorf("marshaling credentials: %w", err)
 	}
 
-	if err := keyring.Set(serviceName, s.keyName(), string(data)); err != nil {
+	if err := gkeyring.Set(serviceName, s.keyName(), string(data)); err != nil {
 		return fmt.Errorf("storing credentials: %w", err)
 	}
 
@@ -49,9 +49,9 @@ func (s *Store) Save(creds *Credentials) error {
 
 // Load retrieves stored credentials
 func (s *Store) Load() (*Credentials, error) {
-	data, err := keyring.Get(serviceName, s.keyName())
+	data, err := gkeyring.Get(serviceName, s.keyName())
 	if err != nil {
-		if err == keyring.ErrNotFound {
+		if err == gkeyring.ErrNotFound {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("retrieving credentials: %w", err)
@@ -67,8 +67,8 @@ func (s *Store) Load() (*Credentials, error) {
 
 // Delete removes stored credentials
 func (s *Store) Delete() error {
-	if err := keyring.Delete(serviceName, s.keyName()); err != nil {
-		if err == keyring.ErrNotFound {
+	if err := gkeyring.Delete(serviceName, s.keyName()); err != nil {
+		if err == gkeyring.ErrNotFound {
 			return nil
 		}
 		return fmt.Errorf("deleting credentials: %w", err)

@@ -175,10 +175,12 @@ func runRunList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	out.Print(output.NewTableData(
+	if err := out.Print(output.NewTableData(
 		[]string{"ID", "PIPELINE", "STATUS", "DURATION", "STARTED"},
 		rows,
-	))
+	)); err != nil {
+		return err
+	}
 
 	if result.TotalPages > 1 {
 		out.Printf("\nPage %d of %d (total: %d)\n", result.Number+1, result.TotalPages, result.TotalElements)

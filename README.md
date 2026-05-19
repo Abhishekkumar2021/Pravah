@@ -217,8 +217,16 @@ cd backend && ./gradlew test integrationTest
 # Web
 cd web && npm ci && npm run lint && npm run test
 
-# Full pre-commit (backend + web + e2e)
+# CLI
+cd cli && go test -race ./... && go build -o bin/pravah ./cmd/pravah
+
+# Full pre-commit (backend + web + CLI; auto-detects changed paths)
 ./scripts/pre-commit.sh
+
+# Per-component CI parity
+./scripts/ci-backend.sh
+./scripts/ci-web.sh
+./scripts/ci-cli.sh
 ```
 
 ### Learning path

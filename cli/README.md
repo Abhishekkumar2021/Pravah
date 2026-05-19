@@ -259,6 +259,33 @@ make build
 make test
 ```
 
+### Install golangci-lint (one-time; required for lint / CI parity)
+
+Version is pinned in `cli/.golangci-version` (currently **1.57.2**, same as `.github/workflows/cli-ci.yml`).
+
+```bash
+cd cli && make install-tools
+export PATH="$(go env GOPATH)/bin:$PATH"
+golangci-lint version --format short   # must print 1.57.2
+```
+
+### Local CI parity
+
+From repo root (matches `.github/workflows/cli-ci.yml`):
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+./scripts/ci-cli.sh
+```
+
+Or from `cli/`:
+
+```bash
+make lint
+make test
+make build
+```
+
 ### Release
 
 ```bash
