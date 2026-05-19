@@ -25,6 +25,11 @@ spring:
       group-id: scheduler-service-triggers
       auto-offset-reset: earliest
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
 server:
   port: 8085
 

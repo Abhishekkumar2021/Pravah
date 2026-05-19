@@ -45,7 +45,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens, Redis tenant config cache (ADR-012) |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, circuit breaker + retry for inter-service calls (Resilience4j) |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), rate limiting, idempotent Kafka consumers, circuit breaker + retry for inter-service calls (Resilience4j) |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, idempotent Kafka consumers, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
 | **runner-service** | 8086 | Stub | Boot app only |
 | **metadata-service** | 8087 | Stub | Boot app only |
@@ -101,7 +101,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 |-------|--------|----------|
 | US-03.01 Cron schedules | Implemented | Cron parser, schedule evaluation job, leader election |
 | US-03.06 Kafka triggers | Implemented | Dynamic Kafka listeners, filter matching, idempotent consumer with dedup table |
-| US-03.07 Webhook triggers | Implemented | Public hook endpoint, BCrypt secret validation, per-trigger rate limiting |
+| US-03.07 Webhook triggers | Implemented | Public hook endpoint, BCrypt secret validation, Redis per-trigger rate limiting (429 + Retry-After) |
 
 **APIs (via gateway → scheduler-service):**
 
@@ -135,7 +135,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
-| Gateway rate limiting | Implemented | Redis token bucket algorithm per-tenant/per-token (ADR-012), HTTP 429 + Retry-After header |
+| Gateway rate limiting | Implemented | Redis token bucket per-tenant/API-token/IP (ADR-012), HTTP 429 + Retry-After + `X-RateLimit-*` headers |
+| Webhook rate limiting | Implemented | Redis token bucket per trigger (`ratelimit:webhook:{id}`), shared Lua script in `libs/common` |
+| Rate limit metrics | Implemented | `pravah_ratelimit_requests_total{layer,gateway\|webhook,key_type,outcome}` on `/actuator/prometheus` |
 | JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012) |
 | Gateway circuit breaker | Implemented | Resilience4j reactive circuit breaker for all backend routes (LLD-01) |
 | Request logging | Implemented | Structured JSON logs with tenant_id, user_id, request_id, duration, route |
@@ -153,7 +155,11 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | RPS for API token access (lower) |
 | `PRAVAH_CACHE_ENABLED` | `true` | Enable/disable tenant config caching |
 
-**Not yet:** Redis Sentinel HA, distributed rate limiting across instances, per-endpoint rate limits, IP allowlisting.
+**Tests:** `RateLimitGatewayFilterTest`, `RedisRateLimiterIT` (gateway); `WebhookRateLimiterTest`, `RedisTokenBucketRateLimiterIT` (spring-support).
+
+**Requires Redis:** Gateway, scheduler webhooks, and tenant config cache need Redis (`backend/docker-compose.yml` service `redis`, ports `6379`).
+
+**Not yet:** Redis Sentinel HA, per-endpoint rate limits, IP allowlisting (US-10.16), Grafana alert rules for rate-limit deny spikes.
 
 ---
 
@@ -164,6 +170,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-10.01 Local auth | Implemented | Login, signup UI, email verification (pending → verify → active), bcrypt, lockout; password reset via SMTP (Mailhog `1025`) |
 | US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
 | US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
+| US-10.14 API rate limiting | Partial | Gateway: per-tenant/token/IP limits, 429, Retry-After, Prometheus metrics; tier limits via tenant cache; no dedicated alert rules yet |
 
 ---
 

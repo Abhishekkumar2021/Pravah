@@ -30,4 +30,5 @@ dependencies {
     implementation(libs.logstash.logback.encoder)
 
     testImplementation(project(":libs:test-support"))
+    testImplementation("io.projectreactor:reactor-test")
 }

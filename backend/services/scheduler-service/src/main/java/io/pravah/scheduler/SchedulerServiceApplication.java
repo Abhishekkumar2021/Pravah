@@ -18,7 +18,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     basePackages = {
       "io.pravah.scheduler",
       "io.pravah.spring.multitenancy",
-      "io.pravah.spring.security"
+      "io.pravah.spring.security",
+      "io.pravah.spring.ratelimit"
     })
 public class SchedulerServiceApplication {
 

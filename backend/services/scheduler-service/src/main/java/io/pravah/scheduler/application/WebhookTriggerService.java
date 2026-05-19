@@ -45,9 +45,9 @@ public class WebhookTriggerService {
 
     Map<String, Object> config = TriggerConfigSupport.parseConfig(trigger.getConfig());
     int limit = TriggerConfigSupport.rateLimitPerMinute(config);
-    if (!rateLimiter.tryAcquire(triggerId, limit)) {
-      throw new ResponseStatusException(
-          HttpStatus.TOO_MANY_REQUESTS, "Webhook rate limit exceeded");
+    var rateResult = rateLimiter.tryAcquire(triggerId, limit);
+    if (!rateResult.allowed()) {
+      throw new WebhookRateLimitExceededException(rateResult.retryAfterSeconds());
     }
 
     UUID executionId = dispatchService.dispatch(trigger, body);

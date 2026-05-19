@@ -1,81 +1,59 @@
 package io.pravah.scheduler.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
+import io.pravah.spring.ratelimit.RedisTokenBucketRateLimiter;
+import io.pravah.spring.ratelimit.TokenBucketResult;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class WebhookRateLimiterTest {
+
+  @Mock private RedisTokenBucketRateLimiter redisLimiter;
 
   private WebhookRateLimiter rateLimiter;
 
   @BeforeEach
   void setUp() {
-    rateLimiter = new WebhookRateLimiter();
+    rateLimiter = new WebhookRateLimiter(redisLimiter);
   }
 
   @Test
-  void tryAcquire_allowsWithinLimit() {
+  void tryAcquire_delegatesToRedisWithWebhookKey() {
     UUID triggerId = UUID.randomUUID();
-    int limit = 5;
+    when(redisLimiter.tryConsume(
+            eq("ratelimit:webhook:" + triggerId),
+            eq(60),
+            anyDouble(),
+            eq("webhook"),
+            eq("webhook")))
+        .thenReturn(new TokenBucketResult(true, 59, 60, 0));
 
-    for (int i = 0; i < limit; i++) {
-      assertThat(rateLimiter.tryAcquire(triggerId, limit))
-          .as("Request %d should be allowed", i + 1)
-          .isTrue();
-    }
+    TokenBucketResult result = rateLimiter.tryAcquire(triggerId, 60);
+
+    assertThat(result.allowed()).isTrue();
   }
 
   @Test
-  void tryAcquire_rejectsWhenLimitExceeded() {
+  void tryAcquire_returnsDeniedWhenRedisRejects() {
     UUID triggerId = UUID.randomUUID();
-    int limit = 3;
+    when(redisLimiter.tryConsume(
+            eq("ratelimit:webhook:" + triggerId),
+            anyInt(),
+            anyDouble(),
+            eq("webhook"),
+            eq("webhook")))
+        .thenReturn(new TokenBucketResult(false, 0, 60, 5000));
 
-    for (int i = 0; i < limit; i++) {
-      rateLimiter.tryAcquire(triggerId, limit);
-    }
-
-    assertThat(rateLimiter.tryAcquire(triggerId, limit)).isFalse();
-  }
-
-  @Test
-  void tryAcquire_tracksTriggersIndependently() {
-    UUID trigger1 = UUID.randomUUID();
-    UUID trigger2 = UUID.randomUUID();
-    int limit = 2;
-
-    assertThat(rateLimiter.tryAcquire(trigger1, limit)).isTrue();
-    assertThat(rateLimiter.tryAcquire(trigger1, limit)).isTrue();
-    assertThat(rateLimiter.tryAcquire(trigger1, limit)).isFalse();
-
-    assertThat(rateLimiter.tryAcquire(trigger2, limit)).isTrue();
-  }
-
-  @Test
-  void trackedTriggerCount_countsActiveTriggers() {
-    assertThat(rateLimiter.trackedTriggerCount()).isZero();
-
-    UUID trigger1 = UUID.randomUUID();
-    UUID trigger2 = UUID.randomUUID();
-
-    rateLimiter.tryAcquire(trigger1, 10);
-    assertThat(rateLimiter.trackedTriggerCount()).isEqualTo(1);
-
-    rateLimiter.tryAcquire(trigger2, 10);
-    assertThat(rateLimiter.trackedTriggerCount()).isEqualTo(2);
-
-    rateLimiter.tryAcquire(trigger1, 10);
-    assertThat(rateLimiter.trackedTriggerCount()).isEqualTo(2);
-  }
-
-  @Test
-  void cleanup_removesStaleEntries() {
-    UUID trigger = UUID.randomUUID();
-    rateLimiter.tryAcquire(trigger, 10);
-    assertThat(rateLimiter.trackedTriggerCount()).isEqualTo(1);
-
-    rateLimiter.cleanup();
-    assertThat(rateLimiter.trackedTriggerCount()).isEqualTo(1);
+    assertThat(rateLimiter.tryAcquire(triggerId, 60).allowed()).isFalse();
   }
 }

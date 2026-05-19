@@ -68,7 +68,7 @@ public class RateLimitGatewayFilter implements GlobalFilter, Ordered {
                       : config.getDefaultRequestsPerSecond();
 
               return rateLimiter
-                  .isAllowed(keyInfo.key(), burstCapacity, refillRate)
+                  .isAllowed(keyInfo.key(), burstCapacity, refillRate, keyInfo.keyType())
                   .flatMap(
                       result -> {
                         exchange
@@ -109,9 +109,11 @@ public class RateLimitGatewayFilter implements GlobalFilter, Ordered {
         .map(
             principal -> {
               if (principal.apiTokenId() != null) {
-                return new RateLimitKeyInfo("ratelimit:apitoken:" + principal.apiTokenId(), true);
+                return new RateLimitKeyInfo(
+                    "ratelimit:apitoken:" + principal.apiTokenId(), true, "apitoken");
               } else if (principal.tenantId() != null) {
-                return new RateLimitKeyInfo("ratelimit:tenant:" + principal.tenantId(), false);
+                return new RateLimitKeyInfo(
+                    "ratelimit:tenant:" + principal.tenantId(), false, "tenant");
               } else {
                 return rateLimitKeyFromIp(exchange);
               }
@@ -126,7 +128,7 @@ public class RateLimitGatewayFilter implements GlobalFilter, Ordered {
             : exchange.getRequest().getRemoteAddress() != null
                 ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
                 : "unknown";
-    return new RateLimitKeyInfo("ratelimit:ip:" + ip, false);
+    return new RateLimitKeyInfo("ratelimit:ip:" + ip, false, "ip");
   }
 
   private boolean isExemptPath(String path) {
@@ -138,5 +140,5 @@ public class RateLimitGatewayFilter implements GlobalFilter, Ordered {
     return -100;
   }
 
-  private record RateLimitKeyInfo(String key, boolean isApiToken) {}
+  private record RateLimitKeyInfo(String key, boolean isApiToken, String keyType) {}
 }
