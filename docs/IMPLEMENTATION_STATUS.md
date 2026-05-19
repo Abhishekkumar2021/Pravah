@@ -58,13 +58,13 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Web alpha (EPIC-12) | **Partial** | REST + WebSocket, visual DAG editor (US-12.06); no GraphQL read model |
 | CLI (EPIC-11) | **Implemented** | Go CLI with Cobra; auth, workflow, run, deploy commands; GitHub Action |
 | API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
-| Remaining microservices | **Stub** | agent, connect, metadata, runner-service, graphql |
+| Remaining microservices | **Partial** | agent (stub), metadata (stub), graphql (stub), connect + runner-service (implemented) |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
 | Runner fleet + gRPC | **Partial** | `runner-service` with gRPC proto definitions, REST fleet API; runner binary not complete |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
-**Rough progress vs full product vision (~180 user stories): ~40–45%.**  
-**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~75–80%.**
+**Rough progress vs full product vision (~180 user stories): ~50–55%.**  
+**Alpha MVP path (create pipeline → run → logs → cancel → schedule): ~85–90%.**
 
 ---
 
@@ -118,7 +118,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-02.09 Parallel execution | Implemented | `ExecutionParallelismPolicy`, Kafka worker concurrency, `maxParallelStages` per workflow, timing-based Gantt chart |
 | US-02.15 Python stage | Partial | `PythonEmbeddedStageExecutor`, per-job venv, `requirements`, structured stdout JSON; no remote script artifacts |
 
-**Not yet:** US-02.11 artifacts, external runner dispatch, Spark/dbt stages, Python `requirements_file` from pipeline repo.
+**Done:** US-02.11 artifacts (MinIO storage, presigned URLs, artifact browser UI, `${stages.*.artifact.*}` resolution).
+
+**Not yet:** External runner dispatch, Spark/dbt stages, Python `requirements_file` from pipeline repo.
 
 **Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 
