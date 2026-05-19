@@ -14,6 +14,8 @@ on:
 defaults:
   run:
     working-directory: cli
+    # Use bash on all OSes (PowerShell parses coverage.out as "coverage" + ".out")
+    shell: bash
 
 jobs:
   lint:
