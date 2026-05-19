@@ -2,26 +2,35 @@ package io.pravah.gateway.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 /**
- * Local-only gateway security: disable CSRF and proxy requests without edge JWT enforcement.
+ * Gateway security configuration.
  *
- * <p>JWT validation remains on each backend service (ADR-009). Non-local profiles use Spring
- * Security defaults from {@code spring-boot-starter-oauth2-resource-server}.
+ * <p>The gateway handles authentication at the edge via custom filters ({@link
+ * io.pravah.gateway.security.GatewayAuthenticationFilter}). Spring Security is configured to permit
+ * all requests because:
+ *
+ * <ul>
+ *   <li>Authentication is handled by custom filters that extract JWT claims
+ *   <li>Authorization is enforced by backend services (defense in depth)
+ *   <li>Rate limiting and blocklist checks are performed by gateway filters
+ * </ul>
+ *
+ * @see io.pravah.gateway.security.GatewayAuthenticationFilter
+ * @see io.pravah.gateway.ratelimit.RateLimitGatewayFilter
  */
 @Configuration
-@Profile("local")
 @EnableWebFluxSecurity
 public class GatewaySecurityConfig {
 
   @Bean
-  public SecurityWebFilterChain localGatewaySecurityFilterChain(ServerHttpSecurity http) {
+  public SecurityWebFilterChain gatewaySecurityFilterChain(ServerHttpSecurity http) {
     return http.csrf(ServerHttpSecurity.CsrfSpec::disable)
         .authorizeExchange(exchange -> exchange.anyExchange().permitAll())
+        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}))
         .build();
   }
 }

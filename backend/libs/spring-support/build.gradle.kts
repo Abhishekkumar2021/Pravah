@@ -33,9 +33,15 @@ dependencies {
     // Structured logging
     implementation(libs.logstash.logback.encoder)
 
+    // Redis token-bucket rate limiting (ADR-012) — compile-only; services add data-redis + @Bean
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
+    compileOnly("io.micrometer:micrometer-core")
+
     // Test
     testImplementation(project(":libs:test-support"))
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-redis")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation("io.micrometer:micrometer-core")
 }

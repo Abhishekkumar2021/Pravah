@@ -63,6 +63,24 @@ make local-web        # Vite dev server (../web)
 
 Gateway: `http://localhost:8080`
 
+### API Gateway (rate limiting, JWT blocklist)
+
+The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a **Redis token bucket** (ADR-012). Requires Redis from `docker-compose` (`REDIS_HOST` / `REDIS_PORT`, default `localhost:6379`).
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.ratelimit.enabled` | `PRAVAH_RATE_LIMIT_ENABLED` | `true` | Enable gateway rate limiting |
+| `pravah.ratelimit.default-requests-per-second` | `PRAVAH_RATE_LIMIT_RPS` | `100` | Tenant JWT steady-state RPS |
+| `pravah.ratelimit.default-burst-capacity` | `PRAVAH_RATE_LIMIT_BURST` | `200` | Tenant burst capacity |
+| `pravah.ratelimit.api-token-requests-per-second` | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | API token RPS |
+| `pravah.ratelimit.api-token-burst-capacity` | `PRAVAH_RATE_LIMIT_API_TOKEN_BURST` | `100` | API token burst |
+
+Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` on `/actuator/prometheus`.
+
+### Scheduler webhooks (Redis rate limiting)
+
+Webhook triggers (`POST /api/v1/hooks/{triggerId}`) use the same Redis token-bucket script as the gateway (`libs/common/src/main/resources/ratelimit/token_bucket.lua`). Per-trigger limit from config `rateLimitPerMinute` (default 60). Requires Redis on scheduler-service (`spring.data.redis.*`).
+
 ### Password reset email (US-10.01)
 
 `tenant-service` sends reset links via Spring Mail. Local `docker-compose` includes **Mailhog** (SMTP `1025`, web UI `http://localhost:8025`).
@@ -149,6 +167,7 @@ gRPC service definitions:
 Test utilities:
 - `PostgresContainerExtension` - Shared PostgreSQL container
 - `KafkaContainerExtension` - Shared Kafka container
+- `RedisContainerExtension` - Shared Redis container (rate limit ITs)
 - Fixture classes for test data generation
 
 ## Parallel stage execution (US-02.09)

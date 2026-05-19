@@ -1,9 +1,25 @@
 spring:
   application:
     name: gateway
-  
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+
   cloud:
     gateway:
+      default-filters:
+        - name: CircuitBreaker
+          args:
+            name: defaultCircuitBreaker
+            fallbackUri: forward:/fallback
       routes:
         - id: graphql-service
           uri: lb://graphql-service
@@ -35,7 +51,7 @@ spring:
         - id: scheduler-service
           uri: lb://scheduler-service
           predicates:
-            - Path=/api/v1/schedules/**
+            - Path=/api/v1/schedules/**,/api/v1/triggers/**,/api/v1/hooks/**
 
         - id: tenant-service
           uri: lb://tenant-service
@@ -50,16 +66,54 @@ spring:
 server:
   port: 8080
 
+pravah:
+  ratelimit:
+    enabled: ${PRAVAH_RATE_LIMIT_ENABLED:true}
+    default-requests-per-second: ${PRAVAH_RATE_LIMIT_RPS:100}
+    default-burst-capacity: ${PRAVAH_RATE_LIMIT_BURST:200}
+    api-token-requests-per-second: ${PRAVAH_RATE_LIMIT_API_TOKEN_RPS:50}
+    api-token-burst-capacity: ${PRAVAH_RATE_LIMIT_API_TOKEN_BURST:100}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 5s
+    instances:
+      pipeline-service:
+        baseConfig: default
+      execution-service:
+        baseConfig: default
+      scheduler-service:
+        baseConfig: default
+      tenant-service:
+        baseConfig: default
+      notification-service:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 30s
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    circuitbreakers:
+      enabled: true
 
 logging:
   level:
     io.pravah: INFO
     org.springframework.cloud.gateway: DEBUG
+    io.github.resilience4j: INFO

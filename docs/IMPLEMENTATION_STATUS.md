@@ -2,7 +2,7 @@
 
 > **Source of truth** for what is built in this repository vs what is documented as the long-term target architecture.  
 > Update this file whenever you ship or stub a user-facing capability.  
-> **Last updated:** 2026-05-18
+> **Last updated:** 2026-05-19
 
 ---
 
@@ -41,11 +41,11 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Service | Port (local) | Status | Capabilities |
 |---------|--------------|--------|--------------|
-| **gateway** | 8080 | Implemented | Routes REST/WS to services (`application.yml`) |
-| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens |
+| **gateway** | 8080 | Implemented | Routes REST/WS, Redis rate limiting (token bucket per-tenant), JWT blocklist, circuit breakers, request logging (ADR-012) |
+| **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens, Redis tenant config cache (ADR-012) |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
-| **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API, triggers execution-service |
+| **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers, outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, circuit breaker + retry for inter-service calls (Resilience4j) |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, idempotent Kafka consumers, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
 | **runner-service** | 8086 | Stub | Boot app only |
 | **metadata-service** | 8087 | Stub | Boot app only |
@@ -95,6 +95,24 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 ---
 
+## Scheduling & triggers (EPIC-03) — partial
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| US-03.01 Cron schedules | Implemented | Cron parser, schedule evaluation job, leader election |
+| US-03.06 Kafka triggers | Implemented | Dynamic Kafka listeners, filter matching, idempotent consumer with dedup table |
+| US-03.07 Webhook triggers | Implemented | Public hook endpoint, BCrypt secret validation, Redis per-trigger rate limiting (429 + Retry-After) |
+
+**APIs (via gateway → scheduler-service):**
+
+- Schedules: `GET/POST/PUT/DELETE /api/v1/schedules`
+- Triggers: `GET/POST/PUT/DELETE /api/v1/triggers`, `POST /api/v1/triggers/{id}/enable`, `POST /api/v1/triggers/{id}/disable`
+- Webhooks: `POST /api/v1/hooks/{triggerId}` (public, no auth required)
+
+**Not yet:** event trigger UI, trigger history/logs, manual test trigger, webhook retry on failure.
+
+---
+
 ## Monitoring & alerting (EPIC-04) — Sprint 1 (partial)
 
 | Story | Status | Evidence |
@@ -113,6 +131,38 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 ---
 
+## Resilience & Rate Limiting (Production-Grade)
+
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| Gateway rate limiting | Implemented | Redis token bucket per-tenant/API-token/IP (ADR-012), HTTP 429 + Retry-After + `X-RateLimit-*` headers |
+| Webhook rate limiting | Implemented | Redis token bucket per trigger (`ratelimit:webhook:{id}`), shared Lua script in `libs/common` |
+| Rate limit metrics | Implemented | `pravah_ratelimit_requests_total{layer,gateway\|webhook,key_type,outcome}` on `/actuator/prometheus` |
+| JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012) |
+| Gateway circuit breaker | Implemented | Resilience4j reactive circuit breaker for all backend routes (LLD-01) |
+| Request logging | Implemented | Structured JSON logs with tenant_id, user_id, request_id, duration, route |
+| Service circuit breakers | Implemented | Resilience4j on `execution-service` → `pipeline-service` and `scheduler-service` → `execution-service` |
+| Retry with backoff | Implemented | Exponential backoff (1s → 2s → 4s) with max 3 attempts for transient failures |
+| Tenant config caching | Implemented | Redis cache-aside pattern with 10-minute TTL, invalidation on update (ADR-012) |
+
+**Configuration (environment variables):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PRAVAH_RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting |
+| `PRAVAH_RATE_LIMIT_RPS` | `100` | Default requests per second per tenant |
+| `PRAVAH_RATE_LIMIT_BURST` | `200` | Burst capacity for token bucket |
+| `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | RPS for API token access (lower) |
+| `PRAVAH_CACHE_ENABLED` | `true` | Enable/disable tenant config caching |
+
+**Tests:** `RateLimitGatewayFilterTest`, `RedisRateLimiterIT` (gateway); `WebhookRateLimiterTest`, `RedisTokenBucketRateLimiterIT` (spring-support).
+
+**Requires Redis:** Gateway, scheduler webhooks, and tenant config cache need Redis (`backend/docker-compose.yml` service `redis`, ports `6379`).
+
+**Not yet:** Redis Sentinel HA, per-endpoint rate limits, IP allowlisting (US-10.16), Grafana alert rules for rate-limit deny spikes.
+
+---
+
 ## Security (EPIC-10)
 
 | Story | Status | Evidence |
@@ -120,6 +170,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-10.01 Local auth | Implemented | Login, signup UI, email verification (pending → verify → active), bcrypt, lockout; password reset via SMTP (Mailhog `1025`) |
 | US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
 | US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
+| US-10.14 API rate limiting | Partial | Gateway: per-tenant/token/IP limits, 429, Retry-After, Prometheus metrics; tier limits via tenant cache; no dedicated alert rules yet |
 
 ---
 

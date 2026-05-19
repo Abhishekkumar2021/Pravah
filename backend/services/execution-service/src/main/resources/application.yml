@@ -100,15 +100,55 @@ pravah:
       consumer-group-id: ${PRAVAH_JOB_WORKER_KAFKA_GROUP:execution-service-job-worker}
       concurrency: ${PRAVAH_JOB_WORKER_CONCURRENCY:4}
 
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 5s
+        recordExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - io.pravah.common.exception.EntityNotFoundException
+    instances:
+      pipeline-service:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - io.pravah.common.exception.EntityNotFoundException
+    instances:
+      pipeline-service:
+        baseConfig: default
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    circuitbreakers:
+      enabled: true
 
 logging:
   level:
     io.pravah: INFO
+    io.github.resilience4j: INFO

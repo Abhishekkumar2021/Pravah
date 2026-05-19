@@ -239,10 +239,10 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** abuse is prevented
 
 **Acceptance Criteria:**
-- [ ] Per-token rate limits
-- [ ] Configurable limits
-- [ ] 429 response with retry-after
-- [ ] Monitoring and alerting
+- [x] Per-token rate limits (gateway: `ratelimit:apitoken:{id}`; lower RPS than tenant JWT)
+- [x] Configurable limits (`pravah.ratelimit.*` env vars; tenant tier via `TenantConfigCache`)
+- [x] 429 response with retry-after (gateway + webhook hooks)
+- [ ] Monitoring and alerting (Prometheus metric `pravah_ratelimit_requests_total`; Grafana/alert rules not wired)
 
 **Story Points:** 5  
 **Priority:** P0

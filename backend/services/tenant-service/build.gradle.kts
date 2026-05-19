@@ -29,6 +29,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation(libs.nimbus.jose.jwt)
 
+    // Redis for tenant config caching (ADR-012)
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
     // Structured logging (JSON format for production)
     implementation(libs.logstash.logback.encoder)
 

@@ -1,6 +1,7 @@
 package io.pravah.scheduler.api;
 
 import io.pravah.test.containers.PostgresContainerExtension;
+import io.pravah.test.containers.RedisContainerExtension;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -12,7 +13,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
-@ExtendWith(PostgresContainerExtension.class)
+@ExtendWith({PostgresContainerExtension.class, RedisContainerExtension.class})
 @TestPropertySource(
     properties = {
       "pravah.scheduler.evaluation-interval-ms=999999999",
@@ -27,6 +28,8 @@ public abstract class AbstractSchedulerPostgresIT {
     registry.add("spring.datasource.url", PostgresContainerExtension::getJdbcUrl);
     registry.add("spring.datasource.username", PostgresContainerExtension::getUsername);
     registry.add("spring.datasource.password", PostgresContainerExtension::getPassword);
+    registry.add("spring.data.redis.host", RedisContainerExtension::getHost);
+    registry.add("spring.data.redis.port", RedisContainerExtension::getPort);
   }
 
   @BeforeEach
