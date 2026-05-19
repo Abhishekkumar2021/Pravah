@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Ban, ChevronRight, Clock, Hash, PlayCircle, RotateCcw, Settings2 } from "lucide-react";
+import { Ban, ChevronRight, Clock, Folder, Hash, PlayCircle, RotateCcw, Settings2 } from "lucide-react";
 import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -20,6 +20,7 @@ import {
   retryExecution,
   type ExecutionResponse,
 } from "@/lib/api";
+import { RunArtifacts } from "@/components/runs/RunArtifacts";
 import { RunJobStages } from "@/components/runs/RunJobStages";
 import { RunStageGantt } from "@/components/runs/RunStageGantt";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
@@ -316,6 +317,10 @@ export function RunDetailPage() {
                 <PlayCircle className="h-3.5 w-3.5" />
                 Stages
               </TabsTrigger>
+              <TabsTrigger value="artifacts" className="gap-1.5">
+                <Folder className="h-3.5 w-3.5" />
+                Artifacts
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="summary">
@@ -458,6 +463,20 @@ export function RunDetailPage() {
                         : undefined
                     }
                   />
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="artifacts">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Artifacts</CardTitle>
+                  <CardDescription>
+                    Files produced by stages. Large query results, Python outputs, and logs are stored here.
+                  </CardDescription>
+                </CardHeader>
+                <div className="px-6 pb-6">
+                  <RunArtifacts executionId={data.id} jobs={data.jobs} />
                 </div>
               </Card>
             </TabsContent>

@@ -1067,3 +1067,57 @@ export async function updateNotificationPreferences(
   });
   return handleResponse<NotificationPreferenceResponse>(res);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Artifact API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ArtifactType = "OUTPUT" | "LOG" | "PROFILE" | "CHECKPOINT" | "OTHER";
+
+export type ArtifactMetadata = {
+  key: string;
+  filename: string;
+  type: ArtifactType;
+  sizeBytes: number;
+  contentType: string | null;
+  createdAt: string;
+};
+
+export type PresignedUrlResponse = {
+  url: string;
+  key: string;
+  expiresAt: string;
+  maxSizeBytes: number;
+};
+
+export async function listExecutionArtifacts(executionId: string): Promise<ArtifactMetadata[]> {
+  const res = await fetch(apiUrl(`/api/v1/artifacts/executions/${executionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ArtifactMetadata[]>(res);
+}
+
+export async function listJobArtifacts(
+  executionId: string,
+  jobId: string,
+): Promise<ArtifactMetadata[]> {
+  const res = await fetch(
+    apiUrl(`/api/v1/artifacts/executions/${executionId}/jobs/${jobId}`),
+    { headers: authHeaders() },
+  );
+  return handleResponse<ArtifactMetadata[]>(res);
+}
+
+export async function generateArtifactDownloadUrl(
+  executionId: string,
+  jobId: string,
+  type: ArtifactType,
+  filename: string,
+): Promise<PresignedUrlResponse> {
+  const res = await fetch(apiUrl("/api/v1/artifacts/download-url"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ executionId, jobId, type, filename }),
+  });
+  return handleResponse<PresignedUrlResponse>(res);
+}
