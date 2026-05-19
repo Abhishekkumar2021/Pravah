@@ -6,6 +6,35 @@
 
 ---
 
+## What Kind of Platform Is Pravah?
+
+**Pravah is a workflow orchestrator** (like Airflow, Dagster, Prefect) — **not** an ETL tool with pre-built connectors (like Fivetran, Airbyte).
+
+| You Want To... | How Pravah Handles It |
+|----------------|----------------------|
+| **Extract** from databases | SQL stage with configured connection |
+| **Extract** from APIs | Python or Container stage |
+| **Transform** data | Python stage, SQL stage, or Container |
+| **Load** to destinations | SQL stage (INSERT), Container stage |
+| **Pass data between stages** | `${stages.<id>.output.<path>}` for JSON; Artifacts for files (planned) |
+| **CDC / streaming ingestion** | Kafka trigger + Container stage (Connect Service planned) |
+
+### ETL Capabilities Matrix
+
+| Capability | Status | How It Works |
+|------------|--------|--------------|
+| Query databases (Postgres, MySQL, etc.) | ✅ Implemented | SQL stage + Connections (`pipeline-service`) |
+| Run Python scripts | ✅ Implemented | Python stage (auto venv, pip install) |
+| Run containers | ✅ Implemented | Container stage (Docker) |
+| Pass small data between stages | ✅ Implemented | JSON via `${stages.*.output.*}` with size limits |
+| Pass large files between stages | 🔮 Planned | Artifact storage in MinIO (US-02.11) |
+| Pre-built source connectors | 🔮 Planned | Connect Service with Debezium (ADR-029) |
+| dbt transformations | 🔮 Planned | dbt stage type defined, executor not built |
+| Spark jobs | 🔮 Planned | Spark stage type defined, executor not built |
+| Data lineage tracking | 🔮 Planned | Metadata Service with OpenLineage (ADR-019) |
+
+---
+
 ## How to read this document
 
 | Status | Meaning |

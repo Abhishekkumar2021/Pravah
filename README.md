@@ -2,7 +2,7 @@
 
 # Pravah — प्रवाह
 
-**Production-grade distributed ETL orchestration platform**
+**Data Pipeline Orchestration Platform**
 
 *Sanskrit: "flow" or "current"*
 
@@ -18,35 +18,75 @@
 
 ## What Is Pravah?
 
-Pravah is a **GitHub Actions / Airbyte / Prefect-level ETL platform** built from scratch — designed as an engineering deep-dive and senior-level portfolio project.
+Pravah is a **workflow orchestration platform** for data pipelines — similar to Airflow, Dagster, or Prefect. It's designed as an engineering deep-dive demonstrating production-grade distributed systems architecture.
 
-It handles the full lifecycle of data pipelines: scheduling, distributed execution across self-hosted and cloud runners, lineage tracking, observability, and an agentic layer that can detect and heal schema drift automatically.
+> **Important distinction:** Pravah is an **orchestrator**, not an ETL tool with pre-built connectors (like Fivetran or Airbyte). You define workflows with stages (SQL, Python, Container, etc.), and Pravah handles scheduling, execution, DAG resolution, and observability. Connectors and transformations run inside your stages.
 
-> **Current repo:** The **alpha control plane** is implemented (pipelines, runs, embedded stages, schedules, web UI). Runner fleets, lineage, catalog, and AI features are **designed but not built** here yet. See **[Implementation Status](docs/IMPLEMENTATION_STATUS.md)** for an accurate checklist.
+### What Pravah Does
 
-### Core Capabilities (target platform)
+| Layer | What It Does | Status |
+|-------|-------------|--------|
+| **Orchestration** | Define DAG-based workflows, resolve dependencies, manage state | ✅ Implemented |
+| **Scheduling** | Cron schedules, webhook triggers, Kafka event triggers | ✅ Implemented |
+| **Execution** | Run stages (SQL, Python, Container), capture outputs, handle failures | ✅ Implemented |
+| **Data Passing** | Pass JSON outputs between stages via `${stages.*.output.*}` | ✅ Implemented |
+| **Observability** | Real-time logs, WebSocket updates, alerts on failure | ✅ Implemented |
+| **Connectors (CDC)** | Debezium/Kafka Connect integration for source connectors | 🔮 Planned |
+| **Artifact Storage** | Binary file/large dataset passing between stages | 🔮 Planned |
+| **Data Lineage** | Column-level lineage via OpenLineage | 🔮 Planned |
+| **AI Agent** | Auto-heal schema drift, suggest fixes | 🔮 Planned |
 
-| Capability | Description |
-|---|---|
-| **Pipeline Orchestration** | DAG-based, cron-triggered, event-driven; dependency resolution and backfill |
-| **Hybrid Runner Model** | Self-hosted runners (on-prem data access) + cloud runners (auto-scaled K8s pods) |
-| **Kafka Event Bus** | Decoupled job lifecycle, lineage events, CDC ingestion via Debezium |
-| **Multi-Tenancy** | Row-level security, namespace isolation, per-tenant resource quotas |
-| **Agentic Layer** | LLM-powered auto-heal, schema drift detection, natural-language pipeline builder |
-| **Full Observability** | Prometheus → Grafana dashboards, distributed tracing (Jaeger), ELK log aggregation |
-| **Data Lineage** | Column-level lineage via OpenLineage spec, stored in Elasticsearch |
+### How ETL Works in Pravah
 
-### Alpha (implemented today)
+```yaml
+# Example: Extract-Transform-Load workflow
+name: daily-sales-etl
+stages:
+  - id: extract
+    type: sql
+    config:
+      connectionId: "${connection.salesforce_replica}"
+      query: "SELECT * FROM orders WHERE date = '${var.run_date}'"
+  
+  - id: transform
+    type: python
+    dependsOn: [extract]
+    config:
+      script: |
+        import json
+        rows = json.loads('${stages.extract.output.rows}')
+        # Transform data...
+        print(json.dumps({"transformed": cleaned_data}))
+  
+  - id: load
+    type: container
+    dependsOn: [transform]
+    config:
+      image: my-loader:latest
+      env:
+        DATA: "${stages.transform.output.transformed}"
+```
 
-| Capability | Where |
-|---|---|
-| YAML pipelines + publish validation | `pipeline-service` |
-| Manual runs, cancel, retry, timeouts | `execution-service` |
-| Stage types: echo, SQL, container (Docker) | Embedded executors in `execution-service` |
-| Stage output passing `${stages.*.output.*}` | `libs/common` + `execution-service` |
-| Cron schedules | `scheduler-service` |
-| Web UI (workflows, runs, logs, schedules) | `web/` |
-| Real-time run status | WebSocket via gateway → `execution-service` |
+**Current stage types:**
+- **SQL** — Query any JDBC-compatible database via configured connections
+- **Python** — Execute Python scripts with pip dependencies
+- **Container** — Run any Docker image
+- **Echo** — Debug/placeholder stage
+
+**Planned stage types:** dbt, Spark
+
+### Alpha vs Full Vision
+
+| Feature | Alpha (Today) | Full Platform |
+|---------|---------------|---------------|
+| Stage execution | Embedded in execution-service | Distributed runner fleet |
+| Data passing | JSON outputs (small data) | Artifacts in MinIO (large files) |
+| Connectors | Manual via SQL/Container stages | Connect Service with Debezium |
+| Transformations | SQL, Python, Container | + dbt, Spark, DuckDB |
+| Lineage | Not available | OpenLineage + Elasticsearch |
+| AI | Not available | Schema drift detection + auto-heal |
+
+See **[Implementation Status](docs/IMPLEMENTATION_STATUS.md)** for the detailed checklist.
 
 ---
 
@@ -287,30 +327,46 @@ See [`docs/theory/README.md`](docs/theory/README.md).
 ```
 Documentation (theory, ADRs, product, LLD)     ████████████████████ 100%
 Engineering foundation (Gradle, CI, compose)   █████████████████░░░  85%
-Core control plane (5 services + gateway)      ████████████░░░░░░░░  55%
-Web alpha shell (REST + WebSocket)             ██████████░░░░░░░░░░  45%
+Core services (gateway + 5 services)           █████████████████░░░  80%
+Web UI (React + real-time)                     ███████████████░░░░░  70%
+CLI (Go + GitHub Action)                       ████████████████████ 100%
 Remaining microservices (6 stubs)              █░░░░░░░░░░░░░░░░░░░   5%
-Runner fleet + gRPC control plane              ██░░░░░░░░░░░░░░░░░░  10%
-Full platform vs vision (~180 stories)         ███████░░░░░░░░░░░░░  30%
+Alpha MVP path (workflow → run → logs)         ████████████████░░░░  80%
+Full platform vs vision (~180 stories)         ████████░░░░░░░░░░░░  40%
 ```
 
 Details: **[docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)**
 
-### Done in repo
+### What's Working (Alpha)
 
-- Gradle multi-module backend, shared libs, Flyway migrations, Testcontainers ITs
-- Pipeline + execution + scheduler + tenant + gateway
-- Kafka job/execution consumers, transactional outbox
-- Embedded echo / SQL / container stages; stage output resolution (US-02.10)
-- Web UI: workflows, runs, logs, cancel, schedules, realtime
-- `backend/docker-compose.yml`, `make local-*`, `./scripts/pre-commit.sh`
+| Category | Features |
+|----------|----------|
+| **Pipelines** | Create, edit, publish, visual DAG editor, YAML export |
+| **Execution** | Manual run, cancel, retry, timeout, parallel stages |
+| **Stages** | SQL (any JDBC), Python (with pip), Container (Docker), Echo |
+| **Data Flow** | Stage output passing via `${stages.*.output.*}` |
+| **Scheduling** | Cron schedules, webhook triggers, Kafka event triggers |
+| **Connections** | PostgreSQL, MySQL, MSSQL, Snowflake, Redshift, BigQuery configs |
+| **Alerts** | Email, Slack, webhook on failure; per-workflow rules |
+| **Web UI** | Dashboard, workflow list/detail, run detail, logs, schedules, settings |
+| **CLI** | Login, workflow commands, run commands, deploy (CI/CD) |
+| **Real-time** | WebSocket updates for run status |
 
-### In progress / next (alpha → beta)
+### What's Not Built Yet
 
-- Retry from failed stage (US-02.05), checkpointing (US-02.12)
-- Tenant integration tests, hardened publish validation (US-01.12)
-- GraphQL read model (ADR-033), external runner dispatch
-- Helm/K8s app charts, production observability stack
+| Category | Gap |
+|----------|-----|
+| **Connectors** | No Debezium/CDC — use SQL/Container stages instead |
+| **Artifacts** | JSON only — no large file passing between stages |
+| **Runners** | Embedded execution — no distributed runner fleet |
+| **Lineage** | No data lineage tracking |
+| **AI Agent** | No schema drift detection or auto-heal |
+| **dbt/Spark** | Stage types defined but not implemented |
+
+### Next Milestones
+
+1. **Beta:** External runner dispatch, artifact storage, dbt stage
+2. **GA:** Connect Service with Debezium, lineage, production Helm charts
 
 ---
 
