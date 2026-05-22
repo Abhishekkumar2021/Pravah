@@ -1,8 +1,11 @@
 package io.pravah.runnerservice.api.internal;
 
+import io.pravah.common.runner.RemoteJobSpecPayload;
 import io.pravah.runnerservice.domain.JobAssignment;
 import io.pravah.runnerservice.service.JobAssignmentService;
 import io.pravah.spring.multitenancy.TenantContext;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +26,7 @@ public class InternalRunnerAssignmentController {
   }
 
   @PostMapping("/assignments")
-  public ResponseEntity<AssignmentDto> assignJob(@RequestBody AssignJobRequest request) {
+  public ResponseEntity<AssignmentDto> assignJob(@Valid @RequestBody AssignJobRequest request) {
     UUID tenantId = TenantContext.getCurrentTenantId();
     if (tenantId == null) {
       throw new IllegalStateException("Tenant context not set");
@@ -33,7 +36,9 @@ public class InternalRunnerAssignmentController {
             tenantId,
             request.jobId(),
             request.executionId(),
-            request.stageType(),
+            request.pipelineId(),
+            request.jobName(),
+            request.spec(),
             request.labels() != null ? request.labels() : Map.of())
         .map(a -> ResponseEntity.ok(toDto(a)))
         .orElse(ResponseEntity.status(503).build());
@@ -45,7 +50,12 @@ public class InternalRunnerAssignmentController {
   }
 
   public record AssignJobRequest(
-      UUID jobId, UUID executionId, String stageType, Map<String, String> labels) {}
+      @NotNull UUID jobId,
+      @NotNull UUID executionId,
+      UUID pipelineId,
+      String jobName,
+      @NotNull @Valid RemoteJobSpecPayload spec,
+      Map<String, String> labels) {}
 
   public record AssignmentDto(
       UUID assignmentId, UUID runnerId, UUID jobId, UUID executionId, String status) {}

@@ -183,16 +183,19 @@ public class RunnerAgent implements AutoCloseable {
         () -> {
           long startedAt = System.currentTimeMillis();
           try {
-            reportJobStatus(jobId, JobStatus.JOB_STATUS_RUNNING, 0, startedAt, 0, null);
+            reportJobStatus(jobId, JobStatus.JOB_STATUS_RUNNING, 0, startedAt, 0, null, Map.of());
             JobExecutor executor = new JobExecutor(workDir);
-            int exitCode = executor.execute(assignment);
+            JobExecutionResult result = executor.execute(assignment);
             reportJobStatus(
                 jobId,
-                exitCode == 0 ? JobStatus.JOB_STATUS_SUCCEEDED : JobStatus.JOB_STATUS_FAILED,
-                exitCode,
+                result.exitCode() == 0
+                    ? JobStatus.JOB_STATUS_SUCCEEDED
+                    : JobStatus.JOB_STATUS_FAILED,
+                result.exitCode(),
                 startedAt,
                 System.currentTimeMillis(),
-                null);
+                null,
+                result.output());
           } catch (Exception e) {
             log.error("Job execution failed", kv("jobId", jobId), e);
             reportJobStatus(
@@ -201,7 +204,8 @@ public class RunnerAgent implements AutoCloseable {
                 1,
                 startedAt,
                 System.currentTimeMillis(),
-                e.getMessage());
+                e.getMessage(),
+                Map.of());
           } finally {
             activeJobs.decrementAndGet();
           }
@@ -214,7 +218,8 @@ public class RunnerAgent implements AutoCloseable {
       int exitCode,
       long startedAt,
       long completedAt,
-      String error) {
+      String error,
+      Map<String, Object> output) {
     if (requestObserver == null) {
       return;
     }
@@ -227,6 +232,10 @@ public class RunnerAgent implements AutoCloseable {
             .setCompletedAt(completedAt);
     if (error != null) {
       update.setErrorMessage(error);
+    }
+    String outputJson = RunnerOutputJson.toJson(output);
+    if (!outputJson.isBlank()) {
+      update.setOutputJson(outputJson);
     }
     requestObserver.onNext(RunnerMessage.newBuilder().setJobStatus(update.build()).build());
   }

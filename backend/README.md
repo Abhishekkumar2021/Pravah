@@ -41,7 +41,29 @@ backend/
 
 **Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, connect. Partial: notification, runner-service. Stubs: graphql, metadata, agent.
 
-**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`.
+**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`. Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+
+Example stage snippet:
+
+```yaml
+- id: extract
+  type: container
+  runOn: runner
+  config:
+    image: python:3.12-slim
+    command: ["python", "-c", "print(1)"]
+``` Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+
+Example stage snippet:
+
+```yaml
+- id: extract
+  type: container
+  runOn: runner
+  config:
+    image: python:3.12-slim
+    command: ["python", "-c", "print(1)"]
+```
 
 ## Prerequisites
 

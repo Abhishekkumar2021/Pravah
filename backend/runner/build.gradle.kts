@@ -42,6 +42,11 @@ dependencies {
     implementation("com.github.docker-java:docker-java-core:3.3.6")
     implementation("com.github.docker-java:docker-java-transport-httpclient5:3.3.6")
 
+    // JDBC for remote SQL stages
+    runtimeOnly("org.postgresql:postgresql:42.7.3")
+
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+
     // Test support
     testImplementation(project(":libs:test-support"))
 }

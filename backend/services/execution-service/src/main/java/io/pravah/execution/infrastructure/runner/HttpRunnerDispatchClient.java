@@ -1,5 +1,6 @@
 package io.pravah.execution.infrastructure.runner;
 
+import io.pravah.common.runner.RemoteJobSpecPayload;
 import io.pravah.execution.application.port.RunnerDispatchPort;
 import io.pravah.spring.security.InternalServiceAuthFilter;
 import java.util.Map;
@@ -35,7 +36,13 @@ public class HttpRunnerDispatchClient implements RunnerDispatchPort {
 
   @Override
   public Optional<UUID> dispatch(
-      UUID tenantId, UUID jobId, UUID executionId, String stageType, Map<String, String> labels) {
+      UUID tenantId,
+      UUID jobId,
+      UUID executionId,
+      UUID pipelineId,
+      String jobName,
+      RemoteJobSpecPayload spec,
+      Map<String, String> labels) {
     try {
       AssignmentResponse response =
           restClient
@@ -43,7 +50,7 @@ public class HttpRunnerDispatchClient implements RunnerDispatchPort {
               .uri("/api/v1/internal/runners/assignments")
               .header(InternalServiceAuthFilter.SECRET_HEADER, internalSecret)
               .header(InternalServiceAuthFilter.TENANT_HEADER, tenantId.toString())
-              .body(new AssignJobRequest(jobId, executionId, stageType, labels))
+              .body(new AssignJobRequest(jobId, executionId, pipelineId, jobName, spec, labels))
               .retrieve()
               .body(AssignmentResponse.class);
       if (response == null || response.runnerId() == null) {
@@ -57,7 +64,12 @@ public class HttpRunnerDispatchClient implements RunnerDispatchPort {
   }
 
   record AssignJobRequest(
-      UUID jobId, UUID executionId, String stageType, Map<String, String> labels) {}
+      UUID jobId,
+      UUID executionId,
+      UUID pipelineId,
+      String jobName,
+      RemoteJobSpecPayload spec,
+      Map<String, String> labels) {}
 
   record AssignmentResponse(
       UUID assignmentId, UUID runnerId, UUID jobId, UUID executionId, String status) {}

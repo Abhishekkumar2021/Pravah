@@ -27,14 +27,20 @@ public class ExecutionJobCompletionClient {
     this.internalSecret = internalSecret;
   }
 
-  public void notifyCompletion(UUID tenantId, UUID jobId, UUID runnerId, int exitCode) {
+  public void notifyCompletion(
+      UUID tenantId, UUID jobId, UUID runnerId, int exitCode, Map<String, Object> output) {
     try {
+      Map<String, Object> payload = new java.util.LinkedHashMap<>();
+      payload.put("source", "runner");
+      if (output != null) {
+        payload.putAll(output);
+      }
       restClient
           .post()
           .uri("/api/v1/internal/jobs/{jobId}/complete", jobId)
           .header(InternalServiceAuthFilter.SECRET_HEADER, internalSecret)
           .header(InternalServiceAuthFilter.TENANT_HEADER, tenantId.toString())
-          .body(new CompletionRequest(exitCode, runnerId, Map.of("source", "runner")))
+          .body(new CompletionRequest(exitCode, runnerId, payload))
           .retrieve()
           .toBodilessEntity();
     } catch (RestClientResponseException e) {

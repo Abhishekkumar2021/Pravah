@@ -1,19 +1,28 @@
 package io.pravah.runner;
 
+import io.pravah.common.runner.RemoteJobSpecEnv;
 import io.pravah.proto.runner.JobAssignment;
+import io.pravah.proto.runner.JobSpec;
+import io.pravah.proto.runner.ResourceRequirements;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Executes assigned jobs locally (shell/Docker). Supports DuckDB via Python sidecar script. */
+/** Executes assigned jobs locally (shell/Docker/SQL/Python). */
 public class JobExecutor {
 
   private static final Logger log = LoggerFactory.getLogger(JobExecutor.class);
@@ -23,17 +32,23 @@ public class JobExecutor {
     this.workDir = Path.of(workDir);
   }
 
-  public int execute(JobAssignment assignment) throws Exception {
+  public JobExecutionResult execute(JobAssignment assignment) throws Exception {
     Files.createDirectories(workDir);
     String executor = assignment.getSpec().getExecutor();
 
     if ("python".equalsIgnoreCase(executor)) {
       return runPython(assignment);
     }
+    if ("sql".equalsIgnoreCase(executor)) {
+      return runSql(assignment);
+    }
     if ("docker".equalsIgnoreCase(executor) || "container".equalsIgnoreCase(executor)) {
       return runDocker(assignment);
     }
-    return runShell(assignment);
+    int exitCode = runShell(assignment);
+    return exitCode == 0
+        ? JobExecutionResult.success(Map.of())
+        : JobExecutionResult.failure(exitCode);
   }
 
   private int runShell(JobAssignment assignment) throws Exception {
@@ -44,14 +59,16 @@ public class JobExecutor {
       command.add("echo");
       command.add("runner job " + assignment.getJobId());
     }
-    return runProcess(command, assignment.getSpec().getEnvironmentMap(), 3600);
+    return runProcess(
+        command, assignment.getSpec().getEnvironmentMap(), timeoutSeconds(assignment.getSpec()));
   }
 
-  private int runDocker(JobAssignment assignment) throws Exception {
+  private JobExecutionResult runDocker(JobAssignment assignment) throws Exception {
     List<String> command = new ArrayList<>();
     command.add("docker");
     command.add("run");
     command.add("--rm");
+    applyResourceLimits(command, assignment.getSpec());
     String image = assignment.getSpec().getImage();
     if (image == null || image.isBlank()) {
       image = "alpine:3.19";
@@ -60,16 +77,19 @@ public class JobExecutor {
     if (assignment.getSpec().getCommandsCount() > 0) {
       command.addAll(assignment.getSpec().getCommandsList());
     }
-    return runProcess(
-        command,
-        assignment.getSpec().getEnvironmentMap(),
-        assignment.getSpec().getTimeoutSeconds());
+    int exitCode =
+        runProcess(
+            command,
+            assignment.getSpec().getEnvironmentMap(),
+            timeoutSeconds(assignment.getSpec()));
+    return exitCode == 0
+        ? JobExecutionResult.success(Map.of())
+        : JobExecutionResult.failure(exitCode);
   }
 
-  /** Runs DuckDB SQL transform when job environment contains PRAVAH_DUCKDB_SQL. */
-  private int runPython(JobAssignment assignment) throws Exception {
+  private JobExecutionResult runPython(JobAssignment assignment) throws Exception {
     Map<String, String> env = assignment.getSpec().getEnvironmentMap();
-    String duckdbSql = env.get("PRAVAH_DUCKDB_SQL");
+    String duckdbSql = env.get(RemoteJobSpecEnv.DUCKDB_SQL);
     if (duckdbSql != null && !duckdbSql.isBlank()) {
       Path script = workDir.resolve("duckdb_transform.py");
       String py =
@@ -84,9 +104,108 @@ public class JobExecutor {
           """;
       Files.writeString(script, py);
       List<String> command = List.of("python3", script.toString());
-      return runProcess(command, env, assignment.getSpec().getTimeoutSeconds());
+      int exitCode = runProcess(command, env, timeoutSeconds(assignment.getSpec()));
+      return exitCode == 0
+          ? JobExecutionResult.success(Map.of())
+          : JobExecutionResult.failure(exitCode);
     }
-    return runShell(assignment);
+
+    String scriptBody = env.get(RemoteJobSpecEnv.PYTHON_SCRIPT);
+    if (scriptBody == null || scriptBody.isBlank()) {
+      int exitCode = runShell(assignment);
+      return exitCode == 0
+          ? JobExecutionResult.success(Map.of())
+          : JobExecutionResult.failure(exitCode);
+    }
+
+    Path scriptPath = workDir.resolve("stage_script.py");
+    Files.writeString(scriptPath, scriptBody);
+    String requirements = env.get(RemoteJobSpecEnv.PYTHON_REQUIREMENTS);
+    if (requirements != null && !requirements.isBlank()) {
+      Path reqFile = workDir.resolve("requirements.txt");
+      Files.writeString(reqFile, requirements);
+      int pipExit =
+          runProcess(
+              List.of("python3", "-m", "pip", "install", "-q", "-r", reqFile.toString()),
+              env,
+              timeoutSeconds(assignment.getSpec()));
+      if (pipExit != 0) {
+        return JobExecutionResult.failure(pipExit);
+      }
+    }
+    int exitCode =
+        runProcess(
+            List.of("python3", scriptPath.toString()), env, timeoutSeconds(assignment.getSpec()));
+    return exitCode == 0
+        ? JobExecutionResult.success(Map.of())
+        : JobExecutionResult.failure(exitCode);
+  }
+
+  private JobExecutionResult runSql(JobAssignment assignment) throws Exception {
+    Map<String, String> env = assignment.getSpec().getEnvironmentMap();
+    String jdbcUrl = env.get(RemoteJobSpecEnv.SQL_JDBC_URL);
+    String query = env.get(RemoteJobSpecEnv.SQL_QUERY);
+    if (jdbcUrl == null || jdbcUrl.isBlank() || query == null || query.isBlank()) {
+      throw new IllegalArgumentException("SQL job missing JDBC URL or query in environment");
+    }
+    String user = env.getOrDefault(RemoteJobSpecEnv.SQL_USER, "");
+    String password = env.getOrDefault(RemoteJobSpecEnv.SQL_PASSWORD, "");
+
+    try (Connection connection =
+        DriverManager.getConnection(jdbcUrl, user.isBlank() ? null : user, password)) {
+      try (Statement statement = connection.createStatement()) {
+        boolean hasResultSet = statement.execute(query);
+        if (!hasResultSet) {
+          return JobExecutionResult.success(Map.of("update_count", statement.getUpdateCount()));
+        }
+        try (ResultSet rs = statement.getResultSet()) {
+          return JobExecutionResult.success(serializeResultSet(rs));
+        }
+      }
+    }
+  }
+
+  private static Map<String, Object> serializeResultSet(ResultSet rs) throws Exception {
+    ResultSetMetaData meta = rs.getMetaData();
+    int columnCount = meta.getColumnCount();
+    List<String> columns = new ArrayList<>(columnCount);
+    for (int i = 1; i <= columnCount; i++) {
+      columns.add(meta.getColumnLabel(i));
+    }
+    List<List<Object>> rows = new ArrayList<>();
+    int rowCount = 0;
+    while (rs.next()) {
+      List<Object> row = new ArrayList<>(columnCount);
+      for (int i = 1; i <= columnCount; i++) {
+        row.add(rs.getObject(i));
+      }
+      rows.add(row);
+      rowCount++;
+    }
+    Map<String, Object> output = new LinkedHashMap<>();
+    output.put("columns", columns);
+    output.put("rows", rows);
+    output.put("row_count", rowCount);
+    return output;
+  }
+
+  private static void applyResourceLimits(List<String> command, JobSpec spec) {
+    if (!spec.hasResources()) {
+      return;
+    }
+    ResourceRequirements resources = spec.getResources();
+    if (resources.getMemoryBytes() > 0) {
+      command.add("--memory");
+      command.add(String.valueOf(resources.getMemoryBytes()));
+    }
+    if (resources.getCpuCores() > 0) {
+      command.add("--cpus");
+      command.add(String.valueOf(resources.getCpuCores()));
+    }
+  }
+
+  private static long timeoutSeconds(JobSpec spec) {
+    return spec.getTimeoutSeconds() > 0 ? spec.getTimeoutSeconds() : 3600;
   }
 
   private int runProcess(List<String> command, Map<String, String> env, long timeoutSeconds)

@@ -50,6 +50,7 @@ public class JobCreatedProcessingService {
   private final ProcessedEventRepository processedEventRepository;
   private final StageExecutorRouter stageExecutorRouter;
   private final RunnerDispatchPort runnerDispatchPort;
+  private final RemoteJobSpecBuilder remoteJobSpecBuilder;
   private final JobLogService jobLogService;
   private final JobFailureService jobFailureService;
   private final CheckpointService checkpointService;
@@ -67,6 +68,7 @@ public class JobCreatedProcessingService {
       ProcessedEventRepository processedEventRepository,
       StageExecutorRouter stageExecutorRouter,
       RunnerDispatchPort runnerDispatchPort,
+      RemoteJobSpecBuilder remoteJobSpecBuilder,
       JobLogService jobLogService,
       JobFailureService jobFailureService,
       CheckpointService checkpointService,
@@ -82,6 +84,7 @@ public class JobCreatedProcessingService {
     this.processedEventRepository = processedEventRepository;
     this.stageExecutorRouter = stageExecutorRouter;
     this.runnerDispatchPort = runnerDispatchPort;
+    this.remoteJobSpecBuilder = remoteJobSpecBuilder;
     this.jobLogService = jobLogService;
     this.jobFailureService = jobFailureService;
     this.checkpointService = checkpointService;
@@ -136,11 +139,24 @@ public class JobCreatedProcessingService {
 
     Map<String, Object> stageConfig =
         findStageConfig(execution.getDefinitionSnapshot(), job.getStageId());
-    String stageType = resolveStageType(stageConfig);
     if (shouldRunOnRemoteRunner(stageConfig)) {
-      Optional<UUID> remoteRunner =
-          runnerDispatchPort.dispatch(
-              tenantId, jobId, execution.getId(), stageType, extractRunnerLabels(stageConfig));
+      Optional<UUID> remoteRunner = Optional.empty();
+      try {
+        var spec = remoteJobSpecBuilder.build(job, execution, stageConfig);
+        remoteRunner =
+            runnerDispatchPort.dispatch(
+                tenantId,
+                jobId,
+                execution.getId(),
+                execution.getPipelineId(),
+                job.getStageName(),
+                spec,
+                extractRunnerLabels(stageConfig));
+      } catch (IllegalArgumentException e) {
+        jobLogService.append(
+            job.getId(), JobLogLevel.ERROR, "Remote runner spec invalid: " + e.getMessage());
+        log.warn("Remote job spec build failed", kv("job_id", jobId), kv("error", e.getMessage()));
+      }
       if (remoteRunner.isPresent()) {
         job.assign(remoteRunner.get());
         jobEntityRepository.saveAndFlush(job);
