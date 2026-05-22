@@ -82,6 +82,33 @@ public final class ContainerResourceParser {
     };
   }
 
+  /**
+   * Parses a Kubernetes-style memory quantity to bytes (e.g. {@code 512Mi}, {@code 2Gi}).
+   *
+   * @throws IllegalArgumentException if the value cannot be parsed
+   */
+  public static long parseMemoryBytes(String raw) {
+    if (raw == null || raw.isBlank()) {
+      throw new IllegalArgumentException("Memory limit must not be blank");
+    }
+    String trimmed = raw.trim();
+    Matcher matcher = MEMORY.matcher(trimmed);
+    if (!matcher.matches()) {
+      throw new IllegalArgumentException("Invalid memory quantity: " + raw);
+    }
+    double amount = Double.parseDouble(matcher.group(1));
+    String suffix = matcher.group(2);
+    if (suffix == null || suffix.isEmpty()) {
+      return (long) amount;
+    }
+    long multiplier = memoryMultiplier(suffix);
+    long bytes = (long) (amount * multiplier);
+    if (bytes <= 0) {
+      throw new IllegalArgumentException("Memory limit must be positive: " + raw);
+    }
+    return bytes;
+  }
+
   private static String formatDockerBytes(long bytes) {
     if (bytes >= 1_073_741_824L && bytes % 1_073_741_824L == 0) {
       return (bytes / 1_073_741_824L) + "g";

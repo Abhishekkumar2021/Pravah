@@ -1,5 +1,7 @@
 package io.pravah.runnerservice.grpc;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import io.pravah.proto.common.Label;
@@ -27,14 +29,17 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
   private final RunnerService runnerService;
   private final RunnerConnectionManager connectionManager;
   private final JobAssignmentService jobAssignmentService;
+  private final ObjectMapper objectMapper;
 
   public RunnerServiceGrpcImpl(
       RunnerService runnerService,
       RunnerConnectionManager connectionManager,
-      JobAssignmentService jobAssignmentService) {
+      JobAssignmentService jobAssignmentService,
+      ObjectMapper objectMapper) {
     this.runnerService = runnerService;
     this.connectionManager = connectionManager;
     this.jobAssignmentService = jobAssignmentService;
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -128,12 +133,15 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
         log.info("Job status update: jobId={}, status={}", status.getJobId(), status.getStatus());
         UUID jobId = UUID.fromString(status.getJobId());
         int exitCode = status.getExitCode();
+        java.util.Map<String, Object> output = parseOutputJson(status.getOutputJson());
         switch (status.getStatus()) {
           case JOB_STATUS_RUNNING -> jobAssignmentService.markStarted(jobId);
-          case JOB_STATUS_SUCCEEDED -> jobAssignmentService.markCompleted(jobId, true, exitCode);
-          case JOB_STATUS_FAILED -> jobAssignmentService.markCompleted(jobId, false, exitCode);
+          case JOB_STATUS_SUCCEEDED ->
+              jobAssignmentService.markCompleted(jobId, true, exitCode, output);
+          case JOB_STATUS_FAILED ->
+              jobAssignmentService.markCompleted(jobId, false, exitCode, output);
           case JOB_STATUS_CANCELLED, JOB_STATUS_TIMED_OUT ->
-              jobAssignmentService.markCompleted(jobId, false, exitCode);
+              jobAssignmentService.markCompleted(jobId, false, exitCode, output);
           default -> {}
         }
       }
@@ -216,6 +224,18 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
       log.error("Failed to list runners", e);
       responseObserver.onError(
           Status.INTERNAL.withDescription("Failed to list runners").asRuntimeException());
+    }
+  }
+
+  private java.util.Map<String, Object> parseOutputJson(String outputJson) {
+    if (outputJson == null || outputJson.isBlank()) {
+      return java.util.Map.of();
+    }
+    try {
+      return objectMapper.readValue(outputJson, new TypeReference<>() {});
+    } catch (Exception e) {
+      log.warn("Failed to parse runner output JSON", e);
+      return java.util.Map.of("raw_output", outputJson);
     }
   }
 

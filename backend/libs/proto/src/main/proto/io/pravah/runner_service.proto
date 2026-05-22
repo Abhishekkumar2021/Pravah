@@ -86,6 +86,7 @@ message JobStatusUpdate {
   string error_message = 4;       // Only set on failure
   int64 started_at = 5;
   int64 completed_at = 6;
+  string output_json = 7;         // JSON object for stage output on terminal states
 }
 
 message JobLogChunk {

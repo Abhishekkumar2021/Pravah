@@ -1,5 +1,7 @@
 package io.pravah.runnerservice.service;
 
+import io.pravah.common.runner.RemoteJobSpecPayload;
+import io.pravah.proto.runner.JobSpec;
 import io.pravah.proto.runner.ServerMessage;
 import io.pravah.runnerservice.domain.JobAssignment;
 import io.pravah.runnerservice.domain.Runner;
@@ -48,7 +50,9 @@ public class JobAssignmentService {
       UUID tenantId,
       UUID jobId,
       UUID executionId,
-      String stageType,
+      UUID pipelineId,
+      String jobName,
+      RemoteJobSpecPayload spec,
       Map<String, String> requiredLabels) {
 
     if (assignmentRepository.findByJobId(jobId).isPresent()) {
@@ -56,7 +60,7 @@ public class JobAssignmentService {
     }
 
     List<Runner> candidates = runnerService.findAvailableRunners(tenantId);
-    Optional<Runner> selected = selectRunner(candidates, stageType, requiredLabels);
+    Optional<Runner> selected = selectRunner(candidates, spec.executor(), requiredLabels);
 
     if (selected.isEmpty()) {
       log.warn("No runner available for job {}", jobId);
@@ -76,7 +80,7 @@ public class JobAssignmentService {
     assignment.setAssignedAt(Instant.now());
     assignment = assignmentRepository.save(assignment);
 
-    if (!dispatchToRunner(runner.getId(), jobId, executionId, stageType)) {
+    if (!dispatchToRunner(runner.getId(), jobId, executionId, pipelineId, jobName, spec)) {
       assignmentRepository.delete(assignment);
       runnerService.completeJob(runner.getId());
       log.warn("Failed to dispatch job {} to runner {}", jobId, runner.getId());
@@ -98,6 +102,10 @@ public class JobAssignmentService {
   }
 
   public void markCompleted(UUID jobId, boolean success, int exitCode) {
+    markCompleted(jobId, success, exitCode, Map.of());
+  }
+
+  public void markCompleted(UUID jobId, boolean success, int exitCode, Map<String, Object> output) {
     assignmentRepository
         .findByJobId(jobId)
         .ifPresent(
@@ -111,7 +119,11 @@ public class JobAssignmentService {
                   .ifPresent(
                       runner ->
                           executionJobCompletionClient.notifyCompletion(
-                              runner.getTenantId(), jobId, a.getRunnerId(), exitCode));
+                              runner.getTenantId(),
+                              jobId,
+                              a.getRunnerId(),
+                              exitCode,
+                              output != null ? output : Map.of()));
             });
   }
 
@@ -156,22 +168,25 @@ public class JobAssignmentService {
     return true;
   }
 
-  private boolean dispatchToRunner(UUID runnerId, UUID jobId, UUID executionId, String stageType) {
-    String executor = stageType != null ? stageType : "container";
+  private boolean dispatchToRunner(
+      UUID runnerId,
+      UUID jobId,
+      UUID executionId,
+      UUID pipelineId,
+      String jobName,
+      RemoteJobSpecPayload spec) {
+    JobSpec jobSpec = JobSpecMapper.toProto(spec);
+    io.pravah.proto.runner.JobAssignment.Builder assignmentBuilder =
+        io.pravah.proto.runner.JobAssignment.newBuilder()
+            .setJobId(jobId.toString())
+            .setRunId(executionId.toString())
+            .setJobName(jobName != null && !jobName.isBlank() ? jobName : "job-" + jobId)
+            .setSpec(jobSpec);
+    if (pipelineId != null) {
+      assignmentBuilder.setPipelineId(pipelineId.toString());
+    }
     ServerMessage message =
-        ServerMessage.newBuilder()
-            .setJobAssignment(
-                io.pravah.proto.runner.JobAssignment.newBuilder()
-                    .setJobId(jobId.toString())
-                    .setRunId(executionId.toString())
-                    .setJobName("job-" + jobId)
-                    .setSpec(
-                        io.pravah.proto.runner.JobSpec.newBuilder()
-                            .setExecutor(executor)
-                            .setTimeoutSeconds(3600)
-                            .build())
-                    .build())
-            .build();
+        ServerMessage.newBuilder().setJobAssignment(assignmentBuilder.build()).build();
     return connectionManager.sendMessage(runnerId, message);
   }
 }

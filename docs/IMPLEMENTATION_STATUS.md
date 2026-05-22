@@ -60,7 +60,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
 | Remaining microservices | **Partial** | agent (stub), metadata (stub), graphql (stub), connect + runner-service (implemented) |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
-| Runner fleet + gRPC | **Partial** | gRPC server on 9091, internal assignment API, execution `runOn: runner` dispatch + completion callback; runner agent (no stream token auth yet) |
+| Runner fleet + gRPC | **Partial** | gRPC server on 9091, internal assignment API, `runOn: runner` dispatches resolved `JobSpec` (container/python/sql/dbt/spark) + stage output callback; runner agent executes locally (no stream token auth yet) |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
 **Rough progress vs full product vision (~180 user stories): ~50–55%.**  
@@ -84,7 +84,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **agent-service** | 8089 | Stub | Boot app only |
 | **connect-service** | 8090 | Implemented | Connector framework (17+ connectors), connection CRUD, test/discover streams, SaaS (Sheets, Stripe, Airtable, HubSpot), streaming (Kafka, RabbitMQ), CDC (PostgreSQL), Snowflake warehouse |
 
-**Standalone `backend/runner/`:** Picocli agent registers via gRPC, heartbeats, executes Docker/shell/Python+DuckDB jobs locally.
+**Standalone `backend/runner/`:** Picocli agent registers via gRPC, heartbeats, executes container/shell/python/sql jobs from resolved pipeline spec (env-driven script/SQL JDBC).
 
 **gRPC:** Proto definitions in `libs/proto`; `runner-service` serves gRPC on port 9091 (`RunnerGrpcServerLifecycle`). Stages with `runOn: runner` dispatch via `POST /api/v1/internal/runners/assignments` (S2S secret). Requires `RUNNER_SERVICE_BASE_URL`, `PRAVAH_INTERNAL_SERVICE_SECRET`.
 
@@ -120,7 +120,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **Done:** US-02.11 artifacts (MinIO storage, presigned URLs, artifact browser UI, `${stages.*.artifact.*}` resolution).
 
-**Not yet:** Full runner job spec (image/commands from pipeline YAML), Python `requirements_file` from pipeline repo, connect-service integration tests with Testcontainers.
+**Not yet:** Python `requirements_file` from pipeline repo (remote runner uses inline `requirements` list only), connect-service integration tests with Testcontainers.
 
 **Done (retry / checkpoint):** US-02.05 retry from failed stage (`POST /api/v1/executions/{id}/retry`), US-02.12 checkpoints table + auto-save on stage success + restore on retry + clear on success; run detail UI retry actions and `retryOf` lineage.
 
