@@ -15,8 +15,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Sets {@link TenantContext} for runner gRPC calls from metadata. Registration requires a bootstrap
- * secret aligned with {@code pravah.runner.bootstrap-secret} (local default: internal service
- * secret).
+ * secret aligned with {@code pravah.runner.bootstrap-secret} (must match runner agent config).
  */
 @Component
 public class RunnerGrpcContextInterceptor implements ServerInterceptor {

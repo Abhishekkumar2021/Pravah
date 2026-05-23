@@ -155,11 +155,52 @@ class ScheduleEvaluationJobTest {
   void nextRunAfterSuccessfulTrigger_runAllAdvancesFromScheduledSlot() {
     Schedule schedule = minimalSchedule("run_all");
     Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
-    Instant now = Instant.parse("2026-05-16T09:00:00Z");
 
     Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
 
     assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
+  }
+
+  @Test
+  void processScheduleCoalesce_fallsBackToRunAllWhenIntervalExceedsThreshold() {
+    Instant now = Instant.parse("2026-06-16T09:00:00Z");
+    Instant firstMissed = Instant.parse("2026-05-14T09:00:00Z");
+    Schedule schedule =
+        Schedule.builder()
+            .id(SCHEDULE_ID)
+            .tenantId(TENANT_ID)
+            .pipelineId(PIPELINE_ID)
+            .name("Daily")
+            .cronExpression("0 9 * * *")
+            .timezone("UTC")
+            .catchupPolicy("coalesce")
+            .nextRunAt(firstMissed)
+            .createdBy(UUID.randomUUID())
+            .build();
+
+    ScheduleEvaluationJob jobWithShortThreshold =
+        new ScheduleEvaluationJob(
+            leaderElectionService,
+            scheduleRepository,
+            scheduleHistoryRepository,
+            executionTriggerClient,
+            schedulerRlsHelper,
+            Clock.systemUTC(),
+            32,
+            java.time.Duration.ofDays(7));
+
+    when(executionTriggerClient.triggerScheduledExecution(
+            eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID)))
+        .thenReturn(EXECUTION_ID);
+    when(scheduleRepository.save(any(Schedule.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+        jobWithShortThreshold, "processScheduleCoalesce", schedule, now);
+
+    verify(executionTriggerClient, org.mockito.Mockito.atLeastOnce())
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID));
+    verify(executionTriggerClient, never())
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any());
   }
 
   @Test

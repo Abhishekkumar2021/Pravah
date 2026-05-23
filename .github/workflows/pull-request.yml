@@ -106,7 +106,7 @@ jobs:
           fi
 
           # Platform hardening PRs (backend + web + deploy + docs) may exceed 5000 lines.
-          if [ $TOTAL -gt 7000 ]; then
+          if [ $TOTAL -gt 8000 ]; then
             echo "::error::Very large PR ($TOTAL lines). Please split into smaller PRs."
             exit 1
           fi

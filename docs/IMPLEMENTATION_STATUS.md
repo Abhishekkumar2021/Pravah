@@ -77,7 +77,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers + DLT (`pravah.kafka.execution-events.dlt-topic`), outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, `@PreAuthorize` on REST APIs, circuit breaker + retry for inter-service calls (Resilience4j) |
 | **scheduler-service** | 8085 | Implemented | Cron schedules API with `catchupPolicy` (`skip`/`run_all`/`coalesce`), multi-fire catchup (`pravah.scheduler.max-catchup-fires`), coalesce combined interval in execution parameters (`_trigger.coalesce`, `pravah.scheduler.coalesce-max-interval`), event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, claim-first Kafka idempotency + DLT, trigger dispatch outbox retry, circuit breaker + retry (Resilience4j) |
-| **graphql** | 8081 | Stub | Boot app only; UI uses REST |
+| **graphql** | 8081 | Partial | OAuth2 resource server (JWT via JWKS); no GraphQL schema/resolvers yet — UI uses REST |
 | **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API with `@PreAuthorize`, gateway route `/api/v1/runners/**`, job assignment with label matching, stale runner detection, runner-agent secret resolution (`POST /api/v1/runners/{runnerId}/jobs/{jobId}/environment-secrets` authenticated with stream token + job assignment check) |
 | **metadata-service** | 8087 | Stub | Boot app only |
 | **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer + DLT (`pravah.kafka.notification.dlt-topic`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API, `@PreAuthorize` on REST APIs |
@@ -142,7 +142,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 - Triggers: `GET/POST/PUT/DELETE /api/v1/triggers`, `POST /api/v1/triggers/{id}/enable`, `POST /api/v1/triggers/{id}/disable`
 - Webhooks: `POST /api/v1/hooks/{triggerId}` (public, no auth required)
 
-**Partial:** Event trigger UI on workflow **Triggers** tab; `GET /api/v1/triggers/{id}/history`; `POST /api/v1/triggers/{id}/test`; webhook/Kafka dispatch history + `trigger_dispatch_pending` outbox retry. **Implemented:** `coalesce` catchup (US-03.15) with combined interval passed in execution parameters and `pravah.scheduler.coalesce-max-interval` threshold fallback to `run_all`.
+**Implemented:** Event trigger UI on workflow **Triggers** tab (`WorkflowTriggersPanel`); `GET /api/v1/triggers/{id}/history`; `POST /api/v1/triggers/{id}/test`; webhook/Kafka dispatch history + `trigger_dispatch_pending` outbox retry; `coalesce` catchup (US-03.15) with combined interval in execution parameters and `pravah.scheduler.coalesce-max-interval` threshold fallback to `run_all`.
 
 ---
 
@@ -193,7 +193,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **Requires Redis:** Gateway, scheduler webhooks, and tenant config cache need Redis (`backend/docker-compose.yml` service `redis`, ports `6379`).
 
-**Not yet:** Redis Sentinel HA, per-endpoint rate limits, IP allowlisting (US-10.16), Grafana alert rules for rate-limit deny spikes.
+**Not yet:** Redis Sentinel HA, per-endpoint rate limits. **Partial:** Gateway IP allowlist filter implemented (`pravah.gateway.ip-allowlist.*`, US-10.16); Grafana example rules in `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
 
 ---
 

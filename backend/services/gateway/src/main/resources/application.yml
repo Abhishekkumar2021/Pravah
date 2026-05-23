@@ -87,6 +87,10 @@ pravah:
     api-token-requests-per-second: ${PRAVAH_RATE_LIMIT_API_TOKEN_RPS:50}
     api-token-burst-capacity: ${PRAVAH_RATE_LIMIT_API_TOKEN_BURST:100}
     fail-open: ${PRAVAH_RATE_LIMIT_FAIL_OPEN:true}
+  gateway:
+    ip-allowlist:
+      enabled: ${PRAVAH_GATEWAY_IP_ALLOWLIST_ENABLED:false}
+      cidrs: ${PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS:}
 
 resilience4j:
   circuitbreaker:

@@ -217,6 +217,19 @@ class PipelineTriggerApiIT extends AbstractSchedulerPostgresIT {
         .andExpect(status().isNotFound());
   }
 
+  @Test
+  void history_returnsEmptyListForNewTrigger() throws Exception {
+    UUID pipelineId = UUID.randomUUID();
+    String triggerId = createTrigger(pipelineId, "history-hook", "webhook");
+
+    mockMvc
+        .perform(
+            get("/api/v1/triggers/{triggerId}/history", triggerId)
+                .header("Authorization", "Bearer " + jwt))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+  }
+
   private String createTrigger(UUID pipelineId, String name, String type) throws Exception {
     Map<String, Object> config = type.equals("kafka") ? Map.of("topic", "test") : Map.of();
     CreatePipelineTriggerRequest request =

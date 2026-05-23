@@ -31,8 +31,10 @@ dependencies {
     // YAML configuration
     implementation("org.yaml:snakeyaml:2.2")
 
-    // HTTP client for health checks
+    // HTTP client for health checks and secret resolution
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.14")

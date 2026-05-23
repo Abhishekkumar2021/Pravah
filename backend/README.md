@@ -70,6 +70,8 @@ Set `--runner-http-url` or `PRAVAH_RUNNER_HTTP_URL` (default `http://localhost:8
 
 **Scheduler coalesce catchup (US-03.15):** Set `catchupPolicy: coalesce` on a schedule. Missed cron slots within `pravah.scheduler.coalesce-max-interval` (env `PRAVAH_SCHEDULER_COALESCE_MAX_INTERVAL`, default `7d`) fire once; execution parameters include `_trigger.coalesce.{scheduleId, firstScheduledAt, lastScheduledAt, missedSlotCount}`. Spans exceeding the threshold fall back to `run_all`.
 
+**Gateway IP allowlist (US-10.16):** Optional ingress filter via `pravah.gateway.ip-allowlist.enabled` and `pravah.gateway.ip-allowlist.cidrs` (IPv4/IPv6 CIDR or exact IP). Env: `PRAVAH_GATEWAY_IP_ALLOWLIST_ENABLED`, `PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS`.
+
 **Method security:** Pipeline, execution, scheduler, connect, notification, and tenant REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (JWT permissions such as `pipelines:*`, `executions:*`, `users:*`, `settings:read`).
 
 Example stage snippet:
