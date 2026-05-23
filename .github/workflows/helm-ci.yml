@@ -6,7 +6,7 @@ on:
       - "deploy/helm/**"
       - ".github/workflows/helm-ci.yml"
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "deploy/helm/**"
       - ".github/workflows/helm-ci.yml"
@@ -49,7 +49,9 @@ jobs:
             --namespace pravah \
             --set externalPostgres.host=rds.example.com \
             --set externalKafka.bootstrapServers=msk.example.com:9092 \
-            --set externalRedis.host=redis.example.com 2>&1; then
-            echo "Expected helm template to fail without internalServiceSecret"
+            --set externalRedis.host=redis.example.com \
+            --set pravah.internalServiceExistingSecret="" \
+            --set pravah.internalServiceSecret="" 2>&1; then
+            echo "Expected helm template to fail without internal service credentials"
             exit 1
           fi
