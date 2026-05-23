@@ -373,6 +373,16 @@ services:
     tolerations: []
     affinity: {}
 
+# Runner gRPC TLS/mTLS (ADR-005/008) — mount server cert + optional client CA for mTLS
+runnerGrpcTls:
+  enabled: false
+  existingSecret: ""
+  mountPath: /etc/pravah/runner-grpc-tls
+  certChainKey: tls.crt
+  privateKeyKey: tls.key
+  clientCaKey: ca.crt
+  requireClientAuth: true
+
 # Pravah application configuration
 pravah:
   jwtIssuer: pravah-dev

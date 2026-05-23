@@ -44,6 +44,18 @@ deploy/helm/pravah-platform/
 
 **Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole` matching your Vault Kubernetes auth role. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production).
 
+**Runner gRPC mTLS (ADR-005/008):** When `services.runner-service.exposeGrpc.enabled` is true, set `runnerGrpcTls.enabled=true` and provide `runnerGrpcTls.existingSecret` with keys `tls.crt`, `tls.key`, and `ca.crt` (client CA for mTLS). Production values enable this by default. Local kind/minikube:
+
+```bash
+./scripts/deploy/generate-runner-grpc-tls.sh
+./scripts/deploy/k8s-local-runner-grpc-tls.sh pravah
+helm upgrade --install pravah deploy/helm/pravah-platform ... \
+  --set runnerGrpcTls.enabled=true \
+  --set runnerGrpcTls.existingSecret=pravah-runner-grpc-tls
+```
+
+Runner agent (outside cluster): `--tls-enabled --tls-trust-cert=ca.crt --tls-client-cert=client.crt --tls-client-key=client.key` (files from `deploy/certs/runner-grpc/`).
+
 ## Prerequisites
 
 - Kubernetes 1.27+ (kind, minikube, EKS, GKE, AKS)
@@ -151,6 +163,12 @@ kubectl -n pravah create secret generic pravah-artifact-credentials \
 # SMTP credentials (notification-service)
 kubectl -n pravah create secret generic pravah-smtp-credentials \
   --from-literal=password='<smtp-password>'
+
+# Runner gRPC TLS credentials (production — create before helm install)
+kubectl -n pravah create secret generic pravah-runner-grpc-tls \
+  --from-file=tls.crt=server.pem \
+  --from-file=tls.key=server-key.pem \
+  --from-file=ca.crt=client-ca.pem
 
 # Image pull secret (for private registry - only if repo is private)
 kubectl -n pravah create secret docker-registry ghcr-pull-secret \

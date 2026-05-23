@@ -51,6 +51,16 @@ Production install guardrails (active when requireProductionSecrets=true).
 {{- if .Values.vault.enabled }}
 {{- fail "vault.enabled must be false in production; configure externalVault.address with Kubernetes auth" }}
 {{- end }}
+{{- $runner := index .Values.services "runner-service" }}
+{{- if and $runner.enabled $runner.exposeGrpc.enabled (not .Values.runnerGrpcTls.enabled) }}
+{{- fail "runnerGrpcTls.enabled must be true when runner-service.exposeGrpc.enabled (external runner gRPC)" }}
+{{- end }}
+{{- if and .Values.runnerGrpcTls.enabled (not .Values.runnerGrpcTls.existingSecret) }}
+{{- fail "runnerGrpcTls.existingSecret is required when runnerGrpcTls.enabled" }}
+{{- end }}
+{{- if and .Values.runnerGrpcTls.enabled .Values.runnerGrpcTls.requireClientAuth (not .Values.runnerGrpcTls.clientCaKey) }}
+{{- fail "runnerGrpcTls.clientCaKey is required when runnerGrpcTls.requireClientAuth is true" }}
+{{- end }}
 {{- range $key, $svc := .Values.services }}
 {{- if and $svc.enabled $svc.needsVault (not $.Values.externalVault.address) }}
 {{- fail (printf "services.%s.needsVault=true requires externalVault.address in production" $key) }}

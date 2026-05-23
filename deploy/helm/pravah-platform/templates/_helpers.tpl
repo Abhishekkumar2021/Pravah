@@ -441,6 +441,18 @@ Common environment variables for all services
     secretKeyRef:
       name: {{ include "pravah.runnerBootstrap.secretName" $root }}
       key: {{ include "pravah.runnerBootstrap.secretKey" $root }}
+{{- if $root.Values.runnerGrpcTls.enabled }}
+- name: PRAVAH_RUNNER_GRPC_TLS_ENABLED
+  value: "true"
+- name: PRAVAH_RUNNER_GRPC_TLS_CERT_CHAIN
+  value: {{ printf "%s/%s" $root.Values.runnerGrpcTls.mountPath $root.Values.runnerGrpcTls.certChainKey | quote }}
+- name: PRAVAH_RUNNER_GRPC_TLS_PRIVATE_KEY
+  value: {{ printf "%s/%s" $root.Values.runnerGrpcTls.mountPath $root.Values.runnerGrpcTls.privateKeyKey | quote }}
+{{- if $root.Values.runnerGrpcTls.requireClientAuth }}
+- name: PRAVAH_RUNNER_GRPC_TLS_CLIENT_CA
+  value: {{ printf "%s/%s" $root.Values.runnerGrpcTls.mountPath $root.Values.runnerGrpcTls.clientCaKey | quote }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- range $k, $v := $svc.extraEnv }}
 - name: {{ $k }}

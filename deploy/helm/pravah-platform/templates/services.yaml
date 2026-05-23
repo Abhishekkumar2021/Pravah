@@ -120,9 +120,28 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if and (eq $svcKey "runner-service") $.Values.runnerGrpcTls.enabled }}
+            - name: runner-grpc-tls
+              mountPath: {{ $.Values.runnerGrpcTls.mountPath }}
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- if and (eq $svcKey "runner-service") $.Values.runnerGrpcTls.enabled }}
+        - name: runner-grpc-tls
+          secret:
+            secretName: {{ $.Values.runnerGrpcTls.existingSecret }}
+            items:
+              - key: {{ $.Values.runnerGrpcTls.certChainKey }}
+                path: {{ $.Values.runnerGrpcTls.certChainKey }}
+              - key: {{ $.Values.runnerGrpcTls.privateKeyKey }}
+                path: {{ $.Values.runnerGrpcTls.privateKeyKey }}
+              {{- if $.Values.runnerGrpcTls.requireClientAuth }}
+              - key: {{ $.Values.runnerGrpcTls.clientCaKey }}
+                path: {{ $.Values.runnerGrpcTls.clientCaKey }}
+              {{- end }}
+        {{- end }}
       {{- $affinity := include "pravah.podAntiAffinity" (dict "root" $ "svcKey" $svcKey "svc" $svc) }}
       {{- if $affinity }}
       affinity:
