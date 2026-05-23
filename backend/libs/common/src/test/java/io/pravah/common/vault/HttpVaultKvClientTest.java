@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +34,7 @@ class HttpVaultKvClientTest {
           }
           kvReads++;
           String token = exchange.getRequestHeaders().getFirst("X-Vault-Token");
-          if (!"dev-token".equals(token)) {
+          if (token == null || token.isBlank()) {
             writeJson(exchange, 403, "{\"errors\":[\"permission denied\"]}");
             return;
           }
@@ -90,6 +91,59 @@ class HttpVaultKvClientTest {
     assertThatThrownBy(() -> client.readField("secret/data/myapp", "missing"))
         .isInstanceOf(VaultException.class)
         .hasMessageContaining("no field 'missing'");
+  }
+
+  @Test
+  void readField_notFound_throws() {
+    VaultSettings settings =
+        new VaultSettings(
+            true,
+            baseUrl,
+            "token",
+            "dev-token",
+            "",
+            "kubernetes",
+            "/var/run/secrets/kubernetes.io/serviceaccount/token",
+            Duration.ofSeconds(5));
+    HttpVaultKvClient client = new HttpVaultKvClient(settings);
+
+    assertThatThrownBy(() -> client.readField("secret/data/missing", "password"))
+        .isInstanceOf(VaultException.class)
+        .hasMessageContaining("not found");
+  }
+
+  @Test
+  void readField_kubernetesAuth_usesLoginToken() throws IOException {
+    server.createContext(
+        "/v1/auth/kubernetes/login",
+        exchange -> {
+          if (!"POST".equals(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            return;
+          }
+          writeJson(
+              exchange,
+              200,
+              """
+              {"auth":{"client_token":"k8s-token","lease_duration":300}}
+              """);
+        });
+    Path tokenFile = java.nio.file.Files.createTempFile("sa-jwt", ".txt");
+    java.nio.file.Files.writeString(tokenFile, "fake-jwt");
+    VaultSettings settings =
+        new VaultSettings(
+            true,
+            baseUrl,
+            "kubernetes",
+            "",
+            "pipeline-role",
+            "kubernetes",
+            tokenFile.toString(),
+            Duration.ofSeconds(5));
+    HttpVaultKvClient client = new HttpVaultKvClient(settings);
+
+    assertThat(client.readField("secret/data/myapp", "password")).isEqualTo("s3cret");
+    java.nio.file.Files.deleteIfExists(tokenFile);
   }
 
   private static void writeJson(HttpExchange exchange, int status, String body) throws IOException {

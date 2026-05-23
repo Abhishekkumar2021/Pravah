@@ -15,3 +15,5 @@ secret:
       match: "pravah"
     - name: "Local dev minio password"  
       match: "pravah123"
+    - name: "Local dev Vault root token"
+      match: "dev-root-token"

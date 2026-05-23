@@ -40,6 +40,9 @@ public final class HttpVaultKvClient implements VaultKvReader {
     if (apiPath.isBlank()) {
       throw new VaultException("Vault path must not be blank");
     }
+    if (apiPath.contains("..")) {
+      throw new VaultException("Vault path must not contain '..'");
+    }
     if (fieldKey.isBlank()) {
       throw new VaultException("Vault field key must not be blank");
     }

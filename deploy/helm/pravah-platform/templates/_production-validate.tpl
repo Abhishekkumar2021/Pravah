@@ -51,5 +51,10 @@ Production install guardrails (active when requireProductionSecrets=true).
 {{- if .Values.vault.enabled }}
 {{- fail "vault.enabled must be false in production; configure externalVault.address with Kubernetes auth" }}
 {{- end }}
+{{- range $key, $svc := .Values.services }}
+{{- if and $svc.enabled $svc.needsVault (not $.Values.externalVault.address) }}
+{{- fail (printf "services.%s.needsVault=true requires externalVault.address in production" $key) }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

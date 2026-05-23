@@ -44,7 +44,6 @@ spec:
           args:
             - server
             - -dev
-            - -dev-root-token-id=$(VAULT_DEV_ROOT_TOKEN_ID)
             - -dev-listen-address=0.0.0.0:8200
           env:
             - name: VAULT_DEV_ROOT_TOKEN_ID
@@ -54,6 +53,8 @@ spec:
                   key: vault-dev-root-token
             - name: VAULT_ADDR
               value: http://127.0.0.1:8200
+            - name: VAULT_DEV_LISTEN_ADDRESS
+              value: 0.0.0.0:8200
           ports:
             - containerPort: 8200
               name: api
