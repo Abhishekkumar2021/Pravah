@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pravah.common.domain.resolution.VaultResolverProvider;
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.pipeline.api.dto.CreateConnectionRequest;
 import io.pravah.pipeline.infrastructure.persistence.entity.ConnectionEntity;
@@ -38,7 +39,7 @@ class ConnectionApplicationServiceTest {
 
   @BeforeEach
   void setUp() {
-    credentialResolver = new ConnectionCredentialResolver();
+    credentialResolver = new ConnectionCredentialResolver(new VaultResolverProvider());
     service =
         new ConnectionApplicationService(
             connectionRepository, credentialResolver, new ObjectMapper(), true);

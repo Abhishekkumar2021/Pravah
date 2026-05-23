@@ -103,6 +103,72 @@ Redis hostname - bundled or external
 {{- end }}
 
 {{/*
+MinIO / artifact storage hostname
+*/}}
+{{- define "pravah.minio.hostname" -}}
+{{- if .Values.minio.enabled }}
+{{- printf "%s-minio" (include "pravah.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.artifact.endpoint" -}}
+{{- if .Values.minio.enabled }}
+{{- printf "http://%s:9000" (include "pravah.minio.hostname" .) }}
+{{- else }}
+{{- required "externalArtifact.endpoint is required when minio.enabled is false" .Values.externalArtifact.endpoint }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.artifact.secretName" -}}
+{{- if .Values.externalArtifact.existingSecret }}
+{{- .Values.externalArtifact.existingSecret }}
+{{- else }}
+{{- include "pravah.secretName" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Vault — bundled dev server or external cluster
+*/}}
+{{- define "pravah.vault.hostname" -}}
+{{- if .Values.vault.enabled }}
+{{- printf "%s-vault" (include "pravah.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.vault.address" -}}
+{{- if .Values.vault.enabled }}
+{{- printf "http://%s:8200" (include "pravah.vault.hostname" .) }}
+{{- else }}
+{{- .Values.externalVault.address }}
+{{- end }}
+{{- end }}
+
+{{/*
+SMTP hostname — bundled Mailhog or external
+*/}}
+{{- define "pravah.smtp.host" -}}
+{{- if .Values.mailhog.enabled }}
+{{- printf "%s-mailhog" (include "pravah.fullname" .) }}
+{{- else if .Values.smtp.host }}
+{{- .Values.smtp.host }}
+{{- else }}
+{{- "localhost" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Public hooks base URL for scheduler webhooks
+*/}}
+{{- define "pravah.hooksBaseUrl" -}}
+{{- if .Values.pravah.hooksBaseUrl }}
+{{- .Values.pravah.hooksBaseUrl }}
+{{- else }}
+{{- printf "http://%s-gateway:%v/api/v1/hooks" (include "pravah.fullname" .) (index .Values.services "gateway").port }}
+{{- end }}
+{{- end }}
+
+{{/*
 Secret name for credentials
 */}}
 {{- define "pravah.secretName" -}}
@@ -123,6 +189,26 @@ Secret name for credentials
 
 {{- define "pravah.internalService.secretKey" -}}
 {{- .Values.pravah.internalServiceExistingSecretKey | default "internal-service-secret" }}
+{{- end }}
+
+{{- define "pravah.runnerBootstrap.secretName" -}}
+{{- if .Values.pravah.runnerBootstrapExistingSecret }}
+{{- .Values.pravah.runnerBootstrapExistingSecret }}
+{{- else if .Values.pravah.runnerBootstrapSecret }}
+{{- include "pravah.secretName" . }}
+{{- else }}
+{{- include "pravah.internalService.secretName" . }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.runnerBootstrap.secretKey" -}}
+{{- if .Values.pravah.runnerBootstrapExistingSecret }}
+{{- .Values.pravah.runnerBootstrapExistingSecretKey | default "runner-bootstrap-secret" }}
+{{- else if .Values.pravah.runnerBootstrapSecret }}
+{{- "runner-bootstrap-secret" }}
+{{- else }}
+{{- include "pravah.internalService.secretKey" . }}
+{{- end }}
 {{- end }}
 
 {{- define "pravah.jvmOptions" -}}
@@ -213,6 +299,11 @@ Common environment variables for all services
   value: {{ $root.Values.externalKafka.sasl.mechanism | quote }}
 - name: SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL
   value: SASL_SSL
+- name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG
+  valueFrom:
+    secretKeyRef:
+      name: {{ $root.Values.externalKafka.sasl.existingSecret | default (include "pravah.secretName" $root) }}
+      key: {{ $root.Values.externalKafka.sasl.existingSecretJaasKey | default "kafka-jaas-config" }}
 {{- end }}
 {{- end }}
 {{- if $svc.needsRedis }}
@@ -228,12 +319,38 @@ Common environment variables for all services
   value: {{ $root.Values.pravah.realtimeRedisEnabled | quote }}
 - name: PRAVAH_WS_ALLOWED_ORIGINS
   value: {{ $root.Values.pravah.wsAllowedOrigins | quote }}
-{{- if and (not $root.Values.redis.enabled) $root.Values.externalRedis.password }}
+{{- if and (not $root.Values.redis.enabled) (or $root.Values.externalRedis.password $root.Values.externalRedis.existingSecret) }}
 - name: SPRING_DATA_REDIS_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ $root.Values.externalRedis.existingSecret | default (include "pravah.secretName" $root) }}
       key: {{ $root.Values.externalRedis.existingSecretPasswordKey | default "redis-password" }}
+{{- end }}
+{{- if and (not $root.Values.redis.enabled) $root.Values.externalRedis.tls.enabled }}
+- name: SPRING_DATA_REDIS_SSL_ENABLED
+  value: "true"
+{{- end }}
+{{- end }}
+{{- if and $svc.needsVault (or $root.Values.vault.enabled $root.Values.externalVault.address) }}
+- name: PRAVAH_VAULT_ENABLED
+  value: "true"
+- name: VAULT_ADDR
+  value: {{ include "pravah.vault.address" $root | quote }}
+{{- if $root.Values.vault.enabled }}
+- name: PRAVAH_VAULT_AUTH_METHOD
+  value: token
+- name: VAULT_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "pravah.secretName" $root }}
+      key: vault-dev-root-token
+{{- else }}
+- name: PRAVAH_VAULT_AUTH_METHOD
+  value: kubernetes
+- name: PRAVAH_VAULT_K8S_MOUNT_PATH
+  value: {{ $root.Values.externalVault.kubernetesMountPath | quote }}
+- name: PRAVAH_VAULT_K8S_ROLE
+  value: {{ $svc.vaultKubernetesRole | default (printf "pravah-%s" $svcKey) | quote }}
 {{- end }}
 {{- end }}
 {{- if eq $svcKey "tenant-service" }}
@@ -241,18 +358,201 @@ Common environment variables for all services
   value: {{ $root.Values.pravah.registrationTenantId | quote }}
 - name: PRAVAH_FRONTEND_URL
   value: {{ $root.Values.pravah.frontendBaseUrl | quote }}
+- name: PRAVAH_AUTH_REFRESH_COOKIE_SECURE
+  value: {{ $root.Values.pravah.authRefreshCookieSecure | quote }}
+- name: PRAVAH_MAIL_FROM
+  value: {{ $root.Values.pravah.mailFrom | quote }}
+- name: MAIL_HOST
+  value: {{ include "pravah.smtp.host" $root | quote }}
+- name: MAIL_PORT
+  value: {{ $root.Values.smtp.port | default 1025 | quote }}
+{{- if $root.Values.smtp.username }}
+- name: MAIL_USERNAME
+  value: {{ $root.Values.smtp.username | quote }}
+{{- end }}
+{{- if or $root.Values.smtp.password $root.Values.smtp.existingSecret }}
+- name: MAIL_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ $root.Values.smtp.existingSecret | default (include "pravah.secretName" $root) }}
+      key: {{ $root.Values.smtp.existingSecretPasswordKey | default "smtp-password" }}
+{{- end }}
 {{- end }}
 {{- if eq $svcKey "execution-service" }}
 - name: PIPELINE_SERVICE_BASE_URL
   value: {{ printf "http://%s-pipeline-service:%v" (include "pravah.fullname" $root) (index $root.Values.services "pipeline-service").port | quote }}
+- name: RUNNER_SERVICE_BASE_URL
+  value: {{ printf "http://%s-runner-service:%v" (include "pravah.fullname" $root) (index $root.Values.services "runner-service").port | quote }}
+- name: PRAVAH_ARTIFACT_ENABLED
+  value: "true"
+- name: PRAVAH_ARTIFACT_ENDPOINT
+  value: {{ include "pravah.artifact.endpoint" $root | quote }}
+- name: PRAVAH_ARTIFACT_REGION
+  value: {{ $root.Values.externalArtifact.region | default "us-east-1" | quote }}
+- name: PRAVAH_ARTIFACT_BUCKET
+  value: {{ if $root.Values.minio.enabled }}{{ $root.Values.minio.bucket | quote }}{{ else }}{{ $root.Values.externalArtifact.bucket | quote }}{{ end }}
+- name: PRAVAH_ARTIFACT_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "pravah.artifact.secretName" $root }}
+      key: {{ if $root.Values.externalArtifact.existingSecret }}{{ $root.Values.externalArtifact.existingSecretAccessKeyKey }}{{ else if $root.Values.minio.enabled }}minio-access-key{{ else }}artifact-access-key{{ end }}
+- name: PRAVAH_ARTIFACT_SECRET_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "pravah.artifact.secretName" $root }}
+      key: {{ if $root.Values.externalArtifact.existingSecret }}{{ $root.Values.externalArtifact.existingSecretSecretKeyKey }}{{ else if $root.Values.minio.enabled }}minio-secret-key{{ else }}artifact-secret-key{{ end }}
 {{- end }}
 {{- if eq $svcKey "scheduler-service" }}
 - name: EXECUTION_SERVICE_BASE_URL
   value: {{ printf "http://%s-execution-service:%v" (include "pravah.fullname" $root) (index $root.Values.services "execution-service").port | quote }}
+- name: PRAVAH_HOOKS_BASE_URL
+  value: {{ include "pravah.hooksBaseUrl" $root | quote }}
+- name: PRAVAH_RATE_LIMIT_FAIL_OPEN
+  value: {{ $root.Values.pravah.rateLimitFailOpen | quote }}
+{{- end }}
+{{- if eq $svcKey "notification-service" }}
+- name: PRAVAH_UI_BASE_URL
+  value: {{ $root.Values.pravah.frontendBaseUrl | quote }}
+- name: SMTP_HOST
+  value: {{ include "pravah.smtp.host" $root | quote }}
+- name: SMTP_PORT
+  value: {{ $root.Values.smtp.port | default 1025 | quote }}
+- name: SMTP_AUTH
+  value: {{ $root.Values.smtp.auth | default "false" | quote }}
+- name: SMTP_STARTTLS
+  value: {{ $root.Values.smtp.starttls | default "false" | quote }}
+{{- if $root.Values.smtp.username }}
+- name: SMTP_USERNAME
+  value: {{ $root.Values.smtp.username | quote }}
+{{- end }}
+{{- if or $root.Values.smtp.password $root.Values.smtp.existingSecret }}
+- name: SMTP_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ $root.Values.smtp.existingSecret | default (include "pravah.secretName" $root) }}
+      key: {{ $root.Values.smtp.existingSecretPasswordKey | default "smtp-password" }}
+{{- end }}
+{{- end }}
+{{- if eq $svcKey "runner-service" }}
+- name: EXECUTION_SERVICE_BASE_URL
+  value: {{ printf "http://%s-execution-service:%v" (include "pravah.fullname" $root) (index $root.Values.services "execution-service").port | quote }}
+- name: PRAVAH_RUNNER_BOOTSTRAP_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "pravah.runnerBootstrap.secretName" $root }}
+      key: {{ include "pravah.runnerBootstrap.secretKey" $root }}
 {{- end }}
 {{- range $k, $v := $svc.extraEnv }}
 - name: {{ $k }}
   value: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Init containers: wait for bundled dependencies before service start.
+*/}}
+{{- define "pravah.serviceInitContainers" -}}
+{{- $root := .root -}}
+{{- $svc := .svc -}}
+{{- $svcKey := .svcKey -}}
+{{- if $root.Values.dependencyWait.enabled }}
+{{- if and $svc.needsPostgres $root.Values.postgres.enabled }}
+- name: wait-postgres
+  image: {{ $root.Values.postgres.image }}
+  securityContext:
+    {{- toYaml $root.Values.containerSecurityContext | nindent 4 }}
+  command:
+    - sh
+    - -c
+    - |
+      until pg_isready -h {{ include "pravah.postgres.hostname" $root }} -p 5432 -U {{ $root.Values.postgres.auth.username }}; do
+        echo "waiting for postgres..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
+{{- if and $svc.needsKafka $root.Values.kafka.enabled }}
+- name: wait-kafka
+  image: {{ $root.Values.dependencyWait.image }}
+  command:
+    - sh
+    - -c
+    - |
+      until nc -z {{ include "pravah.kafka.hostname" $root }} 9092; do
+        echo "waiting for kafka..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
+{{- if and $svc.needsRedis $root.Values.redis.enabled }}
+- name: wait-redis
+  image: {{ $root.Values.dependencyWait.image }}
+  command:
+    - sh
+    - -c
+    - |
+      until nc -z {{ include "pravah.redis.hostname" $root }} {{ include "pravah.redis.port" $root }}; do
+        echo "waiting for redis..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
+{{- if and (eq $svcKey "execution-service") $root.Values.minio.enabled }}
+- name: wait-minio
+  image: {{ $root.Values.dependencyWait.image }}
+  command:
+    - sh
+    - -c
+    - |
+      until nc -z {{ include "pravah.minio.hostname" $root }} 9000; do
+        echo "waiting for minio..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
+{{- if and $svc.needsVault $root.Values.vault.enabled }}
+- name: wait-vault
+  image: {{ $root.Values.dependencyWait.image }}
+  command:
+    - sh
+    - -c
+    - |
+      until nc -z {{ include "pravah.vault.hostname" $root }} 8200; do
+        echo "waiting for vault..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
 {{- end }}
 {{- end }}
 

@@ -31,7 +31,7 @@ backend/
 │   ├── agent-service/           # AI-powered assistance
 │   └── connect-service/         # External integrations
 ├── runner/                      # Standalone runner binary (CLI skeleton)
-├── docker-compose.yml           # Local Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog
+├── docker-compose.yml           # Local Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog, Vault (dev)
 ├── scripts/local/               # local-up, local-services, seed
 ├── gradle/
 │   └── libs.versions.toml       # Version catalog
@@ -145,6 +145,25 @@ Webhook triggers (`POST /api/v1/hooks/{triggerId}`) use the same Redis token-buc
 | `spring.mail.port` | `MAIL_PORT` | `1025` | SMTP port (Mailhog) |
 | `spring.mail.username` | `MAIL_USERNAME` | _(empty)_ | SMTP auth user |
 | `spring.mail.password` | `MAIL_PASSWORD` | _(empty)_ | SMTP auth password |
+
+### HashiCorp Vault (ADR-007, pipeline connections)
+
+Optional KV v2 resolver for `vault:path#key` credential references in pipeline connections. Disabled by default.
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault reads |
+| `pravah.vault.address` | `VAULT_ADDR` | `http://localhost:8200` | Vault API URL |
+| `pravah.vault.auth.method` | `PRAVAH_VAULT_AUTH_METHOD` | `token` | `token` or `kubernetes` |
+| `pravah.vault.auth.token` | `VAULT_TOKEN` | _(empty)_ | Token when method=token |
+| `pravah.vault.auth.kubernetes.role` | `PRAVAH_VAULT_K8S_ROLE` | _(empty)_ | K8s auth role in production |
+
+```bash
+# After make local-up
+chmod +x scripts/vault/init-local-kv.sh
+./scripts/vault/init-local-kv.sh
+export PRAVAH_VAULT_ENABLED=true VAULT_ADDR=http://localhost:8200 VAULT_TOKEN=dev-root-token
+```
 
 ### notification-service (alerts, audit log, in-app notifications)
 

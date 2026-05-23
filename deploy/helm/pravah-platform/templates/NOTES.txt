@@ -11,5 +11,6 @@ Seed demo data (after all pods are Ready):
 Sign in: dev@localhost.pravah / PravahDev1!  (after seed)
 
 Alpha K8s note: container stages are disabled (PRAVAH_CONTAINER_ENABLED=false). Use echo/sql stages.
+Bundled MinIO provides artifact storage; Mailhog (local values) captures alert/password-reset email.
 
 Docs: deploy/README.md

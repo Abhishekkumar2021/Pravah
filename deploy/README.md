@@ -38,9 +38,11 @@ deploy/helm/pravah-platform/
     servicemonitor.yaml # Prometheus ServiceMonitors
 ```
 
-**Alpha services:** `gateway`, `tenant-service`, `pipeline-service`, `execution-service`, `scheduler-service`.
+**Platform services:** `gateway`, `tenant-service`, `pipeline-service`, `execution-service`, `scheduler-service`, `notification-service`, `connect-service`, `runner-service` (HTTP + gRPC 9091).
 
-**Bundled dependencies (disable in production):** PostgreSQL 16, Apache Kafka 3.7 (KRaft), Redis 7.
+**Bundled dependencies (disable in production):** PostgreSQL 16, Apache Kafka 3.7 (KRaft), Redis 7, MinIO (artifacts), optional Mailhog (local SMTP), optional Vault dev server (local KV secrets).
+
+**Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole` matching your Vault Kubernetes auth role. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production).
 
 ## Prerequisites
 
@@ -124,11 +126,21 @@ kubectl -n pravah create secret generic pravah-postgres-credentials \
   --from-literal=username=pravah \
   --from-literal=password='<secure-password>'
 
-# Pravah application secret
+# Pravah application secret (internal S2S + optional dedicated runner bootstrap key)
 kubectl -n pravah create secret generic pravah-credentials \
   --from-literal=postgres-username=pravah \
   --from-literal=postgres-password='<secure-password>' \
-  --from-literal=internal-service-secret='<32-char-secret>'
+  --from-literal=internal-service-secret='<32-char-secret>' \
+  --from-literal=runner-bootstrap-secret='<32-char-runner-secret>'
+
+# S3 / artifact credentials (when minio.enabled=false)
+kubectl -n pravah create secret generic pravah-artifact-credentials \
+  --from-literal=access-key='<s3-access-key>' \
+  --from-literal=secret-key='<s3-secret-key>'
+
+# SMTP credentials (notification-service)
+kubectl -n pravah create secret generic pravah-smtp-credentials \
+  --from-literal=password='<smtp-password>'
 
 # Image pull secret (for private registry - only if repo is private)
 kubectl -n pravah create secret docker-registry ghcr-pull-secret \
@@ -148,8 +160,13 @@ helm upgrade --install pravah deploy/helm/pravah-platform \
   --set externalPostgres.host=<rds-endpoint> \
   --set externalKafka.bootstrapServers=<msk-endpoint> \
   --set externalRedis.host=<elasticache-endpoint> \
+  --set externalArtifact.endpoint=https://s3.<region>.amazonaws.com \
+  --set smtp.host=smtp.example.com \
+  --set smtp.port=587 \
+  --set smtp.existingSecret=pravah-smtp-credentials \
   --set pravah.wsAllowedOrigins=https://app.pravah.io \
   --set pravah.frontendBaseUrl=https://app.pravah.io \
+  --set pravah.hooksBaseUrl=https://api.pravah.io/api/v1/hooks \
   --set ingress.host=api.pravah.io
 ```
 
@@ -189,6 +206,12 @@ kubectl -n pravah describe ingress pravah
 | `externalPostgres.existingSecret` | Existing secret for credentials | `""` |
 | `externalKafka.bootstrapServers` | Kafka bootstrap servers | `""` |
 | `externalRedis.host` | Redis host | `""` |
+| `minio.enabled` | Deploy bundled MinIO for artifacts | `true` |
+| `externalArtifact.endpoint` | S3 endpoint (required when `minio.enabled=false`) | `""` |
+| `externalArtifact.existingSecret` | Secret with artifact access/secret keys | `""` |
+| `mailhog.enabled` | Bundled Mailhog SMTP (local dev) | `false` |
+| `smtp.host` | External SMTP host (production) | `""` |
+| `smtp.existingSecret` | SMTP password secret | `""` |
 
 ### Application
 
@@ -200,6 +223,13 @@ kubectl -n pravah describe ingress pravah
 | `requireProductionSecrets` | Fail template if prod secrets missing | `false` (`true` in values-prod) |
 | `pravah.wsAllowedOrigins` | WebSocket CORS origins | `http://localhost:5173,...` |
 | `pravah.frontendBaseUrl` | Frontend URL for emails | `http://localhost:5173` |
+| `pravah.hooksBaseUrl` | Public webhook URL prefix for scheduler | gateway in-cluster default |
+| `pravah.rateLimitFailOpen` | Allow traffic when Redis errors (`false` in prod) | `"true"` |
+| `pravah.authRefreshCookieSecure` | HttpOnly refresh cookie Secure flag | `"false"` (`"true"` in prod) |
+| `pravah.runnerBootstrapExistingSecret` | Secret with runner registration bootstrap key | `""` |
+| `services.runner-service.exposeGrpc` | LoadBalancer for external runner agents (gRPC 9091) | disabled |
+| `networkPolicy.allowExternalEgress` | Egress to RDS/MSK/ElastiCache/S3/SMTP | `false` (`true` in prod) |
+| `requireProductionSecrets` | Fail `helm template` on missing prod config | `false` (`true` in values-prod) |
 
 ### Security
 
@@ -218,6 +248,18 @@ kubectl -n pravah describe ingress pravah
 | `podDisruptionBudget.enabled` | Enable PDBs | `false` |
 | `autoscaling.enabled` | Enable HPAs | `false` |
 | `topologySpreadConstraints.enabled` | Enable zone spread | `false` |
+
+## Production checklist
+
+When `requireProductionSecrets: true` (`values-prod.yaml`), Helm **fails fast** unless:
+
+- External Postgres, Kafka, Redis, and S3 artifact store are configured
+- `image.tag` is a pinned SHA/release (not `latest`)
+- `pravah.wsAllowedOrigins`, `frontendBaseUrl`, and `hooksBaseUrl` are set
+- `smtp.host` is set (tenant password reset + alert emails)
+- `pravah.rateLimitFailOpen=false` and `authRefreshCookieSecure=true`
+- Dedicated `runner-bootstrap-secret` in credentials Secret
+- Bundled MinIO and Mailhog are disabled
 
 ## Alpha Limitations
 

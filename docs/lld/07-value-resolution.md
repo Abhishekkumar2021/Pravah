@@ -16,7 +16,7 @@ Pravah uses a **unified value resolution system** to handle variables, secrets, 
 | `${stages.stageId.output.key}` | Upstream stage output | Stage execution | `${stages.extract.output.row_count}` |
 | `${execution_date}` | Built-in variable | Execution start | `2026-05-17` |
 | `env:VAR_NAME` | Environment variable | Stage execution | `env:PRAVAH_DB_PASSWORD` |
-| `vault:path#key` | HashiCorp Vault (future) | Stage execution | `vault:secret/db#password` |
+| `vault:path#key` | HashiCorp Vault KV v2 | Stage execution / connections | `vault:secret/data/pravah/demo-db#password` |
 
 ## Architecture
 
@@ -129,7 +129,7 @@ public record ResolutionContext(
 @Component public class SecretResolverProvider implements ValueResolverProvider { ... }
 @Component public class StageOutputResolverProvider implements ValueResolverProvider { ... }
 @Component public class EnvResolverProvider implements ValueResolverProvider { ... }
-@Component public class VaultResolverProvider implements ValueResolverProvider { ... } // future
+@Component public class VaultResolverProvider implements ValueResolverProvider { ... } // pipeline-service; HttpVaultKvClient (ADR-007)
 ```
 
 ### UnifiedValueResolver
@@ -260,8 +260,21 @@ config:
 
 At execution time, `credentials.password` is resolved using the same provider pattern:
 - `env:VAR` → EnvResolverProvider
-- `vault:path#key` → VaultResolverProvider
+- `vault:path#key` → VaultResolverProvider (`HttpVaultKvClient`; path is KV v2 API path e.g. `secret/data/myapp`, field is the key inside the secret)
 - `${secret.name}` → SecretResolverProvider (looks up tenant_secrets)
+
+### Vault configuration (pipeline-service)
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault KV reads |
+| `pravah.vault.address` | `VAULT_ADDR` | `http://localhost:8200` | Vault API base URL |
+| `pravah.vault.auth.method` | `PRAVAH_VAULT_AUTH_METHOD` | `token` | `token` (local) or `kubernetes` (pods) |
+| `pravah.vault.auth.token` | `VAULT_TOKEN` | _(empty)_ | Dev root token when method=token |
+| `pravah.vault.auth.kubernetes.mount-path` | `PRAVAH_VAULT_K8S_MOUNT_PATH` | `kubernetes` | K8s auth mount |
+| `pravah.vault.auth.kubernetes.role` | `PRAVAH_VAULT_K8S_ROLE` | _(empty)_ | Vault role bound to service account |
+
+Local: `docker-compose` Vault dev server + `backend/scripts/vault/init-local-kv.sh` seeds `secret/data/pravah/demo-db`.
 
 ## Security Considerations
 

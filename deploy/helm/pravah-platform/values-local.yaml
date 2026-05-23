@@ -28,6 +28,16 @@ redis:
   persistence:
     enabled: false
 
+minio:
+  persistence:
+    enabled: false
+
+mailhog:
+  enabled: true
+
+vault:
+  enabled: true
+
 # Relax security context for local dev (some images don't support non-root)
 podSecurityContext:
   runAsNonRoot: false
@@ -86,6 +96,7 @@ services:
         cpu: "1"
         memory: 512Mi
   pipeline-service:
+    needsVault: true
     resources:
       requests:
         cpu: 50m
@@ -109,6 +120,30 @@ services:
       limits:
         cpu: 500m
         memory: 384Mi
+  notification-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  connect-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  runner-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
   gateway:
     resources:
       requests:

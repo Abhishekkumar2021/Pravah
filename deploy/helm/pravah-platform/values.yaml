@@ -63,6 +63,9 @@ externalPostgres:
     pipeline-service: pravah_pipeline
     execution-service: pravah_execution
     scheduler-service: pravah_scheduler
+    notification-service: pravah_notification
+    connect-service: pravah_connect
+    runner-service: pravah_runner
 
 # Bundled Kafka (disable in production; use externalKafka instead)
 kafka:
@@ -90,6 +93,7 @@ externalKafka:
     username: ""
     password: ""
     existingSecret: ""
+    existingSecretJaasKey: kafka-jaas-config
 
 # Bundled Redis (disable in production; use externalRedis instead)
 redis:
@@ -117,6 +121,83 @@ externalRedis:
   tls:
     enabled: false
 
+# Bundled MinIO (S3-compatible artifact storage; disable in production — use externalArtifact)
+minio:
+  enabled: true
+  image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+  auth:
+    rootUser: pravah
+    rootPassword: pravah123
+  bucket: pravah-artifacts
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# External S3-compatible artifact store (when minio.enabled=false)
+externalArtifact:
+  endpoint: ""
+  region: us-east-1
+  accessKey: ""
+  secretKey: ""
+  bucket: pravah-artifacts
+  existingSecret: ""
+  existingSecretAccessKeyKey: artifact-access-key
+  existingSecretSecretKeyKey: artifact-secret-key
+
+# SMTP for notification-service (password reset, alert emails)
+smtp:
+  host: ""
+  port: 1025
+  username: ""
+  password: ""
+  auth: "false"
+  starttls: "false"
+  existingSecret: ""
+  existingSecretPasswordKey: smtp-password
+
+# Bundled Mailhog for local SMTP testing (disable in production)
+mailhog:
+  enabled: false
+  image: mailhog/mailhog:v1.0.1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Bundled Vault dev server (disable in production; use externalVault with Kubernetes auth)
+vault:
+  enabled: false
+  image: hashicorp/vault:1.15.6
+  devRootToken: dev-root-token
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# External HashiCorp Vault (when vault.enabled=false; pipeline-service uses Kubernetes auth)
+externalVault:
+  address: ""
+  kubernetesMountPath: kubernetes
+
+# Wait for bundled dependencies before app containers start
+dependencyWait:
+  enabled: true
+  image: busybox:1.36
+
 # Pravah services configuration
 services:
   tenant-service:
@@ -133,7 +214,7 @@ services:
         memory: 768Mi
     needsKafka: true
     needsPostgres: true
-    needsRedis: false
+    needsRedis: true
     extraEnv: {}
     podAnnotations: {}
     nodeSelector: {}
@@ -155,6 +236,8 @@ services:
     needsKafka: true
     needsPostgres: true
     needsRedis: false
+    needsVault: false
+    vaultKubernetesRole: ""
     extraEnv: {}
     podAnnotations: {}
     nodeSelector: {}
@@ -195,7 +278,28 @@ services:
       limits:
         cpu: 500m
         memory: 512Mi
-    needsKafka: false
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: true
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  notification-service:
+    enabled: true
+    port: 8088
+    database: pravah_notification
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+    needsKafka: true
     needsPostgres: true
     needsRedis: false
     extraEnv: {}
@@ -203,6 +307,53 @@ services:
     nodeSelector: {}
     tolerations: []
     affinity: {}
+
+  connect-service:
+    enabled: true
+    port: 8091
+    database: pravah_connect
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: false
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  runner-service:
+    enabled: true
+    port: 8086
+    grpcPort: 9091
+    database: pravah_runner
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+    needsKafka: true
+    needsPostgres: true
+    needsRedis: true
+    extraEnv: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    exposeGrpc:
+      enabled: false
+      type: LoadBalancer
+      annotations: {}
 
   gateway:
     enabled: true
@@ -235,6 +386,18 @@ pravah:
   realtimeRedisEnabled: "true"
   wsAllowedOrigins: "http://localhost:5173,http://127.0.0.1:5173"
   frontendBaseUrl: "http://localhost:5173"
+  # Public webhook base URL (scheduler trigger URLs); override in prod to ingress host.
+  hooksBaseUrl: ""
+  # Production hardening (override in values-prod.yaml)
+  rateLimitFailOpen: "true"
+  rateLimitEnabled: "true"
+  authRefreshCookieSecure: "false"
+  mailFrom: "noreply@localhost.pravah"
+  runnerBootstrapSecret: ""
+  runnerBootstrapExistingSecret: ""
+  runnerBootstrapExistingSecretKey: runner-bootstrap-secret
+  gatewayIpAllowlistEnabled: "false"
+  gatewayIpAllowlistCidrs: ""
 
 # Ingress configuration
 ingress:
@@ -318,6 +481,14 @@ deploymentStrategy:
 # Network policies
 networkPolicy:
   enabled: false
+  # Allow egress to external managed Postgres/Kafka/Redis/S3/SMTP (required in production)
+  allowExternalEgress: false
+  externalEgressPorts:
+    - 5432
+    - 9092
+    - 6379
+    - 443
+    - 587
   # DNS pod labels vary by cluster (kube-dns vs coredns)
   dnsNamespaceSelector: {}
   dnsPodLabels:

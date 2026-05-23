@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 
 class ConnectionCredentialResolverTest {
 
-  private final ConnectionCredentialResolver resolver = new ConnectionCredentialResolver();
+  private final ConnectionCredentialResolver resolver =
+      new ConnectionCredentialResolver(
+          new io.pravah.common.domain.resolution.VaultResolverProvider());
 
   @Test
   void resolvePassword_missingCredentials_returnsEmpty() {
@@ -39,10 +41,10 @@ class ConnectionCredentialResolverTest {
   }
 
   @Test
-  void resolveReference_vaultFormat_throwsUnsupportedUntilConfigured() {
+  void resolveReference_vaultFormat_throwsWhenVaultDisabled() {
     assertThatThrownBy(() -> resolver.resolveReference("vault:secret/data/db#password"))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("Vault integration not configured");
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Failed to resolve Vault reference");
   }
 
   @Test

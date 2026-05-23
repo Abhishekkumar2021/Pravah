@@ -16,6 +16,12 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    {{- if $svc.grpcPort }}
+    - port: {{ $svc.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    {{- end }}
   selector:
     app.kubernetes.io/component: {{ $svcKey }}
     {{- include "pravah.selectorLabels" $ | nindent 4 }}
@@ -61,27 +67,10 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml $.Values.podSecurityContext | nindent 8 }}
-      {{- if $.Values.postgres.enabled }}
+      {{- $initContainers := include "pravah.serviceInitContainers" (dict "root" $ "svc" $svc "svcKey" $svcKey) }}
+      {{- if $initContainers }}
       initContainers:
-        - name: wait-postgres
-          image: {{ $.Values.postgres.image }}
-          securityContext:
-            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
-          command:
-            - sh
-            - -c
-            - |
-              until pg_isready -h {{ include "pravah.postgres.hostname" $ }} -p 5432 -U {{ $.Values.postgres.auth.username }}; do
-                echo "waiting for postgres..."
-                sleep 2
-              done
-          resources:
-            requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              cpu: 50m
-              memory: 32Mi
+        {{- $initContainers | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ $svcKey }}
@@ -93,6 +82,11 @@ spec:
             - name: http
               containerPort: {{ $svc.port }}
               protocol: TCP
+            {{- if $svc.grpcPort }}
+            - name: grpc
+              containerPort: {{ $svc.grpcPort }}
+              protocol: TCP
+            {{- end }}
           env:
 {{- include "pravah.commonEnv" (dict "root" $ "svc" $svc "svcKey" $svcKey) | nindent 12 }}
           {{- if $.Values.probes.startup.enabled }}

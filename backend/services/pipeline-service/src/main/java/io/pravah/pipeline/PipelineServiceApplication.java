@@ -20,7 +20,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
       "io.pravah.pipeline",
       "io.pravah.spring.multitenancy",
       "io.pravah.spring.security",
-      "io.pravah.spring.outbox"
+      "io.pravah.spring.outbox",
+      "io.pravah.spring.vault"
     })
 public class PipelineServiceApplication {
 
