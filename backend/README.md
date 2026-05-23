@@ -152,11 +152,11 @@ Webhook triggers (`POST /api/v1/hooks/{triggerId}`) use the same Redis token-buc
 
 ### HashiCorp Vault (ADR-007, pipeline connections)
 
-Optional KV v2 resolver for `vault:path#key` credential references in pipeline connections. Disabled by default.
+Optional KV v2 resolver for `vault:path#key` credential references in pipeline connections, and Vault Transit for tenant secrets stored via the secrets API. Disabled by default.
 
 | Property | Env override | Default | Purpose |
 |----------|--------------|---------|---------|
-| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault reads |
+| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault KV reads and Transit encrypt/decrypt |
 | `pravah.vault.address` | `VAULT_ADDR` | `http://localhost:8200` | Vault API URL |
 | `pravah.vault.auth.method` | `PRAVAH_VAULT_AUTH_METHOD` | `token` | `token` or `kubernetes` |
 | `pravah.vault.auth.token` | `VAULT_TOKEN` | _(empty)_ | Token when method=token |
@@ -164,8 +164,9 @@ Optional KV v2 resolver for `vault:path#key` credential references in pipeline c
 
 ```bash
 # After make local-up
-chmod +x scripts/vault/init-local-kv.sh
+chmod +x scripts/vault/init-local-kv.sh scripts/vault/init-local-transit.sh
 ./scripts/vault/init-local-kv.sh
+./scripts/vault/init-local-transit.sh
 export PRAVAH_VAULT_ENABLED=true VAULT_ADDR=http://localhost:8200 VAULT_TOKEN=dev-root-token
 ```
 

@@ -30,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Application service for tenant secret management.
  *
- * <p>Manages secret references (name → provider + path) but never handles actual secret values.
+ * <p>Pointer providers ({@code env}, {@code vault}) store metadata only. {@code transit} stores
+ * encrypted values via Vault Transit (ADR-007).
  */
 @Service
 public class SecretApplicationService {
@@ -40,20 +41,36 @@ public class SecretApplicationService {
   private final TenantSecretRepository secretRepository;
   private final EntityManager entityManager;
   private final SecretValueResolver secretValueResolver;
+  private final java.util.Optional<TenantSecretEncryptionService> tenantSecretEncryption;
 
   public SecretApplicationService(
       TenantSecretRepository secretRepository,
       EntityManager entityManager,
-      SecretValueResolver secretValueResolver) {
+      SecretValueResolver secretValueResolver,
+      java.util.Optional<TenantSecretEncryptionService> tenantSecretEncryption) {
     this.secretRepository = secretRepository;
     this.entityManager = entityManager;
     this.secretValueResolver = secretValueResolver;
+    this.tenantSecretEncryption = tenantSecretEncryption;
   }
 
   @Transactional
   public SecretResponse createSecret(CreateSecretRequest request) {
     UUID tenantId = requireTenantId();
     UserId userId = requireUserId();
+    boolean hasValue = request.value() != null && !request.value().isBlank();
+
+    if (hasValue) {
+      return createStoredSecret(tenantId, userId, request);
+    }
+
+    if (request.provider() == null || request.provider().isBlank()) {
+      throw new IllegalArgumentException("Provider is required when value is not supplied");
+    }
+    if (request.providerPath() == null || request.providerPath().isBlank()) {
+      throw new IllegalArgumentException("Provider path is required when value is not supplied");
+    }
+
     String provider = SecretProvider.parse(request.provider()).toValue();
     validateProviderPath(provider, request.providerPath());
 
@@ -115,13 +132,21 @@ public class SecretApplicationService {
 
     TenantSecretEntity entity = findSecretOrThrow(secretId);
     String provider =
-        request.provider() != null
+        request.provider() != null && !request.provider().isBlank()
             ? SecretProvider.parse(request.provider()).toValue()
             : entity.getProvider();
     String providerPath =
         request.providerPath() != null ? request.providerPath().trim() : entity.getProviderPath();
+    String encryptedValue = entity.getEncryptedValue();
 
-    if (request.provider() != null || request.providerPath() != null) {
+    if (request.value() != null && !request.value().isBlank()) {
+      if (!SecretProvider.TRANSIT.toValue().equals(provider)) {
+        throw new IllegalArgumentException("value updates require provider transit");
+      }
+      encryptedValue = encryptTransitValue(tenantId, request.value());
+      providerPath =
+          tenantSecretEncryption.orElseThrow(this::vaultTransitUnavailable).tenantKeyName(tenantId);
+    } else if (request.provider() != null || request.providerPath() != null) {
       validateProviderPath(provider, providerPath);
     }
 
@@ -135,8 +160,70 @@ public class SecretApplicationService {
     entity.update(
         request.description() != null ? request.description() : entity.getDescription(),
         provider,
-        providerPath);
+        providerPath,
+        encryptedValue);
     return toResponse(entity);
+  }
+
+  private SecretResponse createStoredSecret(
+      UUID tenantId, UserId userId, CreateSecretRequest request) {
+    String provider =
+        request.provider() == null || request.provider().isBlank()
+            ? SecretProvider.TRANSIT.toValue()
+            : SecretProvider.parse(request.provider()).toValue();
+    if (!SecretProvider.TRANSIT.toValue().equals(provider)) {
+      throw new IllegalArgumentException("Stored secret values require provider transit");
+    }
+
+    TenantSecretEncryptionService encryption =
+        tenantSecretEncryption.orElseThrow(this::vaultTransitUnavailable);
+    String keyName = encryption.tenantKeyName(tenantId);
+    String ciphertext = encryption.encryptForTenant(tenantId, request.value());
+
+    log.info(
+        "Creating transit-encrypted secret",
+        kv("tenant_id", tenantId),
+        kv("secret_name", request.name()),
+        kv("transit_key", keyName));
+
+    try {
+      TenantSecretEntity entity =
+          secretRepository.save(
+              new TenantSecretEntity(
+                  tenantId,
+                  request.name().trim(),
+                  request.description(),
+                  provider,
+                  keyName,
+                  ciphertext,
+                  userId.value(),
+                  Instant.now()));
+      entityManager.flush();
+      return toResponse(entity);
+    } catch (DataIntegrityViolationException e) {
+      throw duplicateSecretName(request.name(), e);
+    } catch (JpaSystemException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateSecretName(request.name(), e);
+      }
+      throw e;
+    } catch (PersistenceException e) {
+      if (isUniqueConstraintViolation(e)) {
+        throw duplicateSecretName(request.name(), e);
+      }
+      throw e;
+    }
+  }
+
+  private String encryptTransitValue(UUID tenantId, String plaintext) {
+    return tenantSecretEncryption
+        .orElseThrow(this::vaultTransitUnavailable)
+        .encryptForTenant(tenantId, plaintext);
+  }
+
+  private IllegalStateException vaultTransitUnavailable() {
+    return new IllegalStateException(
+        "Vault Transit is required to store secret values (enable pravah.vault.enabled)");
   }
 
   @Transactional
@@ -191,6 +278,12 @@ public class SecretApplicationService {
   }
 
   private void validateProviderPath(String provider, String path) {
+    if ("transit".equals(provider)) {
+      if (path == null || path.isBlank()) {
+        throw new IllegalArgumentException("TRANSIT provider path must name the Transit key");
+      }
+      return;
+    }
     if (path == null || path.isBlank()) {
       throw new IllegalArgumentException("Provider path is required");
     }
@@ -205,6 +298,11 @@ public class SecretApplicationService {
         if (!path.contains("#")) {
           throw new IllegalArgumentException(
               "VAULT provider path must include key: path#key. Got: " + path);
+        }
+      }
+      case "transit" -> {
+        if (path == null || path.isBlank()) {
+          throw new IllegalArgumentException("TRANSIT provider path must name the Transit key");
         }
       }
       case "aws_sm" -> {

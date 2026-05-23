@@ -5,18 +5,12 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Request to create a tenant secret reference.
+ * Request to create a tenant secret reference or store an encrypted value.
  *
- * <p>Example:
+ * <p>Pointer mode (legacy): {@code provider} + {@code providerPath} without {@code value}.
  *
- * <pre>{@code
- * {
- *   "name": "api_key",
- *   "description": "External API authentication key",
- *   "provider": "env",
- *   "providerPath": "MY_API_KEY"
- * }
- * }</pre>
+ * <p>Stored mode (ADR-007 Transit): {@code value} encrypts via Vault Transit; defaults to {@code
+ * provider=transit}. Values are never returned in API responses.
  */
 public record CreateSecretRequest(
     @NotBlank
@@ -27,5 +21,6 @@ public record CreateSecretRequest(
                 "name must be lowercase alphanumeric with underscores, starting with letter or underscore")
         String name,
     @Size(max = 500) String description,
-    @NotBlank @Size(max = 50) String provider,
-    @NotBlank @Size(max = 500) String providerPath) {}
+    @Size(max = 50) String provider,
+    @Size(max = 500) String providerPath,
+    @Size(max = 65536) String value) {}
