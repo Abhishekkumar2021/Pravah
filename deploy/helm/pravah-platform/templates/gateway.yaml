@@ -99,6 +99,35 @@ spec:
               value: {{ include "pravah.jvmOptions" . | quote }}
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: optional:file:/config/
+            - name: PRAVAH_JWKS_URL
+              value: {{ printf "http://%s-tenant-service:%v/.well-known/jwks.json" (include "pravah.fullname" .) (index .Values.services "tenant-service").port | quote }}
+            - name: REDIS_HOST
+              value: {{ include "pravah.redis.hostname" . | quote }}
+            - name: REDIS_PORT
+              value: {{ include "pravah.redis.port" . | quote }}
+            - name: SPRING_DATA_REDIS_HOST
+              value: {{ include "pravah.redis.hostname" . | quote }}
+            - name: SPRING_DATA_REDIS_PORT
+              value: {{ include "pravah.redis.port" . | quote }}
+            {{- if and (not .Values.redis.enabled) (or .Values.externalRedis.password .Values.externalRedis.existingSecret) }}
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalRedis.existingSecret | default (include "pravah.secretName" .) }}
+                  key: {{ .Values.externalRedis.existingSecretPasswordKey | default "redis-password" }}
+            {{- end }}
+            {{- if and (not .Values.redis.enabled) .Values.externalRedis.tls.enabled }}
+            - name: SPRING_DATA_REDIS_SSL_ENABLED
+              value: "true"
+            {{- end }}
+            - name: PRAVAH_RATE_LIMIT_FAIL_OPEN
+              value: {{ .Values.pravah.rateLimitFailOpen | quote }}
+            - name: PRAVAH_RATE_LIMIT_ENABLED
+              value: {{ .Values.pravah.rateLimitEnabled | quote }}
+            - name: PRAVAH_GATEWAY_IP_ALLOWLIST_ENABLED
+              value: {{ .Values.pravah.gatewayIpAllowlistEnabled | quote }}
+            - name: PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS
+              value: {{ .Values.pravah.gatewayIpAllowlistCidrs | quote }}
             {{- range $k, $v := $gw.extraEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}

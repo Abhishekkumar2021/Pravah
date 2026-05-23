@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  *   <li>{@code ${execution_date}} — built-in variable
  *   <li>{@code ${stages.stageId.output.key}} — upstream stage output (US-02.10)
  *   <li>{@code env:VAR_NAME} — environment variable (credential reference)
- *   <li>{@code vault:path#key} — HashiCorp Vault (future)
+ *   <li>{@code vault:path#key} — HashiCorp Vault KV v2
  * </ul>
  *
  * <p>All patterns are linear (no backtracking) for ReDoS safety.

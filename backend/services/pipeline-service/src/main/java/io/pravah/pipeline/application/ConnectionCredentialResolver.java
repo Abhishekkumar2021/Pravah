@@ -47,9 +47,9 @@ public class ConnectionCredentialResolver {
   private final EnvResolverProvider envResolver;
   private final VaultResolverProvider vaultResolver;
 
-  public ConnectionCredentialResolver() {
+  public ConnectionCredentialResolver(VaultResolverProvider vaultResolver) {
     this.envResolver = new EnvResolverProvider();
-    this.vaultResolver = new VaultResolverProvider();
+    this.vaultResolver = vaultResolver;
   }
 
   /**

@@ -45,6 +45,16 @@ pravah:
       fixed-delay-ms: ${PRAVAH_OUTBOX_RELAY_FIXED_DELAY_MS:2000}
     topic:
       pipeline-events: pravah.pipeline.pipeline.events
+  vault:
+    enabled: ${PRAVAH_VAULT_ENABLED:false}
+    address: ${VAULT_ADDR:http://localhost:8200}
+    request-timeout-seconds: ${PRAVAH_VAULT_REQUEST_TIMEOUT_SECONDS:10}
+    auth:
+      method: ${PRAVAH_VAULT_AUTH_METHOD:token}
+      token: ${VAULT_TOKEN:}
+      kubernetes:
+        mount-path: ${PRAVAH_VAULT_K8S_MOUNT_PATH:kubernetes}
+        role: ${PRAVAH_VAULT_K8S_ROLE:}
 
 management:
   endpoints:

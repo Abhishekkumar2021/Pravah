@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BACKEND="$ROOT/backend"
 
-SERVICES=(gateway tenant-service pipeline-service execution-service scheduler-service)
+SERVICES=(gateway tenant-service pipeline-service execution-service scheduler-service notification-service connect-service runner-service)
 
 detect_kind_cluster() {
   if [[ -n "${KIND_CLUSTER_NAME:-}" ]]; then

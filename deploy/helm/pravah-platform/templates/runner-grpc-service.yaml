@@ -1,0 +1,25 @@
+{{- $runner := index .Values.services "runner-service" }}
+{{- if and $runner.enabled $runner.exposeGrpc.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pravah.fullname" . }}-runner-service-grpc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner-service
+  {{- with $runner.exposeGrpc.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $runner.exposeGrpc.type | default "LoadBalancer" }}
+  ports:
+    - port: {{ $runner.grpcPort | default 9091 }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    app.kubernetes.io/component: runner-service
+    {{- include "pravah.selectorLabels" . | nindent 4 }}
+{{- end }}

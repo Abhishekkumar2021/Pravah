@@ -2,7 +2,7 @@
 
 > **Source of truth** for what is built in this repository vs what is documented as the long-term target architecture.  
 > Update this file whenever you ship or stub a user-facing capability.  
-> **Last updated:** 2026-05-19
+> **Last updated:** 2026-05-23
 
 ---
 
@@ -193,7 +193,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **Requires Redis:** Gateway, scheduler webhooks, and tenant config cache need Redis (`backend/docker-compose.yml` service `redis`, ports `6379`).
 
-**Not yet:** Redis Sentinel HA, per-endpoint rate limits. **Partial:** Gateway IP allowlist filter implemented (`pravah.gateway.ip-allowlist.*`, US-10.16); Grafana example rules in `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
+**Not yet:** Redis Sentinel HA, per-endpoint rate limits. **Partial:** Gateway IP allowlist filter implemented (`pravah.gateway.ip-allowlist.*`, US-10.16); Helm prod sets `rateLimitFailOpen=false`; Grafana example rules in `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
 
 ---
 
@@ -314,7 +314,7 @@ All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
 
 | Component | Location |
 |-----------|----------|
-| Infrastructure (Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog) | `backend/docker-compose.yml` |
+| Infrastructure (Postgres, Kafka, Redis, Jaeger, MinIO, Mailhog, Vault dev) | `backend/docker-compose.yml` |
 | Start Java services | `make local-services` (repo root → `backend/Makefile`) |
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
@@ -331,7 +331,8 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Docker Compose (local deps) | Implemented | `backend/docker-compose.yml` |
-| Helm umbrella chart (US-09.04) | Implemented (alpha) | `deploy/helm/pravah-platform` — gateway + 4 services; bundled Postgres/Kafka/Redis for local K8s |
+| Helm umbrella chart (US-09.04) | Implemented (beta) | `deploy/helm/pravah-platform` — 8 services + MinIO/Mailhog/Vault dev (local); prod validation gates (pinned image tag, external deps, fail-closed rate limits, secure cookies, runner bootstrap secret, external egress NP) |
+| HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; token auth (local) + Kubernetes auth (K8s prod); tenant secrets still in Postgres |
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
 | Argo CD GitOps | Planned | ADR-010; beta |
 | Terraform (cloud) | Planned | US-09.06+ |
@@ -340,7 +341,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 
 ## Infrastructure not in repo
 - Elasticsearch / OpenLineage pipeline
-- HashiCorp Vault deployment (secrets: tenant DB + `env:` refs)
+- Managed Vault cluster (chart supports `externalVault.address`; operators provision Vault separately)
 - Production runner fleet management
 
 ---

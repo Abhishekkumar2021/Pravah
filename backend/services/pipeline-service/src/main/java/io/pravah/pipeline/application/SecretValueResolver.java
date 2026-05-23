@@ -17,7 +17,11 @@ import org.springframework.stereotype.Component;
 public class SecretValueResolver {
 
   private final EnvResolverProvider envResolver = new EnvResolverProvider();
-  private final VaultResolverProvider vaultResolver = new VaultResolverProvider();
+  private final VaultResolverProvider vaultResolver;
+
+  public SecretValueResolver(VaultResolverProvider vaultResolver) {
+    this.vaultResolver = vaultResolver;
+  }
 
   public String resolve(TenantSecretEntity secret, ResolutionContext ctx) {
     return switch (secret.getProvider()) {

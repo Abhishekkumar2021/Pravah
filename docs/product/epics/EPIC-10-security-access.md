@@ -175,10 +175,10 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** credentials are protected
 
 **Acceptance Criteria:**
-- [ ] Store secrets in Vault
+- [ ] Store secrets in Vault _(tenant secrets still Postgres; pipeline `vault:` refs implemented)_
 - [ ] Encryption at rest
-- [ ] Access via API
-- [ ] Never logged or displayed
+- [x] Access via API _(KV v2 read from pipeline-service)_
+- [x] Never logged or displayed
 
 **Story Points:** 8  
 **Priority:** P0
@@ -299,7 +299,7 @@ Integrate SAML library.
 **Estimate:** 8 points
 
 ### T-10.04: Vault Integration
-Integrate HashiCorp Vault.
+Integrate HashiCorp Vault. **Partial (2026-05):** `HttpVaultKvClient`, Spring `VaultConfiguration`, pipeline-service `vault:path#key`; Helm `externalVault` + bundled dev Vault for kind.
 
 **Estimate:** 8 points
 

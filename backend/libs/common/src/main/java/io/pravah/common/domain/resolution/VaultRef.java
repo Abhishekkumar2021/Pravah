@@ -17,6 +17,9 @@ public record VaultRef(String path, String key) implements ValueReference {
     if (!key.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
       throw new IllegalArgumentException("Invalid vault key: " + key);
     }
+    if (path.contains("..") || path.startsWith("/")) {
+      throw new IllegalArgumentException("Invalid vault path: " + path);
+    }
   }
 
   @Override

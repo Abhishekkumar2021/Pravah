@@ -36,10 +36,15 @@ jobs:
             -f deploy/helm/pravah-platform/values.yaml \
             -f deploy/helm/pravah-platform/values-prod.yaml \
             --namespace pravah \
+            --set image.tag=ci-test-sha \
             --set externalPostgres.host=rds.example.com \
             --set externalKafka.bootstrapServers=msk.example.com:9092 \
             --set externalRedis.host=redis.example.com \
-            --set pravah.internalServiceSecret=ci-test-secret >/dev/null
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com >/dev/null
 
       - name: Fail when production secrets missing
         run: |
@@ -47,11 +52,36 @@ jobs:
             -f deploy/helm/pravah-platform/values.yaml \
             -f deploy/helm/pravah-platform/values-prod.yaml \
             --namespace pravah \
+            --set image.tag=ci-test-sha \
             --set externalPostgres.host=rds.example.com \
             --set externalKafka.bootstrapServers=msk.example.com:9092 \
             --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
             --set pravah.internalServiceExistingSecret="" \
             --set pravah.internalServiceSecret="" 2>&1; then
             echo "Expected helm template to fail without internal service credentials"
+            exit 1
+          fi
+
+      - name: Fail when production image tag unpinned
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set image.tag=latest \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com 2>&1; then
+            echo "Expected helm template to fail with image.tag=latest"
             exit 1
           fi

@@ -1,0 +1,13 @@
+{{- include "pravah.productionValidate" . }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pravah.fullname" . }}-chart-info
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+data:
+  chartVersion: {{ .Chart.Version | quote }}
+  appVersion: {{ .Chart.AppVersion | quote }}
+  productionMode: {{ .Values.requireProductionSecrets | quote }}

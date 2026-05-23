@@ -22,6 +22,20 @@ kafka:
 redis:
   enabled: false
 
+minio:
+  enabled: false
+
+mailhog:
+  enabled: false
+
+vault:
+  enabled: false
+
+# External HashiCorp Vault (enable pipeline-service.needsVault + Kubernetes auth roles in prod)
+externalVault:
+  address: ""
+  kubernetesMountPath: kubernetes
+
 # External PostgreSQL (Amazon RDS / Aurora)
 externalPostgres:
   host: ""
@@ -32,10 +46,35 @@ externalPostgres:
   existingSecretUsernameKey: username
   existingSecretPasswordKey: password
   databases:
-    tenant: pravah_tenant
-    pipeline: pravah_pipeline
-    execution: pravah_execution
-    scheduler: pravah_scheduler
+    tenant-service: pravah_tenant
+    pipeline-service: pravah_pipeline
+    execution-service: pravah_execution
+    scheduler-service: pravah_scheduler
+    notification-service: pravah_notification
+    connect-service: pravah_connect
+    runner-service: pravah_runner
+
+# External S3-compatible artifact store (AWS S3, MinIO, etc.)
+externalArtifact:
+  endpoint: ""
+  region: us-east-1
+  accessKey: ""
+  secretKey: ""
+  bucket: pravah-artifacts
+  existingSecret: pravah-artifact-credentials
+  existingSecretAccessKeyKey: access-key
+  existingSecretSecretKeyKey: secret-key
+
+# External SMTP (SendGrid, SES, etc.)
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  auth: "true"
+  starttls: "true"
+  existingSecret: pravah-smtp-credentials
+  existingSecretPasswordKey: password
 
 # External Kafka (Amazon MSK / Confluent Cloud)
 externalKafka:
@@ -46,6 +85,7 @@ externalKafka:
     username: ""
     password: ""
     existingSecret: pravah-kafka-credentials
+    existingSecretJaasKey: kafka-jaas-config
 
 # External Redis (Amazon ElastiCache / Redis Cloud)
 externalRedis:
@@ -61,8 +101,8 @@ externalRedis:
 image:
   registry: ghcr.io
   repositoryPrefix: abhishekkumar2021/pravah
-  # Set via --set image.tag=<git-sha> or CI pipeline
-  tag: latest
+  # Set via --set image.tag=<git-sha> or CI pipeline (required; must not be latest)
+  tag: ""
   pullPolicy: Always
   pullSecrets:
     - name: ghcr-pull-secret
@@ -109,6 +149,40 @@ services:
         cpu: "1"
         memory: 768Mi
 
+  notification-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  connect-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  runner-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+    exposeGrpc:
+      enabled: true
+      type: LoadBalancer
+      annotations: {}
+
   gateway:
     replicaCount: 2
     resources:
@@ -125,9 +199,18 @@ pravah:
   internalServiceSecret: ""
   internalServiceExistingSecret: pravah-credentials
   internalServiceExistingSecretKey: internal-service-secret
+  runnerBootstrapExistingSecret: pravah-credentials
+  runnerBootstrapExistingSecretKey: runner-bootstrap-secret
+  rateLimitFailOpen: "false"
+  rateLimitEnabled: "true"
+  authRefreshCookieSecure: "true"
+  mailFrom: "noreply@pravah.example.com"
   realtimeRedisEnabled: "true"
   wsAllowedOrigins: ""
   frontendBaseUrl: ""
+  hooksBaseUrl: ""
+  gatewayIpAllowlistEnabled: "false"
+  gatewayIpAllowlistCidrs: ""
 
 # Enable Ingress with TLS
 ingress:
@@ -159,6 +242,7 @@ autoscaling:
 # Enable network policies
 networkPolicy:
   enabled: true
+  allowExternalEgress: true
   dnsPodLabels:
     k8s-app: kube-dns
 
