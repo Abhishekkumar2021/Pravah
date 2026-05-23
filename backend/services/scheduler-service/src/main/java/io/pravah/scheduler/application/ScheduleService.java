@@ -45,8 +45,10 @@ public class ScheduleService {
         request.catchupPolicy() != null && !request.catchupPolicy().isBlank()
             ? request.catchupPolicy().trim()
             : "skip";
-    if (!catchupPolicy.equals("skip") && !catchupPolicy.equals("run_all")) {
-      throw ValidationException.of("catchupPolicy", "Must be 'skip' or 'run_all'");
+    if (!catchupPolicy.equals("skip")
+        && !catchupPolicy.equals("run_all")
+        && !catchupPolicy.equals("coalesce")) {
+      throw ValidationException.of("catchupPolicy", "Must be 'skip', 'run_all', or 'coalesce'");
     }
 
     Instant now = Instant.now();

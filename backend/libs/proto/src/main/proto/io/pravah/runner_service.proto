@@ -134,6 +134,8 @@ message JobSpec {
   map<string, string> environment = 4;
   int64 timeout_seconds = 5;
   ResourceRequirements resources = 6;
+  // env var name -> tenant secret name (or reserved runtime key); resolved on runner before execute
+  map<string, string> secret_environment = 7;
 }
 
 message ResourceRequirements {

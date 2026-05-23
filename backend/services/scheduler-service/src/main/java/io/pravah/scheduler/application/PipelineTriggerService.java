@@ -6,10 +6,12 @@ import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.scheduler.api.dto.CreatePipelineTriggerRequest;
 import io.pravah.scheduler.api.dto.PipelineTriggerResponse;
+import io.pravah.scheduler.api.dto.TriggerDispatchHistoryResponse;
 import io.pravah.scheduler.api.dto.UpdatePipelineTriggerRequest;
 import io.pravah.scheduler.domain.model.PipelineTrigger;
 import io.pravah.scheduler.domain.model.TriggerType;
 import io.pravah.scheduler.domain.repository.PipelineTriggerRepository;
+import io.pravah.scheduler.infrastructure.persistence.repository.TriggerDispatchHistoryRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.util.List;
 import java.util.Map;
@@ -33,13 +35,17 @@ public class PipelineTriggerService {
   private final WebhookSecretGenerator secretGenerator;
   private final String hooksBaseUrl;
   private final ApplicationEventPublisher eventPublisher;
+  private final PipelineTriggerDispatchService dispatchService;
+  private final TriggerDispatchHistoryRepository dispatchHistoryRepository;
 
   public PipelineTriggerService(
       PipelineTriggerRepository triggerRepository,
       PasswordEncoder passwordEncoder,
       WebhookSecretGenerator secretGenerator,
       @Value("${pravah.hooks.base-url:http://localhost:8080/api/v1/hooks}") String hooksBaseUrl,
-      ApplicationEventPublisher eventPublisher) {
+      ApplicationEventPublisher eventPublisher,
+      PipelineTriggerDispatchService dispatchService,
+      TriggerDispatchHistoryRepository dispatchHistoryRepository) {
     this.triggerRepository = triggerRepository;
     this.passwordEncoder = passwordEncoder;
     this.secretGenerator = secretGenerator;
@@ -48,6 +54,8 @@ public class PipelineTriggerService {
             ? hooksBaseUrl.substring(0, hooksBaseUrl.length() - 1)
             : hooksBaseUrl;
     this.eventPublisher = eventPublisher;
+    this.dispatchService = dispatchService;
+    this.dispatchHistoryRepository = dispatchHistoryRepository;
   }
 
   public PipelineTriggerResponse createTrigger(CreatePipelineTriggerRequest request) {
@@ -194,6 +202,20 @@ public class PipelineTriggerService {
     return triggerRepository
         .findByIdAndTenantId(triggerId, tenantId)
         .orElseThrow(() -> new EntityNotFoundException("PipelineTrigger", triggerId));
+  }
+
+  @Transactional(readOnly = true)
+  public List<TriggerDispatchHistoryResponse> listDispatchHistory(UUID triggerId) {
+    findTriggerOrThrow(triggerId);
+    return dispatchHistoryRepository.findByTriggerIdOrderByCreatedAtDesc(triggerId).stream()
+        .map(TriggerDispatchHistoryResponse::from)
+        .toList();
+  }
+
+  public UUID testTrigger(UUID triggerId, Map<String, Object> payload) {
+    PipelineTrigger trigger = findTriggerOrThrow(triggerId);
+    Map<String, Object> body = payload != null ? payload : Map.of("test", true);
+    return dispatchService.dispatch(trigger, body);
   }
 
   String webhookUrl(UUID triggerId) {

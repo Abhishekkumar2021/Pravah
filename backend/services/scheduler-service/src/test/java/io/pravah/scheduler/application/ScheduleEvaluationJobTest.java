@@ -14,6 +14,7 @@ import io.pravah.scheduler.domain.repository.ScheduleRepository;
 import io.pravah.scheduler.infrastructure.client.ExecutionTriggerClient;
 import io.pravah.scheduler.infrastructure.leader.LeaderElectionService;
 import io.pravah.scheduler.infrastructure.persistence.SchedulerRlsHelper;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -48,7 +49,9 @@ class ScheduleEvaluationJobTest {
             scheduleHistoryRepository,
             executionTriggerClient,
             schedulerRlsHelper,
-            32);
+            Clock.systemUTC(),
+            32,
+            java.time.Duration.ofDays(7));
   }
 
   @Test
@@ -157,6 +160,45 @@ class ScheduleEvaluationJobTest {
     Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
 
     assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
+  }
+
+  @Test
+  void triggerCoalescedSlot_advancesNextRunPastAllMissedSlots() {
+    Instant now = Instant.parse("2026-05-16T09:00:00Z");
+    Instant firstMissed = Instant.parse("2026-05-14T09:00:00Z");
+    Instant lastMissed = Instant.parse("2026-05-16T09:00:00Z");
+    Schedule schedule =
+        Schedule.builder()
+            .id(SCHEDULE_ID)
+            .tenantId(TENANT_ID)
+            .pipelineId(PIPELINE_ID)
+            .name("Daily")
+            .cronExpression("0 9 * * *")
+            .timezone("UTC")
+            .catchupPolicy("coalesce")
+            .nextRunAt(firstMissed)
+            .createdBy(UUID.randomUUID())
+            .build();
+
+    when(executionTriggerClient.triggerScheduledExecution(
+            eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any()))
+        .thenReturn(EXECUTION_ID);
+    when(scheduleRepository.save(any(Schedule.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    boolean triggered =
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            scheduleEvaluationJob,
+            "triggerCoalescedSlot",
+            schedule,
+            firstMissed,
+            now,
+            lastMissed,
+            3);
+
+    assertThat(triggered).isTrue();
+    assertThat(schedule.getNextRunAt()).isEqualTo(Instant.parse("2026-05-17T09:00:00Z"));
+    verify(executionTriggerClient)
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any());
   }
 
   private static Schedule minimalSchedule(String catchupPolicy) {

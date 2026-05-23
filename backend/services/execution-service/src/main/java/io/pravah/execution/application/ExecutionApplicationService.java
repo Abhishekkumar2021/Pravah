@@ -158,6 +158,12 @@ public class ExecutionApplicationService {
   @Transactional
   public CreateExecutionResponse startScheduledExecution(
       UUID tenantId, UUID pipelineId, UUID scheduleId) {
+    return startScheduledExecution(tenantId, pipelineId, scheduleId, Map.of());
+  }
+
+  @Transactional
+  public CreateExecutionResponse startScheduledExecution(
+      UUID tenantId, UUID pipelineId, UUID scheduleId, Map<String, Object> parameters) {
     PublishedPipelineSnapshot snapshot =
         internalPipelineCatalog.resolvePublished(tenantId, pipelineId);
     log.debug(
@@ -165,7 +171,8 @@ public class ExecutionApplicationService {
         kv("tenant_id", tenantId),
         kv("pipeline_id", pipelineId),
         kv("schedule_id", scheduleId));
-    return materializeExecution(tenantId, null, TRIGGER_SCHEDULED, snapshot, Map.of());
+    return materializeExecution(
+        tenantId, null, TRIGGER_SCHEDULED, snapshot, normalizeParameters(parameters));
   }
 
   /**

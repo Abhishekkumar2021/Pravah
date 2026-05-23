@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Bell, Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow } from "lucide-react";
+import { Bell, Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow, Zap } from "lucide-react";
 import { AlertRulesPanel } from "@/components/alerts/AlertRulesPanel";
 import { WorkflowRunsTable } from "@/components/runs/WorkflowRunsTable";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
+import { WorkflowTriggersPanel } from "@/components/workspace/WorkflowTriggersPanel";
 import { WorkflowDAG } from "@/components/workflow/WorkflowDAG";
 import { PipelineEditor } from "@/components/workflow/editor";
 import { publishPipeline, validatePipelineDefinition, updatePipeline, archivePipeline } from "@/lib/api";
@@ -28,6 +29,7 @@ const tabs = [
   { id: "Editor", icon: Pencil },
   { id: "Runs", icon: Play },
   { id: "Schedule", icon: Calendar },
+  { id: "Triggers", icon: Zap },
   { id: "Alerts", icon: Bell },
   { id: "Settings", icon: Settings },
 ] as const;
@@ -319,6 +321,19 @@ export function WorkflowDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Schedule</CardTitle>
+                <CardDescription>Invalid workflow id.</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="Triggers">
+          {workflowId && isUuid ? (
+            <WorkflowTriggersPanel pipelineId={workflowId} />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Triggers</CardTitle>
                 <CardDescription>Invalid workflow id.</CardDescription>
               </CardHeader>
             </Card>

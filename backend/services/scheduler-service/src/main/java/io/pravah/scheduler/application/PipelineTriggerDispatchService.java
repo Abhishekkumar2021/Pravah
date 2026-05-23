@@ -23,11 +23,15 @@ public class PipelineTriggerDispatchService {
 
   private final ExecutionTriggerClient executionTriggerClient;
   private final PipelineTriggerRepository triggerRepository;
+  private final TriggerDispatchRecorder dispatchRecorder;
 
   public PipelineTriggerDispatchService(
-      ExecutionTriggerClient executionTriggerClient, PipelineTriggerRepository triggerRepository) {
+      ExecutionTriggerClient executionTriggerClient,
+      PipelineTriggerRepository triggerRepository,
+      TriggerDispatchRecorder dispatchRecorder) {
     this.executionTriggerClient = executionTriggerClient;
     this.triggerRepository = triggerRepository;
+    this.dispatchRecorder = dispatchRecorder;
   }
 
   @Transactional
@@ -37,6 +41,19 @@ public class PipelineTriggerDispatchService {
 
   @Transactional
   public UUID dispatch(
+      PipelineTrigger trigger, Map<String, Object> payload, String idempotencyKey) {
+    try {
+      UUID executionId = dispatchWithoutRetry(trigger, payload, idempotencyKey);
+      dispatchRecorder.recordSuccess(trigger, payload, executionId);
+      return executionId;
+    } catch (RuntimeException e) {
+      dispatchRecorder.recordFailure(trigger, payload, e.getMessage(), true, idempotencyKey);
+      throw e;
+    }
+  }
+
+  @Transactional
+  public UUID dispatchWithoutRetry(
       PipelineTrigger trigger, Map<String, Object> payload, String idempotencyKey) {
     Map<String, Object> parameters = buildParameters(trigger, payload);
     TenantContext.setCurrentTenantId(trigger.getTenantId());

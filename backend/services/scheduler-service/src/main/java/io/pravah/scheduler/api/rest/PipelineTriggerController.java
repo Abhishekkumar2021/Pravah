@@ -2,10 +2,12 @@ package io.pravah.scheduler.api.rest;
 
 import io.pravah.scheduler.api.dto.CreatePipelineTriggerRequest;
 import io.pravah.scheduler.api.dto.PipelineTriggerResponse;
+import io.pravah.scheduler.api.dto.TriggerDispatchHistoryResponse;
 import io.pravah.scheduler.api.dto.UpdatePipelineTriggerRequest;
 import io.pravah.scheduler.application.PipelineTriggerService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -68,6 +70,22 @@ public class PipelineTriggerController {
   public PipelineTriggerResponse enable(@PathVariable UUID triggerId) {
     return triggerService.enableTrigger(triggerId);
   }
+
+  @GetMapping("/{triggerId}/history")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
+  public List<TriggerDispatchHistoryResponse> history(@PathVariable UUID triggerId) {
+    return triggerService.listDispatchHistory(triggerId);
+  }
+
+  @PostMapping("/{triggerId}/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
+  public TestTriggerResponse test(
+      @PathVariable UUID triggerId, @RequestBody(required = false) Map<String, Object> payload) {
+    UUID executionId = triggerService.testTrigger(triggerId, payload);
+    return new TestTriggerResponse(executionId);
+  }
+
+  public record TestTriggerResponse(UUID executionId) {}
 
   @DeleteMapping("/{triggerId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)

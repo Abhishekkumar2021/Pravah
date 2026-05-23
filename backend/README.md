@@ -50,13 +50,19 @@ cd backend && ./gradlew :runner:fatJar
 java -jar runner/build/libs/runner-*-all.jar \
   --server-url localhost:9091 \
   --tenant-id "<tenant-uuid>" \
-  --bootstrap-secret "${PRAVAH_INTERNAL_SERVICE_SECRET:-pravah-local-internal-secret}" \
+  --bootstrap-secret "${PRAVAH_RUNNER_BOOTSTRAP_SECRET}" \
   --name my-runner
 # Save printed runner id + token; reconnect with:
 #   --runner-id "<uuid>" --token "<token>"
 ```
 
-Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (defaults to internal service secret locally). Config: `pravah.runner.bootstrap-secret` on runner-service.
+Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (required for registration; must match `pravah.runner.bootstrap-secret` on runner-service). Config: `pravah.runner.bootstrap-secret` on runner-service.
+
+**Remote job secrets:** `${secret.*}` env refs and SQL passwords are stripped from gRPC `JobSpec.environment` into `secret_environment`. At execution time the runner resolves them with its **stream token** (not the internal service secret):
+
+`POST /api/v1/runners/{runnerId}/jobs/{jobId}/environment-secrets` with `Authorization: Bearer <stream-token>` → runner-service (validates token + job assignment) → execution-service.
+
+Set `--runner-http-url` or `PRAVAH_RUNNER_HTTP_URL` (default `http://localhost:8086`, runner-service HTTP port).
 
 **Runner gRPC TLS (optional):** Set `pravah.runner.grpc.tls.enabled=true` on runner-service with `cert-chain`, `private-key`, and optional `client-ca` for mTLS. Runner agent: `--tls-enabled`, `--tls-trust-cert`, optional `--tls-client-cert` / `--tls-client-key` (or `PRAVAH_RUNNER_GRPC_TLS_*` env vars).
 

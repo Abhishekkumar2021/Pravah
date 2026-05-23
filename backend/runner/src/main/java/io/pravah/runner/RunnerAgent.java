@@ -39,6 +39,7 @@ public class RunnerAgent implements AutoCloseable {
   private final int maxJobs;
   private final String workDir;
   private final GrpcTlsConfig tlsConfig;
+  private final String runnerServiceHttpBaseUrl;
 
   private volatile String streamToken;
 
@@ -76,7 +77,8 @@ public class RunnerAgent implements AutoCloseable {
         labels,
         maxJobs,
         workDir,
-        GrpcTlsConfig.disabled());
+        GrpcTlsConfig.disabled(),
+        null);
   }
 
   public RunnerAgent(
@@ -90,7 +92,8 @@ public class RunnerAgent implements AutoCloseable {
       Map<String, String> labels,
       int maxJobs,
       String workDir,
-      GrpcTlsConfig tlsConfig) {
+      GrpcTlsConfig tlsConfig,
+      String runnerServiceHttpBaseUrl) {
     this.serverHost = serverHost;
     this.serverPort = serverPort;
     this.tenantId = tenantId;
@@ -103,6 +106,7 @@ public class RunnerAgent implements AutoCloseable {
     this.workDir = workDir;
     this.tlsConfig = tlsConfig != null ? tlsConfig : GrpcTlsConfig.disabled();
     this.streamToken = registrationToken;
+    this.runnerServiceHttpBaseUrl = runnerServiceHttpBaseUrl;
   }
 
   public void start() {
@@ -286,14 +290,42 @@ public class RunnerAgent implements AutoCloseable {
         kv("jobId", jobId),
         kv("executor", assignment.getSpec().getExecutor()));
 
+    io.pravah.proto.runner.JobAssignment resolvedAssignment = assignment;
+    if (assignment.getSpec().getSecretEnvironmentCount() > 0) {
+      if (runnerId == null || runnerId.isBlank()) {
+        failSecretResolution(jobId, "Runner id not available for secret resolution");
+        return;
+      }
+      if (streamToken == null || streamToken.isBlank()) {
+        failSecretResolution(jobId, "Runner stream token not available for secret resolution");
+        return;
+      }
+      if (runnerServiceHttpBaseUrl == null || runnerServiceHttpBaseUrl.isBlank()) {
+        failSecretResolution(jobId, "Runner service HTTP URL not configured (--runner-http-url)");
+        return;
+      }
+      try {
+        JobEnvironmentResolver resolver =
+            new JobEnvironmentResolver(
+                runnerServiceHttpBaseUrl, UUID.fromString(runnerId), streamToken);
+        resolvedAssignment = resolver.mergeSecrets(assignment);
+      } catch (Exception e) {
+        log.error("Secret resolution failed", kv("jobId", jobId), e);
+        failSecretResolution(
+            jobId, e.getMessage() != null ? e.getMessage() : "Secret resolution failed");
+        return;
+      }
+    }
+
     activeJobs.incrementAndGet();
+    final io.pravah.proto.runner.JobAssignment jobAssignment = resolvedAssignment;
     jobExecutor.execute(
         () -> {
           long startedAt = System.currentTimeMillis();
           try {
             reportJobStatus(jobId, JobStatus.JOB_STATUS_RUNNING, 0, startedAt, 0, null, Map.of());
             JobExecutor executor = new JobExecutor(workDir);
-            JobExecutionResult result = executor.execute(assignment);
+            JobExecutionResult result = executor.execute(jobAssignment);
             reportJobStatus(
                 jobId,
                 result.exitCode() == 0
@@ -318,6 +350,18 @@ public class RunnerAgent implements AutoCloseable {
             activeJobs.decrementAndGet();
           }
         });
+  }
+
+  private void failSecretResolution(String jobId, String message) {
+    log.error("Secret resolution failed", kv("jobId", jobId), kv("reason", message));
+    reportJobStatus(
+        jobId,
+        JobStatus.JOB_STATUS_FAILED,
+        1,
+        System.currentTimeMillis(),
+        System.currentTimeMillis(),
+        message,
+        Map.of());
   }
 
   private void reportJobStatus(

@@ -6,6 +6,7 @@ import io.pravah.common.domain.StageTimeout;
 import io.pravah.common.domain.StageTimeoutParser;
 import io.pravah.common.runner.RemoteJobSpecEnv;
 import io.pravah.common.runner.RemoteJobSpecPayload;
+import io.pravah.common.runner.RemoteJobSpecSecretStripper;
 import io.pravah.execution.application.port.ConnectionCatalog;
 import io.pravah.execution.application.port.ResolvedJdbcConnection;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
@@ -51,15 +52,19 @@ public class RemoteJobSpecBuilder {
     ResourceProfiles.ResourceLimits limits = parseResourceLimits(resolved);
 
     return switch (stageType) {
-      case "container" -> buildContainer(resolved, timeoutSeconds, limits);
-      case "python" -> buildPython(resolved, timeoutSeconds, limits);
-      case "sql" -> buildSql(resolved, execution, timeoutSeconds, limits);
-      case "dbt" -> buildDbt(resolved, timeoutSeconds, limits);
-      case "spark" -> buildSpark(resolved, timeoutSeconds, limits);
+      case "container" -> strip(buildContainer(resolved, timeoutSeconds, limits), rawConfig);
+      case "python" -> strip(buildPython(resolved, timeoutSeconds, limits), rawConfig);
+      case "sql" -> strip(buildSql(resolved, execution, timeoutSeconds, limits), rawConfig);
+      case "dbt" -> strip(buildDbt(resolved, timeoutSeconds, limits), rawConfig);
+      case "spark" -> strip(buildSpark(resolved, timeoutSeconds, limits), rawConfig);
       default ->
           throw new IllegalArgumentException(
               "Stage type '%s' is not supported on remote runners".formatted(stageType));
     };
+  }
+
+  private RemoteJobSpecPayload strip(RemoteJobSpecPayload payload, Map<String, Object> rawConfig) {
+    return RemoteJobSpecSecretStripper.stripSecrets(payload, rawConfig);
   }
 
   private RemoteJobSpecPayload buildContainer(
@@ -91,6 +96,10 @@ public class RemoteJobSpecBuilder {
       env.put(
           RemoteJobSpecEnv.PYTHON_REQUIREMENTS,
           String.join("\n", requirements.stream().map(Object::toString).toList()));
+    }
+    String requirementsFile = getString(config, "requirements_file");
+    if (requirementsFile != null && !requirementsFile.isBlank()) {
+      env.put(RemoteJobSpecEnv.PYTHON_REQUIREMENTS_FILE, requirementsFile.trim());
     }
     return new RemoteJobSpecPayload(
         "python", null, List.of(), env, timeoutSeconds, memoryBytes(limits), cpuCores(limits));

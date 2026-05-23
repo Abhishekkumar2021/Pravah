@@ -121,6 +121,18 @@ public class JobExecutor {
     Path scriptPath = workDir.resolve("stage_script.py");
     Files.writeString(scriptPath, scriptBody);
     String requirements = env.get(RemoteJobSpecEnv.PYTHON_REQUIREMENTS);
+    String requirementsFile = env.get(RemoteJobSpecEnv.PYTHON_REQUIREMENTS_FILE);
+    if ((requirements == null || requirements.isBlank())
+        && requirementsFile != null
+        && !requirementsFile.isBlank()) {
+      Path path = Path.of(requirementsFile);
+      if (!path.isAbsolute()) {
+        path = workDir.resolve(requirementsFile);
+      }
+      if (Files.exists(path)) {
+        requirements = Files.readString(path, StandardCharsets.UTF_8);
+      }
+    }
     if (requirements != null && !requirements.isBlank()) {
       Path reqFile = workDir.resolve("requirements.txt");
       Files.writeString(reqFile, requirements);

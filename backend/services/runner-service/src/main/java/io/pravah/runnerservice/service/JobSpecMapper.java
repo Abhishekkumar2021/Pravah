@@ -23,6 +23,9 @@ public final class JobSpecMapper {
     if (payload.environment() != null && !payload.environment().isEmpty()) {
       builder.putAllEnvironment(payload.environment());
     }
+    if (payload.secretEnvironment() != null && !payload.secretEnvironment().isEmpty()) {
+      builder.putAllSecretEnvironment(payload.secretEnvironment());
+    }
     if (payload.memoryBytes() != null || payload.cpuCores() != null) {
       ResourceRequirements.Builder resources = ResourceRequirements.newBuilder();
       if (payload.memoryBytes() != null) {

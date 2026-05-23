@@ -99,6 +99,12 @@ public class RunnerMain implements Callable<Integer> {
   private String workDir;
 
   @Option(
+      names = {"--runner-http-url"},
+      description =
+          "Runner Service HTTP base URL for secret resolution (env: PRAVAH_RUNNER_HTTP_URL)")
+  private String runnerHttpUrl;
+
+  @Option(
       names = {"--tls-enabled"},
       description = "Enable TLS for gRPC (mTLS when client cert/key are set)")
   private boolean tlsEnabled;
@@ -145,6 +151,7 @@ public class RunnerMain implements Callable<Integer> {
 
     UUID tenantUuid = resolveTenantId();
     String bootstrap = resolveBootstrapSecret();
+    String runnerHttp = resolveRunnerHttpUrl();
     GrpcTlsConfig tlsConfig = resolveTlsConfig();
     try (RunnerAgent agent =
         new RunnerAgent(
@@ -158,7 +165,8 @@ public class RunnerMain implements Callable<Integer> {
             labelMap,
             maxJobs,
             workDir,
-            tlsConfig)) {
+            tlsConfig,
+            runnerHttp)) {
       agent.start();
       Runtime.getRuntime().addShutdownHook(new Thread(agent::close));
       agent.awaitTermination();
@@ -243,11 +251,19 @@ public class RunnerMain implements Callable<Integer> {
     if (env != null && !env.isBlank()) {
       return env;
     }
-    String internal = System.getenv("PRAVAH_INTERNAL_SERVICE_SECRET");
-    if (internal != null && !internal.isBlank()) {
-      return internal;
+    throw new IllegalArgumentException(
+        "--bootstrap-secret or PRAVAH_RUNNER_BOOTSTRAP_SECRET is required for runner registration");
+  }
+
+  private String resolveRunnerHttpUrl() {
+    if (runnerHttpUrl != null && !runnerHttpUrl.isBlank()) {
+      return runnerHttpUrl.trim();
     }
-    return "pravah-local-internal-secret";
+    String env = System.getenv("PRAVAH_RUNNER_HTTP_URL");
+    if (env != null && !env.isBlank()) {
+      return env.trim();
+    }
+    return "http://localhost:8086";
   }
 
   private GrpcTlsConfig resolveTlsConfig() {

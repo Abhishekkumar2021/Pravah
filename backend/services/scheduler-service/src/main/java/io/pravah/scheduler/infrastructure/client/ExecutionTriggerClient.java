@@ -40,6 +40,15 @@ public class ExecutionTriggerClient {
   @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "triggerScheduledFallback")
   @Retry(name = CIRCUIT_BREAKER_NAME)
   public UUID triggerScheduledExecution(UUID tenantId, UUID pipelineId, UUID scheduleId) {
+    return triggerScheduledExecution(tenantId, pipelineId, scheduleId, Map.of());
+  }
+
+  @CircuitBreaker(
+      name = CIRCUIT_BREAKER_NAME,
+      fallbackMethod = "triggerScheduledWithParametersFallback")
+  @Retry(name = CIRCUIT_BREAKER_NAME)
+  public UUID triggerScheduledExecution(
+      UUID tenantId, UUID pipelineId, UUID scheduleId, Map<String, Object> parameters) {
     try {
       ScheduledExecutionResponse response =
           restClient
@@ -47,7 +56,7 @@ public class ExecutionTriggerClient {
               .uri("/api/v1/internal/executions/scheduled")
               .header(InternalServiceHeaders.SECRET_HEADER, internalSecret)
               .header(InternalServiceHeaders.TENANT_HEADER, tenantId.toString())
-              .body(new ScheduledExecutionRequest(pipelineId, scheduleId))
+              .body(new ScheduledExecutionRequest(pipelineId, scheduleId, parameters))
               .retrieve()
               .body(ScheduledExecutionResponse.class);
       if (response == null || response.executionId() == null) {
@@ -64,6 +73,16 @@ public class ExecutionTriggerClient {
           kv("body", e.getResponseBodyAsString()));
       throw e;
     }
+  }
+
+  @SuppressWarnings("unused")
+  private UUID triggerScheduledWithParametersFallback(
+      UUID tenantId,
+      UUID pipelineId,
+      UUID scheduleId,
+      Map<String, Object> parameters,
+      Throwable t) {
+    return triggerScheduledFallback(tenantId, pipelineId, scheduleId, t);
   }
 
   @SuppressWarnings("unused")
@@ -146,7 +165,8 @@ public class ExecutionTriggerClient {
         "Execution service is temporarily unavailable. Event trigger will be retried.");
   }
 
-  public record ScheduledExecutionRequest(UUID pipelineId, UUID scheduleId) {}
+  public record ScheduledExecutionRequest(
+      UUID pipelineId, UUID scheduleId, Map<String, Object> parameters) {}
 
   public record ScheduledExecutionResponse(UUID executionId) {}
 

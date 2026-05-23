@@ -15,6 +15,7 @@ import io.pravah.scheduler.domain.model.PipelineTrigger;
 import io.pravah.scheduler.domain.model.TriggerType;
 import io.pravah.scheduler.domain.repository.PipelineTriggerRepository;
 import io.pravah.scheduler.infrastructure.kafka.KafkaTriggerListenerManager;
+import io.pravah.scheduler.infrastructure.persistence.repository.TriggerDispatchHistoryRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +35,8 @@ class PipelineTriggerServiceTest {
 
   @Mock private PipelineTriggerRepository triggerRepository;
   @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private PipelineTriggerDispatchService dispatchService;
+  @Mock private TriggerDispatchHistoryRepository dispatchHistoryRepository;
 
   private PipelineTriggerService service;
   private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
@@ -50,7 +53,9 @@ class PipelineTriggerServiceTest {
             encoder,
             new WebhookSecretGenerator(),
             "http://localhost:8080/api/v1/hooks",
-            eventPublisher);
+            eventPublisher,
+            dispatchService,
+            dispatchHistoryRepository);
   }
 
   @AfterEach

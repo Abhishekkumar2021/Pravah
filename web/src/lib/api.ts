@@ -788,6 +788,90 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
   }
 }
 
+export type PipelineTriggerResponse = {
+  id: string;
+  pipelineId: string;
+  name: string;
+  triggerType: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+  webhookUrl: string | null;
+  webhookSecret: string | null;
+};
+
+export type TriggerDispatchHistoryResponse = {
+  id: string;
+  triggerId: string;
+  triggerType: string;
+  status: string;
+  executionId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+export type CreatePipelineTriggerRequest = {
+  pipelineId: string;
+  name: string;
+  triggerType: "webhook" | "kafka";
+  config?: Record<string, unknown>;
+};
+
+export async function listPipelineTriggers(pipelineId: string): Promise<PipelineTriggerResponse[]> {
+  const path = withQuery("/api/v1/triggers", { pipelineId });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<PipelineTriggerResponse[]>(res);
+}
+
+export async function createPipelineTrigger(
+  body: CreatePipelineTriggerRequest,
+): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl("/api/v1/triggers"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function enablePipelineTrigger(triggerId: string): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/enable`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function disablePipelineTrigger(triggerId: string): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/disable`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function listPipelineTriggerHistory(
+  triggerId: string,
+): Promise<TriggerDispatchHistoryResponse[]> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/history`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<TriggerDispatchHistoryResponse[]>(res);
+}
+
+export async function testPipelineTrigger(
+  triggerId: string,
+  payload?: Record<string, unknown>,
+): Promise<{ executionId: string }> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/test`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return handleResponse<{ executionId: string }>(res);
+}
+
 export async function listExecutions(opts?: {
   status?: string;
   pipelineId?: string;

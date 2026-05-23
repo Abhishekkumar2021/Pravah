@@ -15,7 +15,8 @@ public record RemoteJobSpecPayload(
     Map<String, String> environment,
     long timeoutSeconds,
     Long memoryBytes,
-    Double cpuCores) {
+    Double cpuCores,
+    Map<String, String> secretEnvironment) {
 
   public static final long DEFAULT_TIMEOUT_SECONDS = 3600L;
 
@@ -29,8 +30,23 @@ public record RemoteJobSpecPayload(
     if (environment == null) {
       environment = Map.of();
     }
+    if (secretEnvironment == null) {
+      secretEnvironment = Map.of();
+    }
     if (timeoutSeconds <= 0) {
       timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
     }
+  }
+
+  /** Backward-compatible constructor without secret refs. */
+  public RemoteJobSpecPayload(
+      String executor,
+      String image,
+      List<String> commands,
+      Map<String, String> environment,
+      long timeoutSeconds,
+      Long memoryBytes,
+      Double cpuCores) {
+    this(executor, image, commands, environment, timeoutSeconds, memoryBytes, cpuCores, Map.of());
   }
 }

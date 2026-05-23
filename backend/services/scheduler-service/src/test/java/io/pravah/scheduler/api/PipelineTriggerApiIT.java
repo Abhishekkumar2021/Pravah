@@ -55,6 +55,8 @@ class PipelineTriggerApiIT extends AbstractSchedulerPostgresIT {
     TenantContext.clear();
     try (Connection conn = dataSource.getConnection();
         Statement stmt = conn.createStatement()) {
+      stmt.execute("DELETE FROM trigger_dispatch_history");
+      stmt.execute("DELETE FROM trigger_dispatch_pending");
       stmt.execute("DELETE FROM kafka_trigger_processed");
       stmt.execute("DELETE FROM pipeline_triggers");
     }

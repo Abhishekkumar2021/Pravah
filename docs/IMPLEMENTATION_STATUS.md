@@ -76,15 +76,15 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens, Redis tenant config cache (ADR-012) |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers + DLT (`pravah.kafka.execution-events.dlt-topic`), outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, `@PreAuthorize` on REST APIs, circuit breaker + retry for inter-service calls (Resilience4j) |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API with `catchupPolicy` (`skip`/`run_all`) and multi-fire catchup (`pravah.scheduler.max-catchup-fires`), event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, claim-first Kafka idempotency + DLT, circuit breaker + retry (Resilience4j) |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API with `catchupPolicy` (`skip`/`run_all`/`coalesce`), multi-fire catchup (`pravah.scheduler.max-catchup-fires`), coalesce combined interval in execution parameters (`_trigger.coalesce`, `pravah.scheduler.coalesce-max-interval`), event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, claim-first Kafka idempotency + DLT, trigger dispatch outbox retry, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
-| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API with `@PreAuthorize`, gateway route `/api/v1/runners/**`, job assignment with label matching, stale runner detection |
+| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API with `@PreAuthorize`, gateway route `/api/v1/runners/**`, job assignment with label matching, stale runner detection, runner-agent secret resolution (`POST /api/v1/runners/{runnerId}/jobs/{jobId}/environment-secrets` authenticated with stream token + job assignment check) |
 | **metadata-service** | 8087 | Stub | Boot app only |
 | **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer + DLT (`pravah.kafka.notification.dlt-topic`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API, `@PreAuthorize` on REST APIs |
 | **agent-service** | 8089 | Stub | Boot app only |
 | **connect-service** | 8091 | Implemented | Connector framework (17+ connectors), connection CRUD, test/discover streams, SaaS (Sheets, Stripe, Airtable, HubSpot), streaming (Kafka, RabbitMQ), CDC (PostgreSQL), Snowflake warehouse |
 
-**Standalone `backend/runner/`:** Picocli agent registers via gRPC, heartbeats, executes container/shell/python/sql jobs from resolved pipeline spec (env-driven script/SQL JDBC).
+**Standalone `backend/runner/`:** Picocli agent registers via gRPC (bootstrap secret + tenant metadata), heartbeats with stream token, resolves `secret_environment` via runner-service HTTP using the stream token, executes container/shell/python/sql jobs from resolved pipeline spec.
 
 **gRPC:** Proto definitions in `libs/proto`; `runner-service` serves gRPC on port 9091 (`RunnerGrpcServerLifecycle`). Stages with `runOn: runner` dispatch via `POST /api/v1/internal/runners/assignments` (S2S secret). Requires `RUNNER_SERVICE_BASE_URL`, `PRAVAH_INTERNAL_SERVICE_SECRET`.
 
@@ -94,7 +94,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| **common** | Implemented | Domain events, state machines, value resolution (`UnifiedValueResolver`, `StageOutputReferenceValidator`, `StageOutputSizeGuard`), validators |
+| **common** | Implemented | Domain events, state machines, value resolution (`UnifiedValueResolver`, `StageOutputReferenceValidator`, `StageOutputSizeGuard`), validators, `IpCidrMatcher`, `SecretNameValidator` |
 | **spring-support** | Implemented | Multitenancy, security helpers |
 | **proto** | Partial | Definitions only |
 | **test-support** | Implemented | Testcontainers, JWT test issuer |
@@ -142,7 +142,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 - Triggers: `GET/POST/PUT/DELETE /api/v1/triggers`, `POST /api/v1/triggers/{id}/enable`, `POST /api/v1/triggers/{id}/disable`
 - Webhooks: `POST /api/v1/hooks/{triggerId}` (public, no auth required)
 
-**Not yet:** event trigger UI, trigger history/logs, manual test trigger, webhook retry on failure.
+**Partial:** Event trigger UI on workflow **Triggers** tab; `GET /api/v1/triggers/{id}/history`; `POST /api/v1/triggers/{id}/test`; webhook/Kafka dispatch history + `trigger_dispatch_pending` outbox retry. **Implemented:** `coalesce` catchup (US-03.15) with combined interval passed in execution parameters and `pravah.scheduler.coalesce-max-interval` threshold fallback to `run_all`.
 
 ---
 
@@ -160,7 +160,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **APIs (via gateway → notification-service):** `GET/POST/PUT/DELETE /api/v1/alert-rules`, `GET /api/v1/audit-logs`, `GET/POST /api/v1/notifications`, `GET/PUT /api/v1/notification-preferences`.
 
-**Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards, metrics pipeline.
+**Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards, metrics pipeline. Example Grafana alert rules for rate-limit fail-open and outbox dead-letter: `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
 
 ---
 
@@ -207,7 +207,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-10.14 API rate limiting | Partial | Gateway: per-tenant/token/IP limits, 429, Retry-After, Prometheus metrics; tier limits via tenant cache; no dedicated alert rules yet |
 | Tenant bootstrap hardening | Partial | `POST /api/v1/tenants` requires authentication (no public tenant creation); self-service signup uses configured `registrationTenantId` |
 | RLS maintenance jobs | Partial | `SystemMaintenanceRlsHelper` + Flyway policies for cross-tenant scheduled work (timeouts, stale runners, artifact cleanup) |
-| Scheduler catch-up | Partial | `skip` advances from fired slot; `run_all` from now; failed triggers retain `next_run_at` for retry |
+| Scheduler catch-up | Partial | `skip`, `run_all`, and `coalesce` (combined interval in execution params); failed triggers retain `next_run_at` for retry |
 | Execution upstream failures | Partial | PENDING jobs blocked by failed upstream are failed so executions do not stay RUNNING indefinitely |
 | Remote job completion | Partial | Rejects completion callbacks from a runner other than the assignee |
 | SSRF hardening | Partial | `UrlSafetyValidator` on JDBC connection tests and webhook/Slack URLs |
