@@ -1,5 +1,6 @@
 package io.pravah.test.containers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -27,6 +28,7 @@ public class VaultContainerExtension implements BeforeAllCallback, AfterAllCallb
   private static final String ROOT_TOKEN = "dev-root-token";
   private static final String DEMO_PATH = "secret/data/pravah/it-test";
   private static final String DEMO_PASSWORD = "vault-it-password";
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private static final GenericContainer<?> VAULT;
 
@@ -37,8 +39,10 @@ public class VaultContainerExtension implements BeforeAllCallback, AfterAllCallb
             .withEnv("VAULT_DEV_ROOT_TOKEN_ID", ROOT_TOKEN)
             .withEnv("VAULT_DEV_LISTEN_ADDRESS", "0.0.0.0:8200")
             .withEnv("VAULT_ADDR", "http://127.0.0.1:8200")
-            .withCommand("server", "-dev");
+            .withCommand("server", "-dev")
+            .withReuse(true);
     VAULT.start();
+    waitForVaultReady();
     seedDemoSecret();
   }
 
@@ -72,11 +76,38 @@ public class VaultContainerExtension implements BeforeAllCallback, AfterAllCallb
     return DEMO_PASSWORD;
   }
 
+  private static void waitForVaultReady() {
+    HttpClient client = HttpClient.newHttpClient();
+    URI healthUri = URI.create(getAddress() + "/v1/sys/health?standbyok=true");
+    for (int attempt = 1; attempt <= 30; attempt++) {
+      try {
+        HttpRequest request =
+            HttpRequest.newBuilder().uri(healthUri).timeout(Duration.ofSeconds(5)).GET().build();
+        HttpResponse<String> response =
+            client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() == 200) {
+          return;
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException("Interrupted while waiting for Vault", e);
+      } catch (Exception ignored) {
+        // retry until Vault dev server is listening
+      }
+      sleepQuietly(500L);
+    }
+    throw new IllegalStateException("Vault container did not become ready within timeout");
+  }
+
   private static void seedDemoSecret() {
     try {
       HttpClient client = HttpClient.newHttpClient();
-      String body = "{\"data\":{\"password\":\"" + DEMO_PASSWORD + "\"}}";
+      var root = MAPPER.createObjectNode();
+      root.putObject("data").put("password", DEMO_PASSWORD);
+      String body = MAPPER.writeValueAsString(root);
       URI uri = URI.create(getAddress() + "/v1/" + DEMO_PATH);
+      int lastStatus = -1;
+      String lastBody = "";
       for (int attempt = 1; attempt <= 30; attempt++) {
         HttpRequest request =
             HttpRequest.newBuilder()
@@ -91,22 +122,46 @@ public class VaultContainerExtension implements BeforeAllCallback, AfterAllCallb
         if (response.statusCode() < 300) {
           return;
         }
-        Thread.sleep(500L);
+        lastStatus = response.statusCode();
+        lastBody = response.body();
+        sleepQuietly(500L);
       }
-      throw new IllegalStateException("Failed to seed Vault demo secret after retries");
+      throw new IllegalStateException(
+          "Failed to seed Vault demo secret after retries (HTTP %d): %s"
+              .formatted(lastStatus, truncate(lastBody)));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Interrupted while seeding Vault demo secret", e);
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       throw new IllegalStateException("Failed to seed Vault demo secret", e);
     }
+  }
+
+  private static void sleepQuietly(long millis) {
+    try {
+      Thread.sleep(millis);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Interrupted", e);
+    }
+  }
+
+  private static String truncate(String body) {
+    if (body == null || body.isBlank()) {
+      return "";
+    }
+    return body.length() > 256 ? body.substring(0, 256) + "…" : body;
   }
 
   private record VaultContainerResource(GenericContainer<?> container)
       implements CloseableResource {
     @Override
     public void close() {
-      // Reusable container; Testcontainers manages lifecycle when reuse is enabled
+      if (!container.isShouldBeReused() && container.isRunning()) {
+        container.stop();
+      }
     }
   }
 }
