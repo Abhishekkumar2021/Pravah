@@ -1,7 +1,12 @@
 # kind smoke on CI runners (GitHub Actions). Layer on values-local.yaml.
 # Disables ingress (smoke uses cluster DNS) and extends startup timeouts.
+#
+# runnerPki requires runnerGrpcTls + pre-created certs; smoke validates HTTP health only.
 
 ingress:
+  enabled: false
+
+runnerPki:
   enabled: false
 
 probes:
@@ -25,3 +30,7 @@ services:
     resources:
       limits:
         memory: 640Mi
+  runner-service:
+    resources:
+      limits:
+        memory: 512Mi
