@@ -4,14 +4,17 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import io.pravah.common.grpc.RunnerCertificateIdentity;
 import io.pravah.proto.common.Label;
 import io.pravah.proto.runner.*;
 import io.pravah.runnerservice.domain.Runner;
+import io.pravah.runnerservice.infrastructure.grpc.RunnerGrpcIdentityContext;
 import io.pravah.runnerservice.service.JobAssignmentService;
 import io.pravah.runnerservice.service.RunnerConnectionManager;
 import io.pravah.runnerservice.service.RunnerService;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,29 +110,58 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
           UUID heartbeatRunnerId = UUID.fromString(heartbeat.getRunnerId());
 
           if (!authenticated) {
-            String token = heartbeat.getToken();
-            if (token == null || token.isBlank()) {
-              rejectStream(
-                  observer, Status.UNAUTHENTICATED.withDescription("Missing runner token"));
-              return;
+            Optional<RunnerCertificateIdentity> certIdentity = RunnerGrpcIdentityContext.current();
+            UUID metadataTenantId = requireTenantIdOrNull();
+
+            if (certIdentity.isPresent()) {
+              UUID certRunnerId = certIdentity.get().runnerId();
+              if (!heartbeatRunnerId.equals(certRunnerId)) {
+                rejectStream(
+                    observer,
+                    Status.UNAUTHENTICATED.withDescription(
+                        "runner_id does not match client certificate identity"));
+                return;
+              }
+              var resolved =
+                  runnerService.resolveCertificateIdentity(
+                      certRunnerId, certIdentity.get().tenantId(), metadataTenantId);
+              if (resolved.isEmpty()) {
+                rejectStream(
+                    observer,
+                    Status.UNAUTHENTICATED.withDescription(
+                        "Unknown runner or tenant mismatch for certificate identity"));
+                return;
+              }
+              this.runnerId = certRunnerId;
+            } else {
+              String token = heartbeat.getToken();
+              if (token == null || token.isBlank()) {
+                rejectStream(
+                    observer, Status.UNAUTHENTICATED.withDescription("Missing runner token"));
+                return;
+              }
+              var validated = runnerService.validateToken(heartbeatRunnerId, token);
+              if (validated.isEmpty()) {
+                rejectStream(
+                    observer, Status.UNAUTHENTICATED.withDescription("Invalid runner token"));
+                return;
+              }
+              if (metadataTenantId != null
+                  && !validated.get().getTenantId().equals(metadataTenantId)) {
+                rejectStream(
+                    observer, Status.PERMISSION_DENIED.withDescription("Runner tenant mismatch"));
+                return;
+              }
+              this.runnerId = heartbeatRunnerId;
             }
-            UUID tenantId = requireTenantIdOrNull();
-            var validated = runnerService.validateToken(heartbeatRunnerId, token);
-            if (validated.isEmpty()) {
-              rejectStream(
-                  observer, Status.UNAUTHENTICATED.withDescription("Invalid runner token"));
-              return;
-            }
-            if (tenantId != null && !validated.get().getTenantId().equals(tenantId)) {
-              rejectStream(
-                  observer, Status.PERMISSION_DENIED.withDescription("Runner tenant mismatch"));
-              return;
-            }
-            this.runnerId = heartbeatRunnerId;
+
             connectionManager.register(runnerId, responseObserver);
             runnerService.markOnline(runnerId);
             authenticated = true;
-            log.info("Runner stream authenticated: runnerId={}", runnerId);
+            log.info(
+                "Runner stream authenticated: runnerId={}, mtls={}",
+                runnerId,
+                certIdentity.isPresent());
           } else if (!heartbeatRunnerId.equals(runnerId)) {
             log.warn(
                 "Heartbeat runner_id mismatch: expected={}, got={}", runnerId, heartbeatRunnerId);

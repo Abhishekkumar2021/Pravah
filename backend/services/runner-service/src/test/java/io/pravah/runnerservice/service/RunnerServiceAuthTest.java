@@ -91,6 +91,33 @@ class RunnerServiceAuthTest {
   }
 
   @Test
+  void resolveCertificateIdentity_acceptsMatchingTenantInCert() {
+    UUID runnerId = UUID.randomUUID();
+    Runner runner = new Runner();
+    runner.setId(runnerId);
+    runner.setTenantId(tenantId);
+
+    when(repository.findById(runnerId)).thenReturn(Optional.of(runner));
+
+    assertThat(runnerService.resolveCertificateIdentity(runnerId, Optional.of(tenantId), null))
+        .isPresent();
+  }
+
+  @Test
+  void resolveCertificateIdentity_rejectsTenantMismatch() {
+    UUID runnerId = UUID.randomUUID();
+    Runner runner = new Runner();
+    runner.setId(runnerId);
+    runner.setTenantId(tenantId);
+
+    when(repository.findById(runnerId)).thenReturn(Optional.of(runner));
+
+    UUID otherTenant = UUID.randomUUID();
+    assertThat(runnerService.resolveCertificateIdentity(runnerId, Optional.of(otherTenant), null))
+        .isEmpty();
+  }
+
+  @Test
   void registerRunner_rejectsInvalidToken() {
     Runner existing = new Runner();
     existing.setId(UUID.randomUUID());

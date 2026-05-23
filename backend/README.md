@@ -64,7 +64,7 @@ Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (required for registra
 
 Set `--runner-http-url` or `PRAVAH_RUNNER_HTTP_URL` (default `http://localhost:8086`, runner-service HTTP port).
 
-**Runner gRPC TLS (optional):** Set `pravah.runner.grpc.tls.enabled=true` on runner-service with `cert-chain`, `private-key`, and optional `client-ca` for mTLS. Runner agent: `--tls-enabled`, `--tls-trust-cert`, optional `--tls-client-cert` / `--tls-client-key` (or `PRAVAH_RUNNER_GRPC_TLS_*` env vars).
+**Runner gRPC TLS (optional):** Set `pravah.runner.grpc.tls.enabled=true` on runner-service with `cert-chain`, `private-key`, and optional `client-ca` for mTLS. When `client-ca` is set, `RunnerGrpcIdentityInterceptor` requires a client certificate with SPIFFE URI SAN (`spiffe://<trust-domain>/tenant/<tenant-uuid>/runner/<runner-uuid>` or `.../runner/<runner-uuid>`); heartbeat `runner_id` must match the cert. Token auth remains when mTLS is off. Runner agent: `--tls-enabled`, `--tls-trust-cert`, optional `--tls-client-cert` / `--tls-client-key` (or `PRAVAH_RUNNER_GRPC_TLS_*` env vars). Local certs: `RUNNER_ID` / `TENANT_ID` env vars with `./scripts/deploy/generate-runner-grpc-tls.sh`.
 
 **Scheduler Kafka DLT:** Failed trigger consumption after retries routes to `pravah.scheduler.kafka-trigger.dlt-topic` (default `pravah.scheduler.trigger.dlt`). Override with `PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC`.
 

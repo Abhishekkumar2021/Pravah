@@ -19,6 +19,7 @@ public class RunnerGrpcServerLifecycle {
   private static final Logger log = LoggerFactory.getLogger(RunnerGrpcServerLifecycle.class);
 
   private final RunnerServiceGrpcImpl runnerServiceGrpc;
+  private final RunnerGrpcIdentityInterceptor identityInterceptor;
   private final RunnerGrpcContextInterceptor grpcContextInterceptor;
   private final RunnerGrpcTlsProperties tlsProperties;
   private final int port;
@@ -27,10 +28,12 @@ public class RunnerGrpcServerLifecycle {
 
   public RunnerGrpcServerLifecycle(
       RunnerServiceGrpcImpl runnerServiceGrpc,
+      RunnerGrpcIdentityInterceptor identityInterceptor,
       RunnerGrpcContextInterceptor grpcContextInterceptor,
       RunnerGrpcTlsProperties tlsProperties,
       @Value("${grpc.server.port:9091}") int port) {
     this.runnerServiceGrpc = runnerServiceGrpc;
+    this.identityInterceptor = identityInterceptor;
     this.grpcContextInterceptor = grpcContextInterceptor;
     this.tlsProperties = tlsProperties;
     this.port = port;
@@ -40,6 +43,7 @@ public class RunnerGrpcServerLifecycle {
   public void start() throws IOException {
     server =
         RunnerGrpcServerTls.serverBuilder(port, tlsProperties.toConfig())
+            .intercept(identityInterceptor)
             .intercept(grpcContextInterceptor)
             .addService(runnerServiceGrpc)
             .build()

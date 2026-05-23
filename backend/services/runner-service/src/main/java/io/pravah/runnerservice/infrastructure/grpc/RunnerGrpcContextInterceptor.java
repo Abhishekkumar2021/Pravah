@@ -60,7 +60,7 @@ public class RunnerGrpcContextInterceptor implements ServerInterceptor {
       }
     }
 
-    // Connect stream validates auth on first heartbeat (token-based), not here.
+    // Connect stream validates auth on first heartbeat (mTLS cert identity or token).
     // We still extract tenant if present for logging/context, but don't reject.
     if (isConnect) {
       log.debug(

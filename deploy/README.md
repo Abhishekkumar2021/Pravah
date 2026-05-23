@@ -47,12 +47,15 @@ deploy/helm/pravah-platform/
 **Runner gRPC mTLS (ADR-005/008):** When `services.runner-service.exposeGrpc.enabled` is true, set `runnerGrpcTls.enabled=true` and provide `runnerGrpcTls.existingSecret` with keys `tls.crt`, `tls.key`, and `ca.crt` (client CA for mTLS). Production values enable this by default. Local kind/minikube:
 
 ```bash
-./scripts/deploy/generate-runner-grpc-tls.sh
+# Optional: embed registered runner identity in client cert SAN (SPIFFE URI)
+RUNNER_ID=<uuid> TENANT_ID=<uuid> ./scripts/deploy/generate-runner-grpc-tls.sh
 ./scripts/deploy/k8s-local-runner-grpc-tls.sh pravah
 helm upgrade --install pravah deploy/helm/pravah-platform ... \
   --set runnerGrpcTls.enabled=true \
   --set runnerGrpcTls.existingSecret=pravah-runner-grpc-tls
 ```
+
+When mTLS is enabled, `RunnerGrpcIdentityInterceptor` extracts `runner_id` (and optional `tenant_id`) from the client certificate SPIFFE URI — not from the heartbeat payload. Heartbeats with a mismatched `runner_id` are rejected.
 
 Runner agent (outside cluster): `--tls-enabled --tls-trust-cert=ca.crt --tls-client-cert=client.crt --tls-client-key=client.key` (files from `deploy/certs/runner-grpc/`).
 
