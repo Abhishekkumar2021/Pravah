@@ -45,6 +45,14 @@ message RegisterRunnerResponse {
   string runner_id = 1;
   string token = 2;                    // Authentication token for Connect stream
   int32 heartbeat_interval_seconds = 3;
+  // Optional mTLS client certificate issued by Vault PKI (ADR-008); omit when PKI disabled.
+  RunnerMtlsCertificate mtls = 4;
+}
+
+message RunnerMtlsCertificate {
+  string certificate_pem = 1;
+  string private_key_pem = 2;
+  string ca_chain_pem = 3;
 }
 
 message RunnerCapabilities {

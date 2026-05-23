@@ -25,11 +25,11 @@ class GrpcTlsConfigTest {
     Files.writeString(cert, "cert");
     Files.writeString(key, "key");
 
-    assertThatCode(() -> GrpcTlsConfig.server(cert, key, null, false).validateServer())
+    assertThatCode(() -> GrpcTlsConfig.server(cert, key, null).validateServer())
         .doesNotThrowAnyException();
 
     assertThatThrownBy(
-            () -> GrpcTlsConfig.server(cert, key, dir.resolve("missing-ca"), true).validateServer())
+            () -> GrpcTlsConfig.server(cert, key, dir.resolve("missing-ca")).validateServer())
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("client CA");
   }

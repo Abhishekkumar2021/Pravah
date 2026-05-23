@@ -171,6 +171,8 @@ services:
 
   runner-service:
     replicaCount: 2
+    needsVault: true
+    vaultKubernetesRole: pravah-runner-service
     resources:
       requests:
         cpu: 200m
@@ -198,6 +200,16 @@ runnerGrpcTls:
   enabled: true
   existingSecret: pravah-runner-grpc-tls
   requireClientAuth: true
+
+certManager:
+  runnerGrpc:
+    enabled: false
+    secretName: pravah-runner-grpc-tls
+    issuerName: ""
+
+runnerPki:
+  enabled: true
+  spiffeTrustDomain: pravah.cluster.local
 
 # Production Pravah settings (set via secrets manager / CI)
 pravah:

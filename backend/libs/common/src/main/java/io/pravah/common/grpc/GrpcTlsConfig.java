@@ -17,16 +17,8 @@ public record GrpcTlsConfig(
     return new GrpcTlsConfig(false, null, null, null, null, null, null);
   }
 
-  public static GrpcTlsConfig server(
-      Path certChainFile, Path privateKeyFile, Path clientCaFile, boolean requireClientAuth) {
-    return new GrpcTlsConfig(
-        true,
-        certChainFile,
-        privateKeyFile,
-        requireClientAuth ? clientCaFile : null,
-        null,
-        null,
-        null);
+  public static GrpcTlsConfig server(Path certChainFile, Path privateKeyFile, Path clientCaFile) {
+    return new GrpcTlsConfig(true, certChainFile, privateKeyFile, clientCaFile, null, null, null);
   }
 
   public static GrpcTlsConfig client(Path trustCertFile, Path clientCertFile, Path clientKeyFile) {

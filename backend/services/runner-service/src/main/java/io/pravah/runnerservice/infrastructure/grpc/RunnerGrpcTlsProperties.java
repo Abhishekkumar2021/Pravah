@@ -53,7 +53,7 @@ public class RunnerGrpcTlsProperties {
     Path cert = pathOrNull(certChain);
     Path key = pathOrNull(privateKey);
     Path ca = pathOrNull(clientCa);
-    return GrpcTlsConfig.server(cert, key, ca, ca != null);
+    return GrpcTlsConfig.server(cert, key, ca);
   }
 
   private static Path pathOrNull(String value) {

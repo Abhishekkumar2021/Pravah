@@ -38,8 +38,9 @@ public class RunnerAgent implements AutoCloseable {
   private final Map<String, String> labels;
   private final int maxJobs;
   private final String workDir;
-  private final GrpcTlsConfig tlsConfig;
   private final String runnerServiceHttpBaseUrl;
+
+  private volatile GrpcTlsConfig tlsConfig;
 
   private volatile String streamToken;
 
@@ -111,15 +112,10 @@ public class RunnerAgent implements AutoCloseable {
 
   public void start() {
     try {
-      channel = RunnerGrpcClientTls.channelBuilder(serverHost, serverPort, tlsConfig).build();
+      openChannel();
     } catch (java.io.IOException e) {
       throw new IllegalStateException("Failed to configure gRPC TLS channel", e);
     }
-    ClientInterceptor metadataInterceptor =
-        new RunnerGrpcClientInterceptor(
-            RunnerGrpcMetadata.registrationHeaders(tenantId, bootstrapSecret));
-    asyncStub = RunnerServiceGrpc.newStub(channel).withInterceptors(metadataInterceptor);
-    blockingStub = RunnerServiceGrpc.newBlockingStub(channel).withInterceptors(metadataInterceptor);
 
     if (existingRunnerId != null && !existingRunnerId.isBlank()) {
       runnerId = existingRunnerId;
@@ -142,6 +138,29 @@ public class RunnerAgent implements AutoCloseable {
         kv("runnerId", runnerId),
         kv("workDir", workDir),
         kv("grpcTls", tlsConfig.enabled()));
+  }
+
+  private void openChannel() throws java.io.IOException {
+    channel = RunnerGrpcClientTls.channelBuilder(serverHost, serverPort, tlsConfig).build();
+    rebuildStubs();
+  }
+
+  private void rebuildStubs() {
+    ClientInterceptor metadataInterceptor =
+        new RunnerGrpcClientInterceptor(
+            RunnerGrpcMetadata.registrationHeaders(tenantId, bootstrapSecret));
+    asyncStub = RunnerServiceGrpc.newStub(channel).withInterceptors(metadataInterceptor);
+    blockingStub = RunnerServiceGrpc.newBlockingStub(channel).withInterceptors(metadataInterceptor);
+  }
+
+  private void upgradeTlsFromRegistration(RunnerMtlsCertificate mtls) throws java.io.IOException {
+    tlsConfig = RunnerMtlsMaterializer.materialize(java.nio.file.Path.of(workDir), mtls, tlsConfig);
+    if (channel != null) {
+      channel.shutdownNow();
+    }
+    openChannel();
+    log.info(
+        "Applied Vault PKI mTLS client certificate from registration", kv("runnerId", runnerId));
   }
 
   private void register() {
@@ -172,6 +191,13 @@ public class RunnerAgent implements AutoCloseable {
     RegisterRunnerResponse response = blockingStub.registerRunner(request.build());
     runnerId = response.getRunnerId();
     streamToken = response.getToken();
+    if (response.hasMtls()) {
+      try {
+        upgradeTlsFromRegistration(response.getMtls());
+      } catch (java.io.IOException e) {
+        throw new IllegalStateException("Failed to persist Vault PKI mTLS material", e);
+      }
+    }
     log.info(
         "Registered with runner service",
         kv("runnerId", runnerId),

@@ -55,8 +55,23 @@ Production install guardrails (active when requireProductionSecrets=true).
 {{- if and $runner.enabled $runner.exposeGrpc.enabled (not .Values.runnerGrpcTls.enabled) }}
 {{- fail "runnerGrpcTls.enabled must be true when runner-service.exposeGrpc.enabled (external runner gRPC)" }}
 {{- end }}
-{{- if and .Values.runnerGrpcTls.enabled (not .Values.runnerGrpcTls.existingSecret) }}
-{{- fail "runnerGrpcTls.existingSecret is required when runnerGrpcTls.enabled" }}
+{{- if and .Values.runnerGrpcTls.enabled (not (include "pravah.runnerGrpcTls.secretName" .)) }}
+{{- fail "runnerGrpcTls.existingSecret or certManager.runnerGrpc.secretName is required when runnerGrpcTls.enabled" }}
+{{- end }}
+{{- if and .Values.runnerGrpcTls.enabled .Values.certManager.runnerGrpc.enabled (not .Values.certManager.runnerGrpc.issuerName) }}
+{{- fail "certManager.runnerGrpc.issuerName is required when certManager.runnerGrpc.enabled" }}
+{{- end }}
+{{- if and .Values.runnerPki.enabled (not .Values.externalVault.address) (not .Values.vault.enabled) }}
+{{- fail "runnerPki.enabled requires vault.enabled (local) or externalVault.address (production)" }}
+{{- end }}
+{{- if and .Values.runnerPki.enabled (not .Values.runnerGrpcTls.enabled) }}
+{{- fail "runnerPki.enabled requires runnerGrpcTls.enabled (server mTLS)" }}
+{{- end }}
+{{- if and .Values.runnerPki.enabled (not $runner.needsVault) }}
+{{- fail "services.runner-service.needsVault must be true when runnerPki.enabled" }}
+{{- end }}
+{{- if and .Values.runnerGrpcTls.enabled (not .Values.runnerGrpcTls.existingSecret) (not .Values.certManager.runnerGrpc.enabled) }}
+{{- fail "runnerGrpcTls.existingSecret is required when runnerGrpcTls.enabled (or enable certManager.runnerGrpc)" }}
 {{- end }}
 {{- if and .Values.runnerGrpcTls.enabled .Values.runnerGrpcTls.requireClientAuth (not .Values.runnerGrpcTls.clientCaKey) }}
 {{- fail "runnerGrpcTls.clientCaKey is required when runnerGrpcTls.requireClientAuth is true" }}

@@ -38,6 +38,13 @@ class RunnerCertificateIdentityParserTest {
   }
 
   @Test
+  void runnerSpiffeUri_includesTenantWhenPresent() {
+    assertThat(
+            RunnerCertificateIdentityParser.runnerSpiffeUri("pravah.local", TENANT_ID, RUNNER_ID))
+        .isEqualTo("spiffe://pravah.local/tenant/" + TENANT_ID + "/runner/" + RUNNER_ID);
+  }
+
+  @Test
   void parse_rejectsUnknownUri() {
     assertThat(RunnerCertificateIdentityParser.parseSpiffeUri("spiffe://other/service/foo"))
         .isEmpty();

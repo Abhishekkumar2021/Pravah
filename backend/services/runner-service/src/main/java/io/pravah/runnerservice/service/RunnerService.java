@@ -2,6 +2,7 @@ package io.pravah.runnerservice.service;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.vault.VaultIssuedCertificate;
 import io.pravah.runnerservice.domain.Runner;
 import io.pravah.runnerservice.domain.RunnerStatus;
 import io.pravah.runnerservice.repository.RunnerRepository;
@@ -30,14 +31,19 @@ public class RunnerService {
   private final RunnerRepository repository;
   private final RunnerConnectionManager connectionManager;
   private final SystemMaintenanceRlsHelper maintenanceRlsHelper;
+  private final java.util.Optional<io.pravah.runnerservice.infrastructure.pki.RunnerPkiService>
+      runnerPkiService;
 
   public RunnerService(
       RunnerRepository repository,
       RunnerConnectionManager connectionManager,
-      SystemMaintenanceRlsHelper maintenanceRlsHelper) {
+      SystemMaintenanceRlsHelper maintenanceRlsHelper,
+      java.util.Optional<io.pravah.runnerservice.infrastructure.pki.RunnerPkiService>
+          runnerPkiService) {
     this.repository = repository;
     this.connectionManager = connectionManager;
     this.maintenanceRlsHelper = maintenanceRlsHelper;
+    this.runnerPkiService = runnerPkiService;
   }
 
   /**
@@ -59,8 +65,11 @@ public class RunnerService {
       applyRegistrationFields(runner, request);
       runner = repository.save(runner);
       log.info("Re-authenticated runner: id={}, name={}", runner.getId(), runner.getName());
-      return new RegisterResult(
-          runner.getId(), request.registrationToken(), runner.getHeartbeatIntervalSeconds());
+      return buildRegisterResult(
+          runner.getId(),
+          request.registrationToken(),
+          runner.getHeartbeatIntervalSeconds(),
+          tenantId);
     }
 
     // Generate authentication token
@@ -78,7 +87,15 @@ public class RunnerService {
     log.info(
         "Registered runner: id={}, name={}, tenant={}", runner.getId(), runner.getName(), tenantId);
 
-    return new RegisterResult(runner.getId(), token, runner.getHeartbeatIntervalSeconds());
+    return buildRegisterResult(
+        runner.getId(), token, runner.getHeartbeatIntervalSeconds(), tenantId);
+  }
+
+  private RegisterResult buildRegisterResult(
+      UUID runnerId, String token, int heartbeatIntervalSeconds, UUID tenantId) {
+    java.util.Optional<VaultIssuedCertificate> mtls =
+        runnerPkiService.flatMap(pki -> pki.issueRunnerCertificate(tenantId, runnerId));
+    return new RegisterResult(runnerId, token, heartbeatIntervalSeconds, mtls);
   }
 
   /** Validates a runner token and returns the runner if valid. */
@@ -290,7 +307,11 @@ public class RunnerService {
       int availableCpus,
       String registrationToken) {}
 
-  public record RegisterResult(UUID runnerId, String token, int heartbeatIntervalSeconds) {}
+  public record RegisterResult(
+      UUID runnerId,
+      String token,
+      int heartbeatIntervalSeconds,
+      java.util.Optional<VaultIssuedCertificate> mtlsCertificate) {}
 
   public record HeartbeatData(
       double cpuUsagePercent,

@@ -20,8 +20,14 @@ final class RunnerGrpcServerTls {
     SslContextBuilder sslBuilder =
         GrpcSslContexts.forServer(tls.certChainFile().toFile(), tls.privateKeyFile().toFile());
     if (tls.clientCaFile() != null) {
-      sslBuilder.trustManager(tls.clientCaFile().toFile()).clientAuth(ClientAuth.REQUIRE);
+      // OPTIONAL so RegisterRunner can run with server-trust only before Vault PKI issues a cert.
+      // Connect streams require a client cert via RunnerGrpcIdentityInterceptor.
+      sslBuilder.trustManager(tls.clientCaFile().toFile()).clientAuth(clientAuthMode(tls));
     }
     return NettyServerBuilder.forPort(port).sslContext(sslBuilder.build());
+  }
+
+  static ClientAuth clientAuthMode(GrpcTlsConfig tls) {
+    return tls.clientCaFile() != null ? ClientAuth.OPTIONAL : ClientAuth.NONE;
   }
 }

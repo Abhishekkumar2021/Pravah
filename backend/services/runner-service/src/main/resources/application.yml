@@ -58,6 +58,20 @@ pravah:
         cert-chain: ${PRAVAH_RUNNER_GRPC_TLS_CERT_CHAIN:}
         private-key: ${PRAVAH_RUNNER_GRPC_TLS_PRIVATE_KEY:}
         client-ca: ${PRAVAH_RUNNER_GRPC_TLS_CLIENT_CA:}
+    pki:
+      enabled: ${PRAVAH_RUNNER_PKI_ENABLED:false}
+      issue-path: ${PRAVAH_RUNNER_PKI_ISSUE_PATH:pki/issue/runner}
+      ttl: ${PRAVAH_RUNNER_PKI_TTL:168h}
+      spiffe-trust-domain: ${PRAVAH_RUNNER_PKI_SPIFFE_TRUST_DOMAIN:pravah.local}
+  vault:
+    enabled: ${PRAVAH_VAULT_ENABLED:false}
+    address: ${PRAVAH_VAULT_ADDRESS:http://localhost:8200}
+    auth:
+      method: ${PRAVAH_VAULT_AUTH_METHOD:token}
+      token: ${VAULT_TOKEN:}
+      kubernetes:
+        mount-path: ${PRAVAH_VAULT_K8S_MOUNT_PATH:kubernetes}
+        role: ${PRAVAH_VAULT_K8S_ROLE:}
 
 management:
   endpoints:
