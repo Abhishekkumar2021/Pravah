@@ -60,7 +60,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | API Documentation | **Implemented** | SpringDoc OpenAPI per service; Swagger UI at `/swagger-ui.html` |
 | Remaining microservices | **Partial** | agent (stub), metadata (stub), graphql (stub), connect + runner-service (implemented) |
 | Monitoring & alerts (EPIC-04) | **Partial** | notification-service: alert rules, email/Slack/webhook, audit log, in-app bell |
-| Runner fleet + gRPC | **Partial** | gRPC server on 9091 with optional TLS/mTLS (`pravah.runner.grpc.tls.*`); Helm `runnerGrpcTls` mounts server cert + client CA; local CA scripts (`generate-runner-grpc-tls.sh`); runner agent `--tls-*` flags; assignment-bound job status; `RunnerIdentityInterceptor` (cert SAN → runner ID) planned |
+| Runner fleet + gRPC | **Partial** | gRPC server on 9091 with optional TLS/mTLS (`pravah.runner.grpc.tls.*`); Helm `runnerGrpcTls` mounts server cert + client CA; `RunnerGrpcIdentityInterceptor` extracts runner/tenant from client cert SPIFFE SAN (ADR-008); token fallback when mTLS off; local CA scripts with `RUNNER_ID`/`TENANT_ID` SPIFFE client certs; assignment-bound job status |
 | Lineage, catalog, AI agent | **Planned** | No Elasticsearch / OpenLineage stack in repo |
 
 **Rough progress vs full product vision (~180 user stories): ~50–55%.**  

@@ -88,6 +88,34 @@ public class RunnerService {
         .filter(runner -> runner.getTokenHash().equals(hashToken(token)));
   }
 
+  /**
+   * Resolves a runner registered in the database from mTLS certificate identity (ADR-008).
+   *
+   * <p>When the certificate encodes a tenant, it must match the runner row. When gRPC metadata
+   * includes {@code x-pravah-tenant-id}, it must also match.
+   */
+  @Transactional(readOnly = true)
+  public Optional<Runner> resolveCertificateIdentity(
+      UUID runnerId, Optional<UUID> certTenantId, UUID metadataTenantId) {
+    Optional<Runner> runner = repository.findById(runnerId);
+    if (runner.isEmpty()) {
+      return Optional.empty();
+    }
+    UUID runnerTenant = runner.get().getTenantId();
+    if (certTenantId.isPresent() && !runnerTenant.equals(certTenantId.get())) {
+      return Optional.empty();
+    }
+    if (metadataTenantId != null && !runnerTenant.equals(metadataTenantId)) {
+      return Optional.empty();
+    }
+    if (certTenantId.isPresent()
+        && metadataTenantId != null
+        && !certTenantId.get().equals(metadataTenantId)) {
+      return Optional.empty();
+    }
+    return runner;
+  }
+
   /** Updates runner status to ONLINE when it connects. */
   public void markOnline(UUID runnerId) {
     repository
