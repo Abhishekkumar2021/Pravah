@@ -9,16 +9,17 @@
 
 plugins {
     id("pravah.spring-boot-conventions")
-    id("pravah.jpa-conventions")
 }
 
 description = "Pravah Agent Service - AI-powered assistance"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
-    // Web
+    // Web + JWT (ADR-009)
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // HTTP client for LLM API calls (OpenAI-compatible)

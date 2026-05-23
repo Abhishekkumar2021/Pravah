@@ -61,7 +61,7 @@ test.describe("Run detail stages (US-12.08)", () => {
   test("opens stages tab by default when a job failed and shows error log", async ({ page }) => {
     await page.goto(`/app/runs/${EXECUTION_ID}`);
 
-    await expect(page.getByRole("tab", { name: /Stages & logs/i })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: /^Stages$/i })).toHaveAttribute(
       "data-state",
       "active",
     );

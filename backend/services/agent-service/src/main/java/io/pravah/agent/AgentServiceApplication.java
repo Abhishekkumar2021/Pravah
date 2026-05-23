@@ -12,6 +12,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/adr/ADR-014-llm-integration.md">ADR-014: LLM Integration</a>
  */
 @SpringBootApplication
+@org.springframework.context.annotation.ComponentScan(
+    basePackages = {"io.pravah.agent", "io.pravah.spring.security"})
 public class AgentServiceApplication {
 
   public static void main(String[] args) {

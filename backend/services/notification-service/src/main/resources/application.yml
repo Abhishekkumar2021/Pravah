@@ -25,7 +25,7 @@ spring:
     schemas: public
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:
       group-id: notification-service
       auto-offset-reset: earliest
@@ -66,6 +66,8 @@ pravah:
     topics:
       execution-events: pravah.execution.execution.events
       job-events: pravah.job.created
+    notification:
+      dlt-topic: ${PRAVAH_NOTIFICATION_EVENTS_DLT_TOPIC:pravah.notification.events.dlt}
 
 management:
   endpoints:

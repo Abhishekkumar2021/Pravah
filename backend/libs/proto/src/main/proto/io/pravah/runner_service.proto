@@ -37,6 +37,8 @@ message RegisterRunnerRequest {
   string version = 2;
   repeated Label labels = 3;
   RunnerCapabilities capabilities = 4;
+  // When set, re-authenticates an existing runner (same tenant + name) instead of creating a duplicate.
+  string registration_token = 5;
 }
 
 message RegisterRunnerResponse {
@@ -69,6 +71,7 @@ message Heartbeat {
   string runner_id = 1;
   int64 timestamp = 2;
   RunnerMetrics metrics = 3;
+  string token = 4;  // Required on first heartbeat after RegisterRunner (or reconnect)
 }
 
 message RunnerMetrics {
@@ -131,6 +134,8 @@ message JobSpec {
   map<string, string> environment = 4;
   int64 timeout_seconds = 5;
   ResourceRequirements resources = 6;
+  // env var name -> tenant secret name (or reserved runtime key); resolved on runner before execute
+  map<string, string> secret_environment = 7;
 }
 
 message ResourceRequirements {

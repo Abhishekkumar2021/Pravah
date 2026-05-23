@@ -39,20 +39,40 @@ backend/
 └── build.gradle.kts             # Root build configuration
 ```
 
-**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, connect. Partial: notification, runner-service. Stubs: graphql, metadata, agent.
+**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, notification, connect, runner-service. Partial/stub: graphql, metadata, agent (JWT-secured HTTP stubs).
 
-**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`. Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`. Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` and assign via runner-service gRPC.
 
-Example stage snippet:
+**Runner agent (gRPC 9091):** Register with tenant metadata + bootstrap secret, then authenticate the bidirectional stream with the issued token on the first heartbeat.
 
-```yaml
-- id: extract
-  type: container
-  runOn: runner
-  config:
-    image: python:3.12-slim
-    command: ["python", "-c", "print(1)"]
-``` Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+```bash
+cd backend && ./gradlew :runner:fatJar
+java -jar runner/build/libs/runner-*-all.jar \
+  --server-url localhost:9091 \
+  --tenant-id "<tenant-uuid>" \
+  --bootstrap-secret "${PRAVAH_RUNNER_BOOTSTRAP_SECRET}" \
+  --name my-runner
+# Save printed runner id + token; reconnect with:
+#   --runner-id "<uuid>" --token "<token>"
+```
+
+Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (required for registration; must match `pravah.runner.bootstrap-secret` on runner-service). Config: `pravah.runner.bootstrap-secret` on runner-service.
+
+**Remote job secrets:** `${secret.*}` env refs and SQL passwords are stripped from gRPC `JobSpec.environment` into `secret_environment`. At execution time the runner resolves them with its **stream token** (not the internal service secret):
+
+`POST /api/v1/runners/{runnerId}/jobs/{jobId}/environment-secrets` with `Authorization: Bearer <stream-token>` → runner-service (validates token + job assignment) → execution-service.
+
+Set `--runner-http-url` or `PRAVAH_RUNNER_HTTP_URL` (default `http://localhost:8086`, runner-service HTTP port).
+
+**Runner gRPC TLS (optional):** Set `pravah.runner.grpc.tls.enabled=true` on runner-service with `cert-chain`, `private-key`, and optional `client-ca` for mTLS. Runner agent: `--tls-enabled`, `--tls-trust-cert`, optional `--tls-client-cert` / `--tls-client-key` (or `PRAVAH_RUNNER_GRPC_TLS_*` env vars).
+
+**Scheduler Kafka DLT:** Failed trigger consumption after retries routes to `pravah.scheduler.kafka-trigger.dlt-topic` (default `pravah.scheduler.trigger.dlt`). Override with `PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC`.
+
+**Scheduler coalesce catchup (US-03.15):** Set `catchupPolicy: coalesce` on a schedule. Missed cron slots within `pravah.scheduler.coalesce-max-interval` (env `PRAVAH_SCHEDULER_COALESCE_MAX_INTERVAL`, default `7d`) fire once; execution parameters include `_trigger.coalesce.{scheduleId, firstScheduledAt, lastScheduledAt, missedSlotCount}`. Spans exceeding the threshold fall back to `run_all`.
+
+**Gateway IP allowlist (US-10.16):** Optional ingress filter via `pravah.gateway.ip-allowlist.enabled` and `pravah.gateway.ip-allowlist.cidrs` (IPv4/IPv6 CIDR or exact IP). Env: `PRAVAH_GATEWAY_IP_ALLOWLIST_ENABLED`, `PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS`.
+
+**Method security:** Pipeline, execution, scheduler, connect, notification, and tenant REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (JWT permissions such as `pipelines:*`, `executions:*`, `users:*`, `settings:read`).
 
 Example stage snippet:
 
@@ -80,7 +100,7 @@ Example stage snippet:
 ```bash
 make local-setup      # once: copy env templates
 make local-up         # docker-compose infra
-make local-services   # tenant, pipeline, execution, scheduler, gateway
+make local-services   # tenant, pipeline, execution, scheduler, notification, connect, runner, metadata, agent, gateway
 make local-seed       # demo data
 make local-web        # Vite dev server (../web)
 ```
@@ -98,8 +118,18 @@ The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a *
 | `pravah.ratelimit.default-burst-capacity` | `PRAVAH_RATE_LIMIT_BURST` | `200` | Tenant burst capacity |
 | `pravah.ratelimit.api-token-requests-per-second` | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | API token RPS |
 | `pravah.ratelimit.api-token-burst-capacity` | `PRAVAH_RATE_LIMIT_API_TOKEN_BURST` | `100` | API token burst |
+| `pravah.ratelimit.fail-open` | `PRAVAH_RATE_LIMIT_FAIL_OPEN` | `true` | Allow traffic when Redis/script errors (`outcome=fail_open` metric when true) |
 
-Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` on `/actuator/prometheus`.
+Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` (outcomes: `allowed`, `denied`, `fail_open`) on `/actuator/prometheus`. Outbox dead letters: `pravah_outbox_dead_lettered_total{service,event_type,topic}`.
+
+### Auth refresh cookie (tenant-service, ADR-009)
+
+Login sets a **HttpOnly** refresh cookie (`pravah_refresh`, path `/api/v1/auth`). The SPA keeps the access token in memory only and calls `POST /api/v1/auth/refresh` with `credentials: include` on startup.
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.auth.refresh-cookie.secure` | `PRAVAH_AUTH_REFRESH_COOKIE_SECURE` | `false` | Set `true` in production (HTTPS) |
+| `pravah.auth.refresh-cookie.max-age-seconds` | `PRAVAH_AUTH_REFRESH_COOKIE_MAX_AGE_SECONDS` | `604800` | Refresh cookie TTL (7 days) |
 
 ### Scheduler webhooks (Redis rate limiting)
 
@@ -311,7 +341,7 @@ Start Redis from `docker-compose.yml` when running execution-service with defaul
 | Metadata Service | 8087 | - |
 | Notification Service | 8088 | - |
 | Agent Service | 8089 | - |
-| Connect Service | 8090 | - |
+| Connect Service | 8091 | JWT + internal S2S (port 8091 avoids Kafka UI on 8090 locally) |
 
 ## API Documentation (US-11.12)
 

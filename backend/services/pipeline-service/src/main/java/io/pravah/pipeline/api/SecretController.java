@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,21 +40,25 @@ public class SecretController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public SecretResponse createSecret(@Valid @RequestBody CreateSecretRequest request) {
     return secretService.createSecret(request);
   }
 
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public List<SecretResponse> listSecrets() {
     return secretService.listSecrets();
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public SecretResponse getSecret(@PathVariable UUID id) {
     return secretService.getSecret(id);
   }
 
   @GetMapping("/by-name/{name}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public SecretResponse getSecretByName(
       @PathVariable
           @Pattern(
@@ -64,6 +69,7 @@ public class SecretController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public SecretResponse updateSecret(
       @PathVariable UUID id, @Valid @RequestBody UpdateSecretRequest request) {
     return secretService.updateSecret(id, request);
@@ -71,6 +77,7 @@ public class SecretController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public void deleteSecret(@PathVariable UUID id) {
     secretService.deleteSecret(id);
   }

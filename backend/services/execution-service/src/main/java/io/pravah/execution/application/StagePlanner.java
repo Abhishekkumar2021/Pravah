@@ -62,6 +62,15 @@ public final class StagePlanner {
    * All stages that must complete before {@code fromStageId} can run (transitive {@code dependsOn}
    * closure). Does not include {@code fromStageId}.
    */
+  /** True when any transitive {@code dependsOn} ancestor is in {@code failedStageIds}. */
+  public static boolean hasFailedUpstream(
+      Map<String, Object> definition, String stageId, Set<String> failedStageIds) {
+    if (failedStageIds == null || failedStageIds.isEmpty()) {
+      return false;
+    }
+    return transitiveUpstream(definition, stageId).stream().anyMatch(failedStageIds::contains);
+  }
+
   public static Set<String> transitiveUpstream(Map<String, Object> definition, String fromStageId) {
     List<StageDef> stages = parseStages(definition);
     Map<String, StageDef> byId =

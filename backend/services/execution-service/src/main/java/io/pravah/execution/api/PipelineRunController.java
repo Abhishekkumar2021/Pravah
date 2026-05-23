@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +41,8 @@ public class PipelineRunController {
    * @return full execution details (201) or minimal id-only response (202 if async)
    */
   @PostMapping("/{pipelineId}/runs")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Object> trigger(
       @PathVariable UUID pipelineId,
       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,

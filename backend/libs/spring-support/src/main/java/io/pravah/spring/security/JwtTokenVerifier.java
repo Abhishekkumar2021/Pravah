@@ -57,11 +57,15 @@ public class JwtTokenVerifier {
   private static final Duration RETRY_DELAY = Duration.ofSeconds(2);
 
   private final String jwksUrl;
+  private final String expectedIssuer;
   private final AtomicReference<JWKSet> cachedJwkSet = new AtomicReference<>();
   private volatile Instant lastRefresh = Instant.EPOCH;
 
-  public JwtTokenVerifier(@Value("${pravah.security.jwt.jwks-url}") String jwksUrl) {
+  public JwtTokenVerifier(
+      @Value("${pravah.security.jwt.jwks-url}") String jwksUrl,
+      @Value("${pravah.security.jwt.issuer:}") String expectedIssuer) {
     this.jwksUrl = jwksUrl;
+    this.expectedIssuer = expectedIssuer;
   }
 
   /**
@@ -199,6 +203,13 @@ public class JwtTokenVerifier {
    * @throws JwtVerificationException if required claims are missing or invalid
    */
   protected JwtClaims extractClaims(JWTClaimsSet claimsSet) {
+    if (expectedIssuer != null && !expectedIssuer.isBlank()) {
+      String issuer = claimsSet.getIssuer();
+      if (issuer == null || !expectedIssuer.equals(issuer)) {
+        throw new JwtVerificationException("JWT issuer mismatch");
+      }
+    }
+
     String subject = claimsSet.getSubject();
     if (subject == null) {
       throw new JwtVerificationException("JWT missing subject claim");

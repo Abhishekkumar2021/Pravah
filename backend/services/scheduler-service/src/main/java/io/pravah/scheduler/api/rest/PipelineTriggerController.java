@@ -2,12 +2,15 @@ package io.pravah.scheduler.api.rest;
 
 import io.pravah.scheduler.api.dto.CreatePipelineTriggerRequest;
 import io.pravah.scheduler.api.dto.PipelineTriggerResponse;
+import io.pravah.scheduler.api.dto.TriggerDispatchHistoryResponse;
 import io.pravah.scheduler.api.dto.UpdatePipelineTriggerRequest;
 import io.pravah.scheduler.application.PipelineTriggerService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,38 +35,61 @@ public class PipelineTriggerController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineTriggerResponse create(@Valid @RequestBody CreatePipelineTriggerRequest request) {
     return triggerService.createTrigger(request);
   }
 
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public List<PipelineTriggerResponse> list(@RequestParam UUID pipelineId) {
     return triggerService.listTriggers(pipelineId);
   }
 
   @GetMapping("/{triggerId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public PipelineTriggerResponse get(@PathVariable UUID triggerId) {
     return triggerService.getTrigger(triggerId);
   }
 
   @PutMapping("/{triggerId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineTriggerResponse update(
       @PathVariable UUID triggerId, @Valid @RequestBody UpdatePipelineTriggerRequest request) {
     return triggerService.updateTrigger(triggerId, request);
   }
 
   @PostMapping("/{triggerId}/disable")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineTriggerResponse disable(@PathVariable UUID triggerId) {
     return triggerService.disableTrigger(triggerId);
   }
 
   @PostMapping("/{triggerId}/enable")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineTriggerResponse enable(@PathVariable UUID triggerId) {
     return triggerService.enableTrigger(triggerId);
   }
 
+  @GetMapping("/{triggerId}/history")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
+  public List<TriggerDispatchHistoryResponse> history(@PathVariable UUID triggerId) {
+    return triggerService.listDispatchHistory(triggerId);
+  }
+
+  @PostMapping("/{triggerId}/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
+  public TestTriggerResponse test(
+      @PathVariable UUID triggerId, @RequestBody(required = false) Map<String, Object> payload) {
+    UUID executionId = triggerService.testTrigger(triggerId, payload);
+    return new TestTriggerResponse(executionId);
+  }
+
+  public record TestTriggerResponse(UUID executionId) {}
+
   @DeleteMapping("/{triggerId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public void delete(@PathVariable UUID triggerId) {
     triggerService.deleteTrigger(triggerId);
   }

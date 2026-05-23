@@ -1,18 +1,25 @@
 spring:
   application:
     name: metadata-service
-  
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:
       group-id: metadata-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: io.pravah.common.event
+        spring.json.trusted.packages: java.util,java.lang,io.pravah
 
 pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+      issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
   metadata:
     duckdb:
       path: ${DUCKDB_PATH:/data/analytics.duckdb}

@@ -155,7 +155,8 @@ public class PravahRestExceptionHandler {
   @ExceptionHandler(IllegalArgumentException.class)
   public ProblemDetail handleBadRequest(IllegalArgumentException ex) {
     log.debug("Bad request", kv("message", ex.getMessage()));
-    ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    ProblemDetail pd =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, sanitizeClientMessage(ex));
     pd.setTitle("Bad Request");
     pd.setType(URI.create("about:blank"));
     return pd;
@@ -165,9 +166,29 @@ public class PravahRestExceptionHandler {
   public ProblemDetail handleInternalError(IllegalStateException ex) {
     log.error("Internal server error", kv("message", ex.getMessage()), ex);
     ProblemDetail pd =
-        ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred");
     pd.setTitle("Internal Error");
     pd.setType(URI.create("about:blank"));
     return pd;
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ProblemDetail handleUnexpected(Exception ex) {
+    log.error("Unhandled exception", kv("message", ex.getMessage()), ex);
+    ProblemDetail pd =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred");
+    pd.setTitle("Internal Error");
+    pd.setType(URI.create("about:blank"));
+    return pd;
+  }
+
+  private static String sanitizeClientMessage(IllegalArgumentException ex) {
+    String message = ex.getMessage();
+    if (message == null || message.isBlank()) {
+      return "Invalid request";
+    }
+    return message;
   }
 }

@@ -1,5 +1,6 @@
 package io.pravah.scheduler.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -13,12 +14,13 @@ import io.pravah.scheduler.domain.repository.ScheduleRepository;
 import io.pravah.scheduler.infrastructure.client.ExecutionTriggerClient;
 import io.pravah.scheduler.infrastructure.leader.LeaderElectionService;
 import io.pravah.scheduler.infrastructure.persistence.SchedulerRlsHelper;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -36,7 +38,21 @@ class ScheduleEvaluationJobTest {
   @Mock private ExecutionTriggerClient executionTriggerClient;
   @Mock private SchedulerRlsHelper schedulerRlsHelper;
 
-  @InjectMocks private ScheduleEvaluationJob scheduleEvaluationJob;
+  private ScheduleEvaluationJob scheduleEvaluationJob;
+
+  @BeforeEach
+  void setUp() {
+    scheduleEvaluationJob =
+        new ScheduleEvaluationJob(
+            leaderElectionService,
+            scheduleRepository,
+            scheduleHistoryRepository,
+            executionTriggerClient,
+            schedulerRlsHelper,
+            Clock.systemUTC(),
+            32,
+            java.time.Duration.ofDays(7));
+  }
 
   @Test
   void evaluateDueSchedules_skipsWhenNotLeader() {
@@ -121,5 +137,120 @@ class ScheduleEvaluationJobTest {
             org.mockito.ArgumentMatchers.argThat(
                 h -> h.getStatus().equals(ScheduleHistory.STATUS_FAILED)));
     verify(scheduleRepository).save(schedule);
+    assertThat(schedule.getNextRunAt()).isEqualTo(now);
+  }
+
+  @Test
+  void nextRunAfterSuccessfulTrigger_skipAdvancesFromScheduledSlot() {
+    Schedule schedule = minimalSchedule("skip");
+    Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
+    Instant now = Instant.parse("2026-05-16T09:00:00Z");
+
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
+
+    assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
+  }
+
+  @Test
+  void nextRunAfterSuccessfulTrigger_runAllAdvancesFromScheduledSlot() {
+    Schedule schedule = minimalSchedule("run_all");
+    Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
+
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
+
+    assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
+  }
+
+  @Test
+  void processScheduleCoalesce_fallsBackToRunAllWhenIntervalExceedsThreshold() {
+    Instant now = Instant.parse("2026-06-16T09:00:00Z");
+    Instant firstMissed = Instant.parse("2026-05-14T09:00:00Z");
+    Schedule schedule =
+        Schedule.builder()
+            .id(SCHEDULE_ID)
+            .tenantId(TENANT_ID)
+            .pipelineId(PIPELINE_ID)
+            .name("Daily")
+            .cronExpression("0 9 * * *")
+            .timezone("UTC")
+            .catchupPolicy("coalesce")
+            .nextRunAt(firstMissed)
+            .createdBy(UUID.randomUUID())
+            .build();
+
+    ScheduleEvaluationJob jobWithShortThreshold =
+        new ScheduleEvaluationJob(
+            leaderElectionService,
+            scheduleRepository,
+            scheduleHistoryRepository,
+            executionTriggerClient,
+            schedulerRlsHelper,
+            Clock.systemUTC(),
+            32,
+            java.time.Duration.ofDays(7));
+
+    when(executionTriggerClient.triggerScheduledExecution(
+            eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID)))
+        .thenReturn(EXECUTION_ID);
+    when(scheduleRepository.save(any(Schedule.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+        jobWithShortThreshold, "processScheduleCoalesce", schedule, now);
+
+    verify(executionTriggerClient, org.mockito.Mockito.atLeastOnce())
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID));
+    verify(executionTriggerClient, never())
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any());
+  }
+
+  @Test
+  void triggerCoalescedSlot_advancesNextRunPastAllMissedSlots() {
+    Instant now = Instant.parse("2026-05-16T09:00:00Z");
+    Instant firstMissed = Instant.parse("2026-05-14T09:00:00Z");
+    Instant lastMissed = Instant.parse("2026-05-16T09:00:00Z");
+    Schedule schedule =
+        Schedule.builder()
+            .id(SCHEDULE_ID)
+            .tenantId(TENANT_ID)
+            .pipelineId(PIPELINE_ID)
+            .name("Daily")
+            .cronExpression("0 9 * * *")
+            .timezone("UTC")
+            .catchupPolicy("coalesce")
+            .nextRunAt(firstMissed)
+            .createdBy(UUID.randomUUID())
+            .build();
+
+    when(executionTriggerClient.triggerScheduledExecution(
+            eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any()))
+        .thenReturn(EXECUTION_ID);
+    when(scheduleRepository.save(any(Schedule.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    boolean triggered =
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            scheduleEvaluationJob,
+            "triggerCoalescedSlot",
+            schedule,
+            firstMissed,
+            now,
+            lastMissed,
+            3);
+
+    assertThat(triggered).isTrue();
+    assertThat(schedule.getNextRunAt()).isEqualTo(Instant.parse("2026-05-17T09:00:00Z"));
+    verify(executionTriggerClient)
+        .triggerScheduledExecution(eq(TENANT_ID), eq(PIPELINE_ID), eq(SCHEDULE_ID), any());
+  }
+
+  private static Schedule minimalSchedule(String catchupPolicy) {
+    return Schedule.builder()
+        .tenantId(TENANT_ID)
+        .pipelineId(PIPELINE_ID)
+        .name("Daily")
+        .cronExpression("0 9 * * *")
+        .timezone("UTC")
+        .catchupPolicy(catchupPolicy)
+        .createdBy(UUID.randomUUID())
+        .build();
   }
 }

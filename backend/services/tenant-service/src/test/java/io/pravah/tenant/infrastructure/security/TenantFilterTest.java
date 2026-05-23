@@ -38,7 +38,11 @@ class TenantFilterTest {
 
   @BeforeEach
   void setUp() {
-    filter = new TenantFilter(jwtTokenVerifier, apiTokenAuthenticator);
+    filter =
+        new TenantFilter(
+            jwtTokenVerifier,
+            apiTokenAuthenticator,
+            new io.pravah.spring.security.OptionalJwtBlocklistChecker(null));
   }
 
   @AfterEach

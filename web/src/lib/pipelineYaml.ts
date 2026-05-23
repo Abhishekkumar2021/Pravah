@@ -68,10 +68,15 @@ export function stagesToYaml(
   pipelineName: string,
   stages: StageDefinition[],
   description?: string | null,
+  retry?: { maxAttempts: number },
 ): string {
   const header: string[] = [`name: ${yamlQuote(pipelineName)}`];
   if (description?.trim()) {
     header.push(`description: ${yamlQuote(description.trim())}`);
+  }
+  if (retry) {
+    header.push("retry:");
+    header.push(`  max_attempts: ${retry.maxAttempts}`);
   }
   header.push("stages:");
   if (stages.length === 0) {
@@ -82,4 +87,45 @@ export function stagesToYaml(
     }
   }
   return `${header.join("\n")}\n`;
+}
+
+const RETRY_BLOCK_RE = /^retry:\s*\n(?:  .*\n)*/m;
+
+export type PipelineRetrySettings = {
+  autoRetry: boolean;
+  maxAttempts: number;
+};
+
+/** Reads pipeline-level retry from draft/published YAML (defaults match backend RetryPolicy.DEFAULT). */
+export function parseRetryFromYaml(yaml: string): PipelineRetrySettings {
+  const match = yaml.match(/(?:^|\n)retry:\s*\n(?:  .*\n)*?  max_attempts:\s*(\d+)/);
+  if (!match) {
+    return { autoRetry: true, maxAttempts: 3 };
+  }
+  const maxAttempts = Math.max(1, parseInt(match[1], 10) || 1);
+  return { autoRetry: maxAttempts > 1, maxAttempts };
+}
+
+/** Updates or removes the top-level retry block without touching stages. */
+export function applyRetryToYaml(yaml: string, settings: PipelineRetrySettings): string {
+  const withoutRetry = yaml.replace(RETRY_BLOCK_RE, "").trimEnd();
+  if (!settings.autoRetry) {
+    const lines = withoutRetry.split("\n");
+    const insertAt = lines.findIndex((line) => line.startsWith("stages:"));
+    if (insertAt <= 0) {
+      return `${withoutRetry}\nretry:\n  max_attempts: 1\n`;
+    }
+    const before = lines.slice(0, insertAt).join("\n");
+    const after = lines.slice(insertAt).join("\n");
+    return `${before}\nretry:\n  max_attempts: 1\n${after}\n`;
+  }
+  const maxAttempts = Math.max(2, settings.maxAttempts);
+  const lines = withoutRetry.split("\n");
+  const insertAt = lines.findIndex((line) => line.startsWith("stages:"));
+  if (insertAt <= 0) {
+    return `${withoutRetry}\nretry:\n  max_attempts: ${maxAttempts}\n`;
+  }
+  const before = lines.slice(0, insertAt).join("\n");
+  const after = lines.slice(insertAt).join("\n");
+  return `${before}\nretry:\n  max_attempts: ${maxAttempts}\n${after}\n`;
 }

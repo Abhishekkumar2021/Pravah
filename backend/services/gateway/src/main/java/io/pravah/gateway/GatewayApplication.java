@@ -17,7 +17,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *
  * @see <a href="../../../docs/architecture/high-level-architecture.md">High-Level Architecture</a>
  */
-@SpringBootApplication
+@SpringBootApplication(
+    excludeName = "org.springframework.cloud.gateway.config.GatewayRedisAutoConfiguration")
 public class GatewayApplication {
 
   public static void main(String[] args) {

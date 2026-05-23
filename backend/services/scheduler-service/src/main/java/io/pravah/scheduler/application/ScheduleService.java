@@ -41,6 +41,16 @@ public class ScheduleService {
 
     validateCron(request.cronExpression(), request.timezone());
 
+    String catchupPolicy =
+        request.catchupPolicy() != null && !request.catchupPolicy().isBlank()
+            ? request.catchupPolicy().trim()
+            : "skip";
+    if (!catchupPolicy.equals("skip")
+        && !catchupPolicy.equals("run_all")
+        && !catchupPolicy.equals("coalesce")) {
+      throw ValidationException.of("catchupPolicy", "Must be 'skip', 'run_all', or 'coalesce'");
+    }
+
     Instant now = Instant.now();
     Instant firstRun =
         CronScheduleCalculator.nextRunAfter(request.cronExpression(), request.timezone(), now);
@@ -52,6 +62,7 @@ public class ScheduleService {
             .name(request.name().trim())
             .cronExpression(request.cronExpression().trim())
             .timezone(request.timezone().trim())
+            .catchupPolicy(catchupPolicy)
             .nextRunAt(firstRun)
             .createdBy(userId)
             .build();

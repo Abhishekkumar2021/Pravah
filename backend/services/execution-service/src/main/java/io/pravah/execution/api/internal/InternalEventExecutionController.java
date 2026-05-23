@@ -31,7 +31,8 @@ public class InternalEventExecutionController {
             request.pipelineId(),
             request.triggerType(),
             request.triggerId(),
-            request.parameters());
+            request.parameters(),
+            request.idempotencyKey());
     return new EventExecutionResponse(created.id());
   }
 
@@ -39,7 +40,8 @@ public class InternalEventExecutionController {
       @NotNull UUID pipelineId,
       @NotBlank String triggerType,
       @NotNull UUID triggerId,
-      Map<String, Object> parameters) {}
+      Map<String, Object> parameters,
+      String idempotencyKey) {}
 
   public record EventExecutionResponse(UUID executionId) {}
 }

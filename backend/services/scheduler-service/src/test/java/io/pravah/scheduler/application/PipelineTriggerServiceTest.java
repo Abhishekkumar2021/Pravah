@@ -15,6 +15,7 @@ import io.pravah.scheduler.domain.model.PipelineTrigger;
 import io.pravah.scheduler.domain.model.TriggerType;
 import io.pravah.scheduler.domain.repository.PipelineTriggerRepository;
 import io.pravah.scheduler.infrastructure.kafka.KafkaTriggerListenerManager;
+import io.pravah.scheduler.infrastructure.persistence.repository.TriggerDispatchHistoryRepository;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +35,8 @@ class PipelineTriggerServiceTest {
 
   @Mock private PipelineTriggerRepository triggerRepository;
   @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private PipelineTriggerDispatchService dispatchService;
+  @Mock private TriggerDispatchHistoryRepository dispatchHistoryRepository;
 
   private PipelineTriggerService service;
   private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
@@ -50,7 +53,9 @@ class PipelineTriggerServiceTest {
             encoder,
             new WebhookSecretGenerator(),
             "http://localhost:8080/api/v1/hooks",
-            eventPublisher);
+            eventPublisher,
+            dispatchService,
+            dispatchHistoryRepository);
   }
 
   @AfterEach
@@ -208,5 +213,45 @@ class PipelineTriggerServiceTest {
         .secretHash(encoder.encode("test-secret"))
         .createdBy(userId)
         .build();
+  }
+
+  @Test
+  void listDispatchHistory_returnsMappedRows() {
+    PipelineTrigger trigger = createWebhookTrigger(null);
+    UUID triggerId = trigger.getId();
+    when(triggerRepository.findByIdAndTenantId(triggerId, tenantId))
+        .thenReturn(Optional.of(trigger));
+    when(dispatchHistoryRepository.findByTriggerIdOrderByCreatedAtDesc(triggerId))
+        .thenReturn(
+            java.util.List.of(
+                new io.pravah.scheduler.infrastructure.persistence.entity
+                    .TriggerDispatchHistoryEntity(
+                    tenantId,
+                    triggerId,
+                    trigger.getPipelineId(),
+                    "webhook",
+                    "success",
+                    UUID.randomUUID(),
+                    null,
+                    "{}")));
+
+    var rows = service.listDispatchHistory(triggerId);
+
+    assertThat(rows).hasSize(1);
+    assertThat(rows.get(0).status()).isEqualTo("success");
+  }
+
+  @Test
+  void testTrigger_dispatchesPayload() {
+    PipelineTrigger trigger = createWebhookTrigger(null);
+    UUID triggerId = trigger.getId();
+    when(triggerRepository.findByIdAndTenantId(triggerId, tenantId))
+        .thenReturn(Optional.of(trigger));
+    UUID executionId = UUID.randomUUID();
+    when(dispatchService.dispatch(trigger, Map.of("sample", true))).thenReturn(executionId);
+
+    UUID result = service.testTrigger(triggerId, Map.of("sample", true));
+
+    assertThat(result).isEqualTo(executionId);
   }
 }

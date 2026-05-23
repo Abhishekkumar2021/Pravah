@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /** REST API for tenant management. */
@@ -29,18 +30,21 @@ public class TenantController {
   }
 
   @GetMapping("/{tenantId}")
+  @PreAuthorize("@permissionChecker.hasAny('settings:read', 'users:*')")
   public ResponseEntity<TenantResponse> getTenant(@PathVariable UUID tenantId) {
     TenantResponse response = tenantService.getTenant(tenantId);
     return ResponseEntity.ok(response);
   }
 
   @GetMapping("/by-slug/{slug}")
+  @PreAuthorize("@permissionChecker.hasAny('settings:read', 'users:*')")
   public ResponseEntity<TenantResponse> getTenantBySlug(@PathVariable String slug) {
     TenantResponse response = tenantService.getTenantBySlug(slug);
     return ResponseEntity.ok(response);
   }
 
   @PatchMapping("/{tenantId}/name")
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<TenantResponse> updateName(
       @PathVariable UUID tenantId, @Valid @RequestBody UpdateNameRequest request) {
     TenantResponse response = tenantService.updateTenantName(tenantId, request.name);
@@ -48,6 +52,7 @@ public class TenantController {
   }
 
   @PatchMapping("/{tenantId}/tier")
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<TenantResponse> updateTier(
       @PathVariable UUID tenantId, @Valid @RequestBody UpdateTierRequest request) {
     TenantResponse response = tenantService.updateTenantTier(tenantId, request.tier);
@@ -55,6 +60,7 @@ public class TenantController {
   }
 
   @PostMapping("/{tenantId}/members")
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<Void> addMember(
       @PathVariable UUID tenantId, @Valid @RequestBody AddMemberRequest request) {
     tenantService.addMember(tenantId, request.userId, request.roleId);
@@ -62,12 +68,14 @@ public class TenantController {
   }
 
   @DeleteMapping("/{tenantId}/members/{userId}")
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<Void> removeMember(@PathVariable UUID tenantId, @PathVariable UUID userId) {
     tenantService.removeMember(tenantId, userId);
     return ResponseEntity.noContent().build();
   }
 
   @PatchMapping("/{tenantId}/members/{userId}/role")
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<Void> changeMemberRole(
       @PathVariable UUID tenantId,
       @PathVariable UUID userId,

@@ -7,6 +7,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -16,6 +17,7 @@ import com.nimbusds.jwt.SignedJWT;
 import io.pravah.common.security.JwtClaimNames;
 import jakarta.annotation.PostConstruct;
 import java.io.Serial;
+import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -50,6 +52,7 @@ public class JwtTokenIssuer {
   private static final Logger log = LoggerFactory.getLogger(JwtTokenIssuer.class);
 
   private static final Duration ACCESS_TOKEN_LIFETIME = Duration.ofMinutes(15);
+  private static final Duration REFRESH_TOKEN_LIFETIME = Duration.ofDays(7);
   private static final int RSA_KEY_SIZE = 2048;
 
   private final String issuer;
@@ -124,6 +127,64 @@ public class JwtTokenIssuer {
 
     return signedJwt.serialize();
   }
+
+  /** Issues a long-lived refresh token (HttpOnly cookie only; not for API Authorization header). */
+  public String generateRefreshToken(UUID userId, UUID tenantId) {
+    Instant now = Instant.now();
+    Instant expiry = now.plus(REFRESH_TOKEN_LIFETIME);
+    String jti = UUID.randomUUID().toString();
+
+    JWTClaimsSet claims =
+        new JWTClaimsSet.Builder()
+            .subject(userId.toString())
+            .claim(JwtClaimNames.TENANT_ID, tenantId.toString())
+            .claim(JwtClaimNames.TOKEN_TYPE, "refresh")
+            .jwtID(jti)
+            .issuer(issuer)
+            .issueTime(Date.from(now))
+            .expirationTime(Date.from(expiry))
+            .build();
+
+    JWSHeader header =
+        new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(currentSigningKey.getKeyID()).build();
+
+    SignedJWT signedJwt = new SignedJWT(header, claims);
+    try {
+      signedJwt.sign(currentSigner);
+    } catch (JOSEException e) {
+      throw new TokenGenerationException("Failed to sign refresh JWT", e);
+    }
+    return signedJwt.serialize();
+  }
+
+  /**
+   * Validates a refresh JWT and returns user/tenant IDs.
+   *
+   * @throws TokenGenerationException if invalid or not a refresh token
+   */
+  public RefreshTokenClaims validateRefreshToken(String token) {
+    try {
+      SignedJWT signedJwt = SignedJWT.parse(token);
+      if (!signedJwt.verify(new RSASSAVerifier(currentSigningKey.toRSAPublicKey()))) {
+        throw new TokenGenerationException("Invalid refresh token signature");
+      }
+      JWTClaimsSet claims = signedJwt.getJWTClaimsSet();
+      if (!"refresh".equals(claims.getStringClaim(JwtClaimNames.TOKEN_TYPE))) {
+        throw new TokenGenerationException("Not a refresh token");
+      }
+      if (claims.getExpirationTime() == null
+          || claims.getExpirationTime().toInstant().isBefore(Instant.now())) {
+        throw new TokenGenerationException("Refresh token expired");
+      }
+      UUID userId = UUID.fromString(claims.getSubject());
+      UUID tenantId = UUID.fromString(claims.getStringClaim(JwtClaimNames.TENANT_ID));
+      return new RefreshTokenClaims(userId, tenantId, claims.getJWTID());
+    } catch (ParseException | JOSEException e) {
+      throw new TokenGenerationException("Invalid refresh token", e);
+    }
+  }
+
+  public record RefreshTokenClaims(UUID userId, UUID tenantId, String jwtId) {}
 
   /**
    * Returns the JWKS containing all active public keys.
@@ -203,6 +264,10 @@ public class JwtTokenIssuer {
   public static class TokenGenerationException extends RuntimeException {
 
     @Serial private static final long serialVersionUID = 1L;
+
+    public TokenGenerationException(String message) {
+      super(message);
+    }
 
     public TokenGenerationException(String message, Throwable cause) {
       super(message, cause);

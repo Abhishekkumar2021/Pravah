@@ -3,6 +3,7 @@ package io.pravah.notification.api;
 import io.pravah.notification.api.dto.NotificationPreferenceResponse;
 import io.pravah.notification.api.dto.UpdateNotificationPreferenceRequest;
 import io.pravah.notification.application.NotificationPreferenceService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,11 +21,13 @@ public class NotificationPreferenceController {
   }
 
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('settings:read', 'users:*')")
   public NotificationPreferenceResponse get() {
     return preferenceService.getPreferences();
   }
 
   @PutMapping
+  @PreAuthorize("@permissionChecker.hasAny('users:*', 'settings:read')")
   public NotificationPreferenceResponse update(
       @RequestBody UpdateNotificationPreferenceRequest request) {
     return preferenceService.updatePreferences(request);

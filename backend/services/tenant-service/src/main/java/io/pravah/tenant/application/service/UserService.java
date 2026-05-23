@@ -151,10 +151,19 @@ public class UserService {
    * @return the updated user
    */
   public UserResponse updateUserName(UUID userId, String newName) {
+    UUID tenantId = requireTenantContext();
+    UUID currentUserId = TenantContext.getCurrentUserId();
+    if (currentUserId == null || !currentUserId.equals(userId)) {
+      throw new io.pravah.common.exception.AuthenticationException("Cannot update another user");
+    }
+
     User user =
         userRepository
             .findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User", userId));
+    if (!user.getTenantId().equals(tenantId)) {
+      throw new EntityNotFoundException("User", userId);
+    }
 
     String oldName = user.getName();
     user.updateName(newName);

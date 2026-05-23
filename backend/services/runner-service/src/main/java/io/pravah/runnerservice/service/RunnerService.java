@@ -1,8 +1,11 @@
 package io.pravah.runnerservice.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import io.pravah.runnerservice.domain.Runner;
 import io.pravah.runnerservice.domain.RunnerStatus;
 import io.pravah.runnerservice.repository.RunnerRepository;
+import io.pravah.spring.multitenancy.SystemMaintenanceRlsHelper;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -26,19 +29,38 @@ public class RunnerService {
 
   private final RunnerRepository repository;
   private final RunnerConnectionManager connectionManager;
+  private final SystemMaintenanceRlsHelper maintenanceRlsHelper;
 
-  public RunnerService(RunnerRepository repository, RunnerConnectionManager connectionManager) {
+  public RunnerService(
+      RunnerRepository repository,
+      RunnerConnectionManager connectionManager,
+      SystemMaintenanceRlsHelper maintenanceRlsHelper) {
     this.repository = repository;
     this.connectionManager = connectionManager;
+    this.maintenanceRlsHelper = maintenanceRlsHelper;
   }
 
-  /** Registers a new runner. */
+  /**
+   * Registers a new runner, or re-authenticates an existing runner when {@code registrationToken}
+   * matches.
+   */
   public RegisterResult registerRunner(UUID tenantId, RegisterRequest request) {
-    // Check for duplicate name
     Optional<Runner> existing = repository.findByTenantIdAndName(tenantId, request.name());
     if (existing.isPresent()) {
-      throw new IllegalArgumentException(
-          "Runner with name '" + request.name() + "' already exists");
+      if (request.registrationToken() == null || request.registrationToken().isBlank()) {
+        throw new IllegalArgumentException(
+            "Runner with name '" + request.name() + "' already exists");
+      }
+      Runner runner = existing.get();
+      if (!runner.getTokenHash().equals(hashToken(request.registrationToken()))) {
+        throw new IllegalArgumentException(
+            "Invalid registration token for runner '" + request.name() + "'");
+      }
+      applyRegistrationFields(runner, request);
+      runner = repository.save(runner);
+      log.info("Re-authenticated runner: id={}, name={}", runner.getId(), runner.getName());
+      return new RegisterResult(
+          runner.getId(), request.registrationToken(), runner.getHeartbeatIntervalSeconds());
     }
 
     // Generate authentication token
@@ -47,16 +69,10 @@ public class RunnerService {
 
     Runner runner = new Runner();
     runner.setTenantId(tenantId);
-    runner.setName(request.name());
-    runner.setVersion(request.version());
+    applyRegistrationFields(runner, request);
     runner.setTokenHash(tokenHash);
     runner.setStatus(RunnerStatus.OFFLINE);
-    runner.setMaxConcurrentJobs(request.maxConcurrentJobs());
-    runner.setSupportedExecutors(String.join(",", request.supportedExecutors()));
-    runner.setAvailableMemoryBytes(request.availableMemoryBytes());
-    runner.setAvailableCpus(request.availableCpus());
     runner.setHeartbeatIntervalSeconds(30);
-    runner.setLabels(request.labels());
 
     runner = repository.save(runner);
     log.info(
@@ -107,9 +123,17 @@ public class RunnerService {
               runner.setLastMetricsCpuPercent(data.cpuUsagePercent());
               runner.setLastMetricsMemoryUsedBytes(data.memoryUsedBytes());
               runner.setLastMetricsDiskAvailableBytes(data.diskAvailableBytes());
-              runner.setActiveJobs(data.activeJobs());
+              // Server-authoritative job count; heartbeat metrics are informational only.
+              int reported = Math.max(0, data.activeJobs());
+              if (reported > runner.getActiveJobs()) {
+                log.debug(
+                    "Runner reported higher active_jobs than server count; keeping server value",
+                    kv("runnerId", runnerId),
+                    kv("serverActiveJobs", runner.getActiveJobs()),
+                    kv("reportedActiveJobs", reported));
+              }
 
-              // Update status based on capacity
+              // Update status based on capacity (server activeJobs)
               if (runner.getActiveJobs() >= runner.getMaxConcurrentJobs()) {
                 runner.setStatus(RunnerStatus.BUSY);
               } else if (runner.getStatus() == RunnerStatus.BUSY) {
@@ -188,7 +212,8 @@ public class RunnerService {
   @Scheduled(fixedDelay = 60000)
   public void checkStaleRunners() {
     Instant cutoff = Instant.now().minusSeconds(30 * HEARTBEAT_TIMEOUT_MULTIPLIER);
-    List<Runner> staleRunners = repository.findStaleRunners(cutoff);
+    List<Runner> staleRunners =
+        maintenanceRlsHelper.runWithMaintenance(() -> repository.findStaleRunners(cutoff));
 
     for (Runner runner : staleRunners) {
       log.warn("Runner {} missed heartbeats, marking as OFFLINE", runner.getId());
@@ -203,6 +228,16 @@ public class RunnerService {
     byte[] bytes = new byte[32];
     SECURE_RANDOM.nextBytes(bytes);
     return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+  }
+
+  private static void applyRegistrationFields(Runner runner, RegisterRequest request) {
+    runner.setName(request.name());
+    runner.setVersion(request.version());
+    runner.setMaxConcurrentJobs(request.maxConcurrentJobs());
+    runner.setSupportedExecutors(String.join(",", request.supportedExecutors()));
+    runner.setAvailableMemoryBytes(request.availableMemoryBytes());
+    runner.setAvailableCpus(request.availableCpus());
+    runner.setLabels(request.labels());
   }
 
   private String hashToken(String token) {
@@ -224,7 +259,8 @@ public class RunnerService {
       int maxConcurrentJobs,
       List<String> supportedExecutors,
       long availableMemoryBytes,
-      int availableCpus) {}
+      int availableCpus,
+      String registrationToken) {}
 
   public record RegisterResult(UUID runnerId, String token, int heartbeatIntervalSeconds) {}
 

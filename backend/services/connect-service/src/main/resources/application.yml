@@ -1,7 +1,10 @@
 spring:
   application:
     name: connect-service
-  
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
+
   datasource:
     url: jdbc:postgresql://localhost:5432/pravah_connect
     username: ${DB_USERNAME:pravah}
@@ -20,7 +23,7 @@ spring:
     locations: classpath:db/migration
   
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -38,8 +41,16 @@ spring:
             client-secret: ${GITLAB_CLIENT_SECRET:}
             scope: api,read_user
 
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+      issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+
 server:
-  port: 8090
+  port: 8091
 
 management:
   endpoints:

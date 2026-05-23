@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  clearSession,
   EXECUTION_ID,
   PIPELINE_ID,
   mockExecutionBody,
@@ -78,6 +79,12 @@ test.describe("Run detail realtime (US-12.10)", () => {
 
 test.describe("Run detail realtime without session", () => {
   test("redirects to sign-in and does not open WebSocket", async ({ page }) => {
+    await clearSession(page);
+
+    await page.route("**/api/v1/auth/refresh", async (route) => {
+      await route.fulfill({ status: 401, body: "" });
+    });
+
     await page.route(`**/api/v1/executions/${EXECUTION_ID}`, async (route) => {
       await route.fulfill({
         status: 200,

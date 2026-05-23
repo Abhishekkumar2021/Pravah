@@ -24,7 +24,7 @@ class JwtTokenVerifierValidationTest {
   @Test
   void validateAndGetClaims_usesCachedJwks() throws Exception {
     var rsaKey = new RSAKeyGenerator(2048).keyID("test").generate();
-    var verifier = new JwtTokenVerifier("http://localhost/unused");
+    var verifier = new JwtTokenVerifier("http://localhost/unused", "");
     setCachedJwks(verifier, new JWKSet(rsaKey));
 
     UUID userId = UUID.randomUUID();
@@ -42,7 +42,7 @@ class JwtTokenVerifierValidationTest {
 
   @Test
   void validateAndGetClaims_withoutJwks_throws() {
-    var verifier = new JwtTokenVerifier("http://localhost/unused");
+    var verifier = new JwtTokenVerifier("http://localhost/unused", "");
 
     assertThatThrownBy(() -> verifier.validateAndGetClaims("any.jwt.token"))
         .isInstanceOf(JwtVerificationException.class)

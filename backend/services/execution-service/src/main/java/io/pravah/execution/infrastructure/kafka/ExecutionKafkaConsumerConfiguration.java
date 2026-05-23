@@ -14,15 +14,17 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 /**
- * Kafka consumer configuration for execution-service (US-02.09 parallel execution).
+ * Kafka consumer configuration for execution events and job workers (US-02.09).
  *
- * <p>The job-worker listener supports configurable concurrency via {@code
- * pravah.kafka.job-worker.concurrency} (default 4). Each concurrent consumer can process a job in
- * parallel, enabling true parallel stage execution across multiple Kafka partitions.
+ * <p>Failed messages route to DLT topics after retries via {@link DefaultErrorHandler}.
  */
 @Configuration
 @EnableKafka
@@ -43,14 +45,30 @@ public class ExecutionKafkaConsumerConfiguration {
   }
 
   @Bean
+  public DefaultErrorHandler executionKafkaErrorHandler(
+      KafkaTemplate<String, Object> kafkaTemplate,
+      @Value("${pravah.kafka.execution-events.dlt-topic:pravah.execution.events.dlt}")
+          String dltTopic) {
+    DeadLetterPublishingRecoverer recoverer =
+        new DeadLetterPublishingRecoverer(
+            kafkaTemplate,
+            (record, ex) ->
+                new org.apache.kafka.common.TopicPartition(dltTopic, record.partition()));
+    DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
+    handler.setAckAfterHandle(false);
+    return handler;
+  }
+
+  @Bean
   @ConditionalOnProperty(
       name = "pravah.kafka.execution-created-listener-enabled",
       havingValue = "true",
       matchIfMissing = true)
   public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
       executionKafkaListenerContainerFactory(
-          ConsumerFactory<String, Map<String, Object>> executionEventsKafkaConsumerFactory) {
-    return manualAckFactory(executionEventsKafkaConsumerFactory);
+          ConsumerFactory<String, Map<String, Object>> executionEventsKafkaConsumerFactory,
+          DefaultErrorHandler executionKafkaErrorHandler) {
+    return manualAckFactory(executionEventsKafkaConsumerFactory, executionKafkaErrorHandler);
   }
 
   @Bean
@@ -66,9 +84,10 @@ public class ExecutionKafkaConsumerConfiguration {
   public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
       jobWorkerKafkaListenerContainerFactory(
           ConsumerFactory<String, Map<String, Object>> jobWorkerKafkaConsumerFactory,
+          DefaultErrorHandler executionKafkaErrorHandler,
           @Value("${pravah.kafka.job-worker.concurrency:4}") int concurrency) {
     ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
-        manualAckFactory(jobWorkerKafkaConsumerFactory);
+        manualAckFactory(jobWorkerKafkaConsumerFactory, executionKafkaErrorHandler);
     factory.setConcurrency(concurrency);
     log.info("Job worker Kafka listener configured with concurrency={}", concurrency);
     return factory;
@@ -85,16 +104,19 @@ public class ExecutionKafkaConsumerConfiguration {
 
     JsonDeserializer<Map<String, Object>> jsonDeserializer =
         new JsonDeserializer<>((Class<Map<String, Object>>) (Class<?>) Map.class, false);
-    jsonDeserializer.addTrustedPackages("*");
+    jsonDeserializer.addTrustedPackages("java.util", "java.lang", "io.pravah");
 
     return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), jsonDeserializer);
   }
 
   private static ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>>
-      manualAckFactory(ConsumerFactory<String, Map<String, Object>> consumerFactory) {
+      manualAckFactory(
+          ConsumerFactory<String, Map<String, Object>> consumerFactory,
+          DefaultErrorHandler errorHandler) {
     ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory);
+    factory.setCommonErrorHandler(errorHandler);
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
     return factory;
   }

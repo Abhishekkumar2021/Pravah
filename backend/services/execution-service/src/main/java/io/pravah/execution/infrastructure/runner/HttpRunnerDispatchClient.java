@@ -1,6 +1,7 @@
 package io.pravah.execution.infrastructure.runner;
 
 import io.pravah.common.runner.RemoteJobSpecPayload;
+import io.pravah.common.security.SensitiveLogSanitizer;
 import io.pravah.execution.application.port.RunnerDispatchPort;
 import io.pravah.spring.security.InternalServiceAuthFilter;
 import java.util.Map;
@@ -55,6 +56,13 @@ public class HttpRunnerDispatchClient implements RunnerDispatchPort {
               .body(AssignmentResponse.class);
       if (response == null || response.runnerId() == null) {
         return Optional.empty();
+      }
+      if (log.isDebugEnabled() && spec.environment() != null) {
+        log.debug(
+            "Dispatched job to runner: jobId={}, runnerId={}, envKeys={}",
+            jobId,
+            response.runnerId(),
+            SensitiveLogSanitizer.redactEnvironment(spec.environment()).keySet());
       }
       return Optional.of(response.runnerId());
     } catch (RestClientResponseException e) {

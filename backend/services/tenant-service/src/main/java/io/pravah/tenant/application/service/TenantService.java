@@ -4,6 +4,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.ValidationException;
+import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.CreateTenantRequest;
 import io.pravah.tenant.application.dto.TenantResponse;
 import io.pravah.tenant.domain.model.Role;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,6 +117,7 @@ public class TenantService {
    */
   @Transactional(readOnly = true)
   public TenantResponse getTenant(UUID tenantId) {
+    requireOwnTenant(tenantId);
     Tenant tenant =
         tenantRepository
             .findById(tenantId)
@@ -138,6 +141,7 @@ public class TenantService {
         tenantRepository
             .findBySlug(slug)
             .orElseThrow(() -> new EntityNotFoundException("Tenant with slug: " + slug));
+    requireOwnTenant(tenant.getId());
     return TenantResponse.from(tenant);
   }
 
@@ -151,6 +155,7 @@ public class TenantService {
    * @return the updated tenant
    */
   public TenantResponse updateTenantName(UUID tenantId, String newName) {
+    requireOwnTenant(tenantId);
     Tenant tenant =
         tenantRepository
             .findById(tenantId)
@@ -175,6 +180,7 @@ public class TenantService {
    * @return the updated tenant
    */
   public TenantResponse updateTenantTier(UUID tenantId, Tenant.Tier newTier) {
+    requireOwnTenant(tenantId);
     Tenant tenant =
         tenantRepository
             .findById(tenantId)
@@ -202,6 +208,7 @@ public class TenantService {
    * @param roleId the role ID
    */
   public void addMember(UUID tenantId, UUID userId, UUID roleId) {
+    requireOwnTenant(tenantId);
     if (!tenantRepository.existsById(tenantId)) {
       throw new EntityNotFoundException("Tenant", tenantId);
     }
@@ -227,6 +234,7 @@ public class TenantService {
    * @throws ValidationException if trying to remove the last owner
    */
   public void removeMember(UUID tenantId, UUID userId) {
+    requireOwnTenant(tenantId);
     TenantMember member =
         memberRepository
             .findByTenantIdAndUserId(tenantId, userId)
@@ -249,6 +257,7 @@ public class TenantService {
    * @throws ValidationException if demoting the last owner
    */
   public void changeMemberRole(UUID tenantId, UUID userId, UUID newRoleId) {
+    requireOwnTenant(tenantId);
     TenantMember member =
         memberRepository
             .findByTenantIdAndUserId(tenantId, userId)
@@ -270,5 +279,16 @@ public class TenantService {
         kv("user_id", userId),
         kv("old_role_id", oldRoleId),
         kv("new_role_id", newRoleId));
+  }
+
+  private static void requireOwnTenant(UUID tenantId) {
+    UUID currentTenantId = TenantContext.getCurrentTenantId();
+    if (currentTenantId == null) {
+      throw new IllegalStateException(
+          "No tenant context set. Ensure request is authenticated and TenantContext is populated from JWT.");
+    }
+    if (!currentTenantId.equals(tenantId)) {
+      throw new AccessDeniedException("Access denied to tenant " + tenantId);
+    }
   }
 }

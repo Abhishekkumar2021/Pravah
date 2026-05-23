@@ -21,13 +21,17 @@ public class RateLimitMetrics {
     this.meterRegistry = meterRegistry;
   }
 
-  public void record(String layer, String keyType, boolean allowed) {
+  public void record(String layer, String keyType, String outcome) {
     Counter.builder("pravah.ratelimit.requests")
         .description("Rate limit checks by layer and outcome")
         .tag("layer", layer)
         .tag("key_type", keyType)
-        .tag("outcome", allowed ? "allowed" : "denied")
+        .tag("outcome", outcome)
         .register(meterRegistry)
         .increment();
+  }
+
+  public void recordAllowed(String layer, String keyType, boolean allowed) {
+    record(layer, keyType, allowed ? "allowed" : "denied");
   }
 }

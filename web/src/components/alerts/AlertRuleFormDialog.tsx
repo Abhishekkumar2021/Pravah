@@ -39,13 +39,28 @@ type ChannelFormData = {
   webhookUrl: string;
 };
 
+function safeParseJson<T>(raw: string | undefined, fallback: T): T {
+  if (!raw || !raw.trim()) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function AlertRuleFormDialog({ rule, pipelineId, onClose, onSuccess }: Props) {
   const isEdit = !!rule;
   const { addToast } = useToast();
 
   // Parse existing rule data if editing
-  const existingConditions = rule ? JSON.parse(rule.conditions) : {};
-  const existingChannels: AlertRuleChannelConfig[] = rule ? JSON.parse(rule.channels) : [];
+  const existingConditions = rule
+    ? safeParseJson<{ events?: string[] }>(rule.conditions, {})
+    : {};
+  const existingChannels: AlertRuleChannelConfig[] = rule
+    ? safeParseJson<AlertRuleChannelConfig[]>(rule.channels, [])
+    : [];
 
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,21 +32,25 @@ public class ConnectionController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public ConnectionResponse create(@Valid @RequestBody CreateConnectionRequest request) {
     return connectionApplicationService.createConnection(request);
   }
 
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public List<ConnectionResponse> list() {
     return connectionApplicationService.listConnections();
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public ConnectionResponse get(@PathVariable UUID id) {
     return connectionApplicationService.getConnection(id);
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public ConnectionResponse update(
       @PathVariable UUID id, @Valid @RequestBody UpdateConnectionRequest request) {
     return connectionApplicationService.updateConnection(id, request);
@@ -53,11 +58,13 @@ public class ConnectionController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public void delete(@PathVariable UUID id) {
     connectionApplicationService.deleteConnection(id);
   }
 
   @PostMapping("/{id}/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public TestConnectionResponse test(@PathVariable UUID id) {
     return connectionApplicationService.testConnection(id);
   }

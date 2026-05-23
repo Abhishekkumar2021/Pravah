@@ -46,7 +46,7 @@ class ScheduleApiIT extends AbstractSchedulerPostgresIT {
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreateScheduleRequest body =
-        new CreateScheduleRequest(pipelineId, "Daily ETL", "0 9 * * *", "UTC");
+        new CreateScheduleRequest(pipelineId, "Daily ETL", "0 9 * * *", "UTC", null);
 
     mockMvc
         .perform(
@@ -156,7 +156,8 @@ class ScheduleApiIT extends AbstractSchedulerPostgresIT {
   }
 
   private UUID createSchedule(String token, UUID pipelineId, String name) throws Exception {
-    CreateScheduleRequest body = new CreateScheduleRequest(pipelineId, name, "0 9 * * *", "UTC");
+    CreateScheduleRequest body =
+        new CreateScheduleRequest(pipelineId, name, "0 9 * * *", "UTC", null);
     MvcResult result =
         mockMvc
             .perform(

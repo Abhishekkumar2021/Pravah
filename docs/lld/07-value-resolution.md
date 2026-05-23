@@ -471,6 +471,19 @@ message: "Query took ${stages.extract.output.duration_ms}ms"
 - Preview rows: Limited to 10 rows in SQL executor
 - Warning logged if output exceeds 100KB
 
+## Remote runner secret resolution
+
+Stages with `runOn: runner` must not receive plaintext secrets over gRPC. At dispatch time, execution-service builds a `RemoteJobSpecPayload` and **strips** `${secret.*}` references and SQL passwords into `JobSpec.secret_environment` (proto field on the wire). Plaintext values are removed from `JobSpec.environment`.
+
+At job execution time on the runner agent:
+
+1. Runner calls `POST /api/v1/runners/{runnerId}/jobs/{jobId}/environment-secrets` with `Authorization: Bearer {streamToken}` (issued at registration).
+2. Runner-service validates the stream token and confirms the job is assigned to that runner.
+3. Runner-service calls execution-service internal API to resolve secrets for the tenant/execution/job.
+4. Resolved values are merged into `JobSpec.environment` locally before the executor runs.
+
+Tenant secret names are validated via `SecretNameValidator` before lookup. Runtime SQL passwords use the sentinel `__runtime_sql_password__` and resolve from the stage connection config.
+
 ## Migration Path
 
 1. **Existing connections** — Already use `env:` prefix; no migration needed

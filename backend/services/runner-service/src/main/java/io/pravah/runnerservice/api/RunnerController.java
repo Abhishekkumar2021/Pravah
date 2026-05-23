@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /** REST API for runner management (admin operations). */
@@ -36,6 +37,8 @@ public class RunnerController {
 
   @Operation(summary = "List all runners")
   @GetMapping
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<List<RunnerDto>> listRunners(
       @RequestParam(required = false) RunnerStatus status) {
     UUID tenantId = requireTenantId();
@@ -52,6 +55,8 @@ public class RunnerController {
 
   @Operation(summary = "Get runner by ID")
   @GetMapping("/{runnerId}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<RunnerDto> getRunner(@PathVariable UUID runnerId) {
     UUID tenantId = requireTenantId();
     return runnerService
@@ -63,6 +68,8 @@ public class RunnerController {
 
   @Operation(summary = "Delete a runner")
   @DeleteMapping("/{runnerId}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Void> deleteRunner(@PathVariable UUID runnerId) {
     UUID tenantId = requireTenantId();
     runnerService.deleteRunner(tenantId, runnerId);
@@ -71,6 +78,8 @@ public class RunnerController {
 
   @Operation(summary = "Get fleet statistics")
   @GetMapping("/stats")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<FleetStats> getFleetStats() {
     UUID tenantId = requireTenantId();
     List<Runner> runners = runnerService.listRunners(tenantId);

@@ -25,6 +25,14 @@ export async function seedSession(page: Page, token = TEST_JWT) {
   );
 }
 
+/** Clears persisted auth state so unauthenticated E2E scenarios start clean. */
+export async function clearSession(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+}
+
 export type MockJob = {
   id: string;
   stageId: string;
@@ -98,6 +106,7 @@ export function mockPipelineBody() {
     createdAt: "2026-05-16T09:00:00.000Z",
     updatedAt: "2026-05-16T09:00:00.000Z",
     createdBy: "33333333-3333-4333-8333-333333333333",
+    draftDefinitionYaml: null,
     versions: [{ version: 1, publishedAt: "2026-05-16T09:00:00.000Z", publishedBy: null }],
   };
 }

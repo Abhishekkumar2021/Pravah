@@ -75,6 +75,10 @@ check_service "pipeline-service" 8083 || true
 check_service "execution-service" 8084 || true
 check_service "scheduler-service" 8085 || true
 check_service "notification-service" 8088 || true
+check_service "connect-service" 8091 || true
+check_service "runner-service" 8086 || true
+check_service "metadata-service" 8087 || true
+check_service "agent-service" 8089 || true
 check_service "gateway" 8080 || true
 
 echo ""

@@ -3,6 +3,7 @@ package io.pravah.notification.infrastructure.channel;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pravah.common.net.UrlSafetyValidator;
 import io.pravah.notification.application.dto.AlertContext;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,6 +43,11 @@ public class SlackChannel implements NotificationChannel {
     String webhookUrl = (String) channelConfig.get("webhookUrl");
     if (webhookUrl == null || webhookUrl.isBlank()) {
       return DeliveryResult.failure("slack", "No webhook URL configured");
+    }
+    try {
+      UrlSafetyValidator.validateHttpUrlForOutboundRequest(webhookUrl);
+    } catch (IllegalArgumentException e) {
+      return DeliveryResult.failure("slack", e.getMessage());
     }
 
     try {

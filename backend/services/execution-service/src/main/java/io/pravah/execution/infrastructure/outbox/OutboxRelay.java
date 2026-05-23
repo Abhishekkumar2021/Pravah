@@ -40,14 +40,18 @@ public class OutboxRelay {
   private final OutboxRepository outboxRepository;
   private final KafkaTemplate<String, Object> kafkaTemplate;
   private final int batchSize;
+  private final java.util.Optional<io.pravah.spring.outbox.OutboxDeadLetterMetrics>
+      deadLetterMetrics;
 
   public OutboxRelay(
       OutboxRepository outboxRepository,
       KafkaTemplate<String, Object> kafkaTemplate,
-      @Value("${pravah.outbox.relay.batch-size:50}") int batchSize) {
+      @Value("${pravah.outbox.relay.batch-size:50}") int batchSize,
+      java.util.Optional<io.pravah.spring.outbox.OutboxDeadLetterMetrics> deadLetterMetrics) {
     this.outboxRepository = outboxRepository;
     this.kafkaTemplate = kafkaTemplate;
     this.batchSize = batchSize;
+    this.deadLetterMetrics = deadLetterMetrics;
   }
 
   @Scheduled(fixedDelayString = "${pravah.outbox.relay.fixed-delay-ms:2000}")
@@ -75,12 +79,15 @@ public class OutboxRelay {
         row.incrementRetryCount();
         if (row.getRetryCount() >= OutboxPublishPolicy.MAX_PUBLISH_RETRIES) {
           row.setPublishedAt(DEAD_LETTER_MARKER);
+          deadLetterMetrics.ifPresent(
+              m -> m.record("execution-service", row.getEventType(), topic));
           log.error(
               "Dead-lettered outbox event after max retries",
               kv("outbox_id", row.getId()),
               kv("event_type", row.getEventType()),
               kv("topic", topic),
               kv("retry_count", row.getRetryCount()),
+              kv("alert", true),
               kv("error", e.getMessage()));
         } else {
           log.warn(

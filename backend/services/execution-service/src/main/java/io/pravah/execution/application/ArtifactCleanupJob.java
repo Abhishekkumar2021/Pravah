@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import io.pravah.execution.infrastructure.artifact.ArtifactStorageProperties;
 import io.pravah.execution.infrastructure.artifact.ArtifactStorageService;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
+import io.pravah.spring.multitenancy.SystemMaintenanceRlsHelper;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,14 +44,17 @@ public class ArtifactCleanupJob {
   private final ExecutionEntityRepository executionRepository;
   private final ArtifactStorageService artifactStorageService;
   private final ArtifactStorageProperties props;
+  private final SystemMaintenanceRlsHelper maintenanceRlsHelper;
 
   public ArtifactCleanupJob(
       ExecutionEntityRepository executionRepository,
       ArtifactStorageService artifactStorageService,
-      ArtifactStorageProperties props) {
+      ArtifactStorageProperties props,
+      SystemMaintenanceRlsHelper maintenanceRlsHelper) {
     this.executionRepository = executionRepository;
     this.artifactStorageService = artifactStorageService;
     this.props = props;
+    this.maintenanceRlsHelper = maintenanceRlsHelper;
   }
 
   /** Run artifact cleanup daily at 3 AM. */
@@ -63,7 +67,9 @@ public class ArtifactCleanupJob {
     AtomicInteger failedCount = new AtomicInteger(0);
 
     try {
-      var expiredExecutions = executionRepository.findCompletedBefore(cutoff);
+      var expiredExecutions =
+          maintenanceRlsHelper.runWithMaintenance(
+              () -> executionRepository.findCompletedBefore(cutoff));
 
       log.info(
           "Found {} executions with artifacts to clean", kv("count", expiredExecutions.size()));

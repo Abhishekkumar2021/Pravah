@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useTheme, type ThemePreference } from "@/lib/theme";
-import { getStoredUser } from "@/lib/api";
+import { getStoredUser, updateProfileName } from "@/lib/api";
 
 const tabs = [
   { id: "profile", icon: User, label: "Profile" },
@@ -37,11 +37,14 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleSaveProfile = async () => {
+    if (!user?.id) {
+      setSaveMessage("Not signed in");
+      return;
+    }
     setSaving(true);
     setSaveMessage(null);
     try {
-      // TODO: API call to save profile
-      await new Promise((r) => setTimeout(r, 500));
+      await updateProfileName(user.id, displayName.trim());
       setSaveMessage("Profile saved");
       setTimeout(() => setSaveMessage(null), 3000);
     } catch {

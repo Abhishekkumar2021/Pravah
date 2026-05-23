@@ -1,6 +1,12 @@
 spring:
   application:
     name: graphql-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
   
   graphql:
     graphiql:

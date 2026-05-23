@@ -1,6 +1,9 @@
 spring:
   application:
     name: gateway
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.gateway.config.GatewayRedisAutoConfiguration
 
   data:
     redis:
@@ -40,7 +43,17 @@ spring:
         - id: execution-service
           uri: lb://execution-service
           predicates:
-            - Path=/api/v1/runs/**,/api/v1/jobs/**,/api/v1/executions/**
+            - Path=/api/v1/runs/**,/api/v1/jobs/**,/api/v1/executions/**,/api/v1/artifacts/**
+
+        - id: runner-service
+          uri: lb://runner-service
+          predicates:
+            - Path=/api/v1/runners/**
+
+        - id: connect-service
+          uri: lb://connect-service
+          predicates:
+            - Path=/api/v1/connectors/**
 
         # Native WebSocket upgrade (US-12.10); requires compatible load-balancer timeouts in prod.
         - id: execution-service-ws
@@ -73,6 +86,11 @@ pravah:
     default-burst-capacity: ${PRAVAH_RATE_LIMIT_BURST:200}
     api-token-requests-per-second: ${PRAVAH_RATE_LIMIT_API_TOKEN_RPS:50}
     api-token-burst-capacity: ${PRAVAH_RATE_LIMIT_API_TOKEN_BURST:100}
+    fail-open: ${PRAVAH_RATE_LIMIT_FAIL_OPEN:true}
+  gateway:
+    ip-allowlist:
+      enabled: ${PRAVAH_GATEWAY_IP_ALLOWLIST_ENABLED:false}
+      cidrs: ${PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS:}
 
 resilience4j:
   circuitbreaker:
@@ -94,6 +112,10 @@ resilience4j:
       tenant-service:
         baseConfig: default
       notification-service:
+        baseConfig: default
+      runner-service:
+        baseConfig: default
+      connect-service:
         baseConfig: default
   timelimiter:
     configs:

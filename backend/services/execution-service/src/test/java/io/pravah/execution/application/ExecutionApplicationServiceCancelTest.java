@@ -13,6 +13,7 @@ import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.execution.infrastructure.persistence.repository.TriggerExecutionIdempotencyRepository;
 import io.pravah.execution.infrastructure.pipeline.InternalHttpPipelineCatalog;
 import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
@@ -37,6 +38,7 @@ class ExecutionApplicationServiceCancelTest {
   @Mock private ExecutionEntityRepository executionEntityRepository;
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private OutboxRepository outboxRepository;
+  @Mock private TriggerExecutionIdempotencyRepository triggerExecutionIdempotencyRepository;
   @Mock private EntityManager entityManager;
   @Mock private CheckpointService checkpointService;
   @Mock private ExecutionJobQueueingService executionJobQueueingService;
@@ -55,6 +57,7 @@ class ExecutionApplicationServiceCancelTest {
             executionEntityRepository,
             jobEntityRepository,
             outboxRepository,
+            triggerExecutionIdempotencyRepository,
             entityManager,
             checkpointService,
             executionJobQueueingService,

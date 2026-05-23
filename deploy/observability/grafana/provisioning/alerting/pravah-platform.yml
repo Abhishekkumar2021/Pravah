@@ -1,0 +1,23 @@
+# Example Grafana alert rules for Pravah platform metrics (ops reference).
+# Import into Grafana or adapt for your Mimir/Prometheus ruler.
+groups:
+  - name: pravah-platform
+    interval: 1m
+    rules:
+      - alert: PravahRateLimitFailOpen
+        expr: increase(pravah_ratelimit_requests_total{outcome="fail_open"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Rate limiter fail-open events detected
+          description: Redis rate limiting failed open; review gateway/scheduler Redis connectivity.
+
+      - alert: PravahOutboxDeadLettered
+        expr: increase(pravah_outbox_dead_lettered_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Outbox messages moved to dead letter
+          description: Check execution-service and pipeline-service outbox relay logs.

@@ -32,4 +32,7 @@ public final class JwtClaimNames {
 
   /** Resolved permission strings from the user's role, e.g. {@code ["pipelines:read"]}. */
   public static final String PERMISSIONS = "permissions";
+
+  /** Token type claim: {@code access} or {@code refresh}. */
+  public static final String TOKEN_TYPE = "token_type";
 }

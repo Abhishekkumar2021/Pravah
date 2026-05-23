@@ -42,7 +42,8 @@ class OutboxRelayTest {
 
   @BeforeEach
   void setUp() {
-    outboxRelay = new OutboxRelay(outboxRepository, kafkaTemplate, TOPIC);
+    outboxRelay =
+        new OutboxRelay(outboxRepository, kafkaTemplate, TOPIC, java.util.Optional.empty());
   }
 
   @Test

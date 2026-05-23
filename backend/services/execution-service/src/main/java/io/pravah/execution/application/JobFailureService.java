@@ -19,7 +19,9 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -139,6 +141,11 @@ public class JobFailureService {
         jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
 
     boolean anyFailed = jobs.stream().anyMatch(j -> j.getStatus() == JobState.FAILED);
+    if (anyFailed) {
+      failJobsBlockedByUpstreamFailure(execution, jobs);
+      jobs = jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
+    }
+
     boolean anyActive =
         jobs.stream()
             .anyMatch(
@@ -242,6 +249,29 @@ public class JobFailureService {
     m.put("stageId", job.getStageId());
     m.put("stageName", job.getStageName());
     return m;
+  }
+
+  private void failJobsBlockedByUpstreamFailure(ExecutionEntity execution, List<JobEntity> jobs) {
+    Map<String, Object> definition = execution.getDefinitionSnapshot();
+    if (definition == null || definition.isEmpty()) {
+      return;
+    }
+    Set<String> failedStages =
+        jobs.stream()
+            .filter(j -> j.getStatus() == JobState.FAILED)
+            .map(JobEntity::getStageId)
+            .collect(Collectors.toSet());
+    for (JobEntity job : jobs) {
+      if (job.getStatus() != JobState.PENDING) {
+        continue;
+      }
+      if (StagePlanner.hasFailedUpstream(definition, job.getStageId(), failedStages)) {
+        job.fail(1, "Blocked: upstream stage failed", Map.of(), false);
+        jobEntityRepository.save(job);
+        jobLogService.append(
+            job.getId(), JobLogLevel.ERROR, "Stage skipped: upstream dependency failed");
+      }
+    }
   }
 
   private RetryPolicy resolveRetryPolicy(Map<String, Object> definition, String stageId) {

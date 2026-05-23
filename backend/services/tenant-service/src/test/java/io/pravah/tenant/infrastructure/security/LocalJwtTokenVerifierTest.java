@@ -20,7 +20,7 @@ class LocalJwtTokenVerifierTest {
   void setUp() {
     issuer = new JwtTokenIssuer(ISSUER);
     issuer.initializeKey();
-    verifier = new LocalJwtTokenVerifier(issuer);
+    verifier = new LocalJwtTokenVerifier(issuer, ISSUER);
   }
 
   @Test

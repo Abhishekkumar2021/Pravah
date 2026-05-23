@@ -1,5 +1,6 @@
 package io.pravah.execution.application;
 
+import io.pravah.common.artifact.TenantArtifactKeys;
 import io.pravah.common.domain.JobState;
 import io.pravah.common.domain.resolution.ResolutionContext;
 import io.pravah.common.domain.resolution.StageArtifactRef;
@@ -120,6 +121,9 @@ public class ArtifactResolverProvider implements ValueResolverProvider {
 
     String property = artifactRef.property();
     String key = (String) artifactMeta.get("key");
+    if (key != null && ctx.tenantId() != null) {
+      TenantArtifactKeys.requireOwnedByTenant(key, ctx.tenantId());
+    }
 
     return switch (property) {
       case "key" -> key;

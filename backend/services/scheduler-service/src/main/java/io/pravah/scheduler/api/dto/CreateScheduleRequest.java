@@ -9,4 +9,5 @@ public record CreateScheduleRequest(
     @NotNull UUID pipelineId,
     @NotBlank @Size(max = 255) String name,
     @NotBlank @Size(max = 100) String cronExpression,
-    @NotBlank @Size(max = 100) String timezone) {}
+    @NotBlank @Size(max = 100) String timezone,
+    String catchupPolicy) {}

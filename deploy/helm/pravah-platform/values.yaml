@@ -225,7 +225,8 @@ services:
 # Pravah application configuration
 pravah:
   jwtIssuer: pravah-dev
-  internalServiceSecret: pravah-local-internal-secret
+  # Set via values-local.yaml for kind/minikube, or --set / existingSecret in production.
+  internalServiceSecret: ""
   internalServiceExistingSecret: ""
   internalServiceExistingSecretKey: internal-service-secret
   jwtSigningKey: ""

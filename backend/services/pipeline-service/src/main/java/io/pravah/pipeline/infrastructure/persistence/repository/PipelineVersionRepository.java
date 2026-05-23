@@ -15,4 +15,6 @@ public interface PipelineVersionRepository extends JpaRepository<PipelineVersion
   Optional<PipelineVersionEntity> findFirstByPipelineIdOrderByVersionDesc(UUID pipelineId);
 
   int countByPipelineId(UUID pipelineId);
+
+  void deleteByPipelineIdAndVersion(UUID pipelineId, int version);
 }

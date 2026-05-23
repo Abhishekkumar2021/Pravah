@@ -35,15 +35,22 @@ public class ApiTenantJwtFilter extends OncePerRequestFilter {
   private static final String BEARER_PREFIX = "Bearer ";
 
   private final JwtTokenVerifier jwtTokenVerifier;
+  private final OptionalJwtBlocklistChecker blocklistChecker;
 
-  public ApiTenantJwtFilter(JwtTokenVerifier jwtTokenVerifier) {
+  public ApiTenantJwtFilter(
+      JwtTokenVerifier jwtTokenVerifier, OptionalJwtBlocklistChecker blocklistChecker) {
     this.jwtTokenVerifier = jwtTokenVerifier;
+    this.blocklistChecker = blocklistChecker;
   }
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
     if (!path.startsWith("/api/")) {
+      return true;
+    }
+    // Internal S2S routes use InternalServiceAuthFilter only.
+    if (path.startsWith("/api/v1/internal/")) {
       return true;
     }
     // Public auth and tenant registration (tenant-service SecurityConfig permitAll).
@@ -70,6 +77,12 @@ public class ApiTenantJwtFilter extends OncePerRequestFilter {
       } catch (JwtVerificationException e) {
         log.debug("JWT validation failed", kv("error", e.getMessage()));
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid bearer token");
+        return;
+      }
+
+      if (claims.jwtId() != null && blocklistChecker.isBlocklisted(claims.jwtId())) {
+        log.debug("Rejected blocklisted JWT", kv("jti", claims.jwtId()));
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked");
         return;
       }
 

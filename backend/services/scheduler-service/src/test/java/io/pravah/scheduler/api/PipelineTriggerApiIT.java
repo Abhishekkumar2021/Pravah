@@ -55,6 +55,8 @@ class PipelineTriggerApiIT extends AbstractSchedulerPostgresIT {
     TenantContext.clear();
     try (Connection conn = dataSource.getConnection();
         Statement stmt = conn.createStatement()) {
+      stmt.execute("DELETE FROM trigger_dispatch_history");
+      stmt.execute("DELETE FROM trigger_dispatch_pending");
       stmt.execute("DELETE FROM kafka_trigger_processed");
       stmt.execute("DELETE FROM pipeline_triggers");
     }
@@ -213,6 +215,19 @@ class PipelineTriggerApiIT extends AbstractSchedulerPostgresIT {
         .perform(
             get("/api/v1/triggers/{triggerId}", triggerId).header("Authorization", "Bearer " + jwt))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void history_returnsEmptyListForNewTrigger() throws Exception {
+    UUID pipelineId = UUID.randomUUID();
+    String triggerId = createTrigger(pipelineId, "history-hook", "webhook");
+
+    mockMvc
+        .perform(
+            get("/api/v1/triggers/{triggerId}/history", triggerId)
+                .header("Authorization", "Bearer " + jwt))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
   }
 
   private String createTrigger(UUID pipelineId, String name, String type) throws Exception {

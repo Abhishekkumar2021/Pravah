@@ -41,6 +41,7 @@ import io.pravah.spring.multitenancy.TenantContext;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,9 @@ public class PipelineApplicationService {
 
   private static final Logger log = LoggerFactory.getLogger(PipelineApplicationService.class);
   private static final String AGGREGATE_TYPE = "Pipeline";
+
+  /** Working copy for draft pipelines (not a published version). */
+  private static final int DRAFT_VERSION = 0;
 
   private final PipelineRepository pipelineRepository;
   private final PipelineEventRepository pipelineEventRepository;
@@ -237,6 +241,12 @@ public class PipelineApplicationService {
 
     log.debug("Retrieved pipeline", kv("tenant_id", tenantId), kv("pipeline_id", pipelineId));
 
+    String draftYaml =
+        pipelineVersionRepository
+            .findByPipelineIdAndVersion(pipelineId, DRAFT_VERSION)
+            .map(v -> toYaml(v.getDefinition()))
+            .orElse(null);
+
     return new PipelineDetailResponse(
         pipeline.getId().value(),
         pipeline.getProjectId().value(),
@@ -247,6 +257,7 @@ public class PipelineApplicationService {
         pipeline.getCreatedAt(),
         pipeline.getUpdatedAt(),
         pipeline.getCreatedBy().value(),
+        draftYaml,
         versionSummaries);
   }
 
@@ -295,7 +306,8 @@ public class PipelineApplicationService {
     }
 
     if (request.definitionYaml() != null) {
-      parseYamlDefinition(request.definitionYaml());
+      Map<String, Object> draftDefinition = parseYamlDefinition(request.definitionYaml());
+      saveDraftDefinition(pipelineId, draftDefinition, userId.value());
       hasChanges = true;
     }
 
@@ -411,9 +423,12 @@ public class PipelineApplicationService {
 
       Map<String, Object> payload = buildEventPayload(eventData, pipeline);
 
+      UUID eventId = UUID.randomUUID();
+      payload.put("eventId", eventId.toString());
+
       PipelineEventEntity event =
           new PipelineEventEntity(
-              UUID.randomUUID(),
+              eventId,
               eventData.pipelineId(),
               eventData.tenantId(),
               eventData.eventType(),
@@ -438,7 +453,9 @@ public class PipelineApplicationService {
   private Map<String, Object> buildEventPayload(
       Pipeline.DomainEventData eventData, Pipeline pipeline) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("eventId", UUID.randomUUID().toString());
+    if (!payload.containsKey("eventId")) {
+      payload.put("eventId", UUID.randomUUID().toString());
+    }
     payload.put("eventType", eventData.eventType());
     payload.put("occurredAt", eventData.occurredAt().toString());
     payload.put("aggregateType", AGGREGATE_TYPE);
@@ -514,9 +531,25 @@ public class PipelineApplicationService {
     return false;
   }
 
+  private void saveDraftDefinition(UUID pipelineId, Map<String, Object> definition, UUID savedBy) {
+    var definitionJson = objectMapper.valueToTree(definition);
+    pipelineVersionRepository.deleteByPipelineIdAndVersion(pipelineId, DRAFT_VERSION);
+    pipelineVersionRepository.save(
+        new PipelineVersionEntity(
+            pipelineId, DRAFT_VERSION, definitionJson, Instant.now(), savedBy));
+  }
+
+  private String toYaml(com.fasterxml.jackson.databind.JsonNode definition) {
+    Object tree = objectMapper.convertValue(definition, Object.class);
+    return new Yaml().dump(tree);
+  }
+
   private Map<String, Object> parseYamlDefinition(String yamlText) {
     try {
-      Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
+      LoaderOptions loaderOptions = new LoaderOptions();
+      loaderOptions.setCodePointLimit(1_000_000);
+      loaderOptions.setNestingDepthLimit(50);
+      Yaml yaml = new Yaml(new SafeConstructor(loaderOptions));
       Object root = yaml.load(yamlText);
       if (root == null || !(root instanceof Map)) {
         throw new IllegalArgumentException(

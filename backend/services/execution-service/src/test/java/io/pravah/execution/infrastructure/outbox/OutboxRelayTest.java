@@ -43,7 +43,8 @@ class OutboxRelayTest {
 
   @BeforeEach
   void setUp() {
-    outboxRelay = new OutboxRelay(outboxRepository, kafkaTemplate, BATCH_SIZE);
+    outboxRelay =
+        new OutboxRelay(outboxRepository, kafkaTemplate, BATCH_SIZE, java.util.Optional.empty());
   }
 
   @Test

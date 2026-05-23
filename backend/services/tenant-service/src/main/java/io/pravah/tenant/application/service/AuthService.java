@@ -6,9 +6,12 @@ import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.EmailNotVerifiedException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.spring.security.JwtTokenVerifier;
+import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
+import io.pravah.tenant.application.dto.LoginResult;
 import io.pravah.tenant.application.dto.RegisterRequest;
 import io.pravah.tenant.application.dto.RegisterResponse;
 import io.pravah.tenant.application.dto.UserResponse;
@@ -60,6 +63,9 @@ public class AuthService {
   private final PasswordResetEmailService passwordResetEmailService;
   private final EmailVerificationTokenRepository emailVerificationTokenRepository;
   private final EmailVerificationEmailService emailVerificationEmailService;
+  private final JwtTokenVerifier jwtTokenVerifier;
+  private final java.util.Optional<io.pravah.tenant.infrastructure.security.JwtRevocationService>
+      jwtRevocationService;
 
   public AuthService(
       UserRepository userRepository,
@@ -72,7 +78,10 @@ public class AuthService {
       PasswordResetTokenRepository passwordResetTokenRepository,
       PasswordResetEmailService passwordResetEmailService,
       EmailVerificationTokenRepository emailVerificationTokenRepository,
-      EmailVerificationEmailService emailVerificationEmailService) {
+      EmailVerificationEmailService emailVerificationEmailService,
+      JwtTokenVerifier jwtTokenVerifier,
+      java.util.Optional<io.pravah.tenant.infrastructure.security.JwtRevocationService>
+          jwtRevocationService) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
@@ -84,6 +93,36 @@ public class AuthService {
     this.passwordResetEmailService = passwordResetEmailService;
     this.emailVerificationTokenRepository = emailVerificationTokenRepository;
     this.emailVerificationEmailService = emailVerificationEmailService;
+    this.jwtTokenVerifier = jwtTokenVerifier;
+    this.jwtRevocationService = jwtRevocationService;
+  }
+
+  /** Returns the authenticated user (US-10.01 / CLI). */
+  @Transactional(readOnly = true)
+  public UserResponse currentUser() {
+    UUID userId = TenantContext.getCurrentUserId();
+    UUID tenantId = TenantContext.getCurrentTenantId();
+    if (userId == null || tenantId == null) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new AuthenticationException("Not authenticated"));
+    if (!user.getTenantId().equals(tenantId)) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    RoleService.UserAuthorization authorization =
+        roleService.resolveAuthorization(tenantId, userId);
+    return UserResponse.from(user, authorization.role());
+  }
+
+  /** Revokes the current access token (Redis blocklist when configured). */
+  public void logout(String accessToken) {
+    JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(accessToken);
+    if (claims.jwtId() != null && claims.expiresAt() != null) {
+      jwtRevocationService.ifPresent(s -> s.revoke(claims.jwtId(), claims.expiresAt()));
+    }
   }
 
   /**
@@ -95,6 +134,12 @@ public class AuthService {
    */
   @Transactional
   public AuthTokenResponse login(LoginRequest request) {
+    return loginWithRefresh(request).access();
+  }
+
+  /** Login returning access token and refresh token for HttpOnly cookie (ADR-009). */
+  @Transactional
+  public LoginResult loginWithRefresh(LoginRequest request) {
     String email = normalizeEmail(request.email());
 
     authRlsHelper.enableAuthLookup();
@@ -140,7 +185,29 @@ public class AuthService {
     user.recordLogin();
     userRepository.save(user);
     log.info("User logged in", kv("user_id", user.getId()), kv("tenant_id", user.getTenantId()));
-    return issueToken(user);
+    AuthTokenResponse access = issueToken(user);
+    String refreshToken = jwtTokenIssuer.generateRefreshToken(user.getId(), user.getTenantId());
+    return new LoginResult(access, refreshToken);
+  }
+
+  /** Issues a new access token from a valid refresh JWT (cookie-based session renewal). */
+  @Transactional
+  public LoginResult refreshSession(String refreshToken) {
+    JwtTokenIssuer.RefreshTokenClaims claims = jwtTokenIssuer.validateRefreshToken(refreshToken);
+    authRlsHelper.enableAuthLookup();
+    User user =
+        userRepository
+            .findById(claims.userId())
+            .orElseThrow(() -> new AuthenticationException("Not authenticated"));
+    authRlsHelper.disableAuthLookup();
+    if (!user.getTenantId().equals(claims.tenantId()) || !user.isActive()) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    TenantContext.setCurrentTenantId(user.getTenantId());
+    TenantContext.setCurrentUserId(user.getId());
+    AuthTokenResponse access = issueToken(user);
+    String rotatedRefresh = jwtTokenIssuer.generateRefreshToken(user.getId(), user.getTenantId());
+    return new LoginResult(access, rotatedRefresh);
   }
 
   /**

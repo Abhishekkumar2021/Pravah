@@ -37,6 +37,8 @@ public abstract class AbstractSchedulerPostgresIT {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
       // DELETE avoids TRUNCATE AccessExclusiveLock deadlocks with concurrent test workers.
+      statement.execute("DELETE FROM trigger_dispatch_history");
+      statement.execute("DELETE FROM trigger_dispatch_pending");
       statement.execute("DELETE FROM schedule_history");
       statement.execute("DELETE FROM schedules");
       statement.execute("DELETE FROM scheduler_locks");

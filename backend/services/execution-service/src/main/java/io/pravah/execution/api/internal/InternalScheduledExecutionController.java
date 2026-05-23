@@ -26,11 +26,17 @@ public class InternalScheduledExecutionController {
     UUID tenantId = TenantContext.getCurrentTenantId();
     CreateExecutionResponse created =
         executionApplicationService.startScheduledExecution(
-            tenantId, request.pipelineId(), request.scheduleId());
+            tenantId,
+            request.pipelineId(),
+            request.scheduleId(),
+            request.parameters() != null ? request.parameters() : java.util.Map.of());
     return new ScheduledExecutionResponse(created.id());
   }
 
-  public record ScheduledExecutionRequest(@NotNull UUID pipelineId, @NotNull UUID scheduleId) {}
+  public record ScheduledExecutionRequest(
+      @NotNull UUID pipelineId,
+      @NotNull UUID scheduleId,
+      java.util.Map<String, Object> parameters) {}
 
   public record ScheduledExecutionResponse(UUID executionId) {}
 }

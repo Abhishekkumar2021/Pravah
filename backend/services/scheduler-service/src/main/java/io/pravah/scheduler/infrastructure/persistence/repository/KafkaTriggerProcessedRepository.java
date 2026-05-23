@@ -17,6 +17,10 @@ public interface KafkaTriggerProcessedRepository
       UUID triggerId, String topic, int partitionNum, long offsetNum);
 
   @Modifying
+  void deleteByTriggerIdAndTopicAndPartitionNumAndOffsetNum(
+      UUID triggerId, String topic, int partitionNum, long offsetNum);
+
+  @Modifying
   @Query("DELETE FROM KafkaTriggerProcessedEntity e WHERE e.processedAt < :cutoff")
   int deleteOlderThan(Instant cutoff);
 }

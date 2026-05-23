@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import io.pravah.common.exception.EntityNotFoundException;
 import io.pravah.common.exception.ValidationException;
+import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.tenant.application.dto.CreateTenantRequest;
 import io.pravah.tenant.domain.model.Role;
 import io.pravah.tenant.domain.model.Tenant;
@@ -18,12 +19,14 @@ import io.pravah.tenant.domain.repository.TenantRepository;
 import io.pravah.tenant.domain.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +47,12 @@ class TenantServiceTest {
     tenantService =
         new TenantService(
             tenantRepository, userRepository, memberRepository, passwordEncoder, Optional.empty());
+    TenantContext.setCurrentTenantId(TENANT_ID);
+  }
+
+  @AfterEach
+  void tearDown() {
+    TenantContext.clear();
   }
 
   @Test
@@ -71,6 +80,14 @@ class TenantServiceTest {
                     new CreateTenantRequest(
                         "Acme", "acme", Tenant.Tier.FREE, "o@acme.com", "O", "Password1!")))
         .isInstanceOf(ValidationException.class);
+  }
+
+  @Test
+  void getTenant_deniesCrossTenantAccess() {
+    TenantContext.setCurrentTenantId(UUID.randomUUID());
+
+    assertThatThrownBy(() -> tenantService.getTenant(TENANT_ID))
+        .isInstanceOf(AccessDeniedException.class);
   }
 
   @Test

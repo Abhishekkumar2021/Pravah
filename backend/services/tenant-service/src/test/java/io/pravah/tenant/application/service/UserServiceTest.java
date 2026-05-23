@@ -107,6 +107,7 @@ class UserServiceTest {
 
   @Test
   void updateUserName_persistsChange() {
+    TenantContext.setCurrentUserId(USER_ID);
     User user = activeUser();
     when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
     when(userRepository.save(user)).thenReturn(user);

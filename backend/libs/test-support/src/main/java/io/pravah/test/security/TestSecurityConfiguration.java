@@ -72,7 +72,7 @@ public class TestSecurityConfiguration {
     private final JWKSet jwkSet;
 
     TestJwtTokenVerifier(JWKSet jwkSet) {
-      super("http://localhost/.well-known/jwks.json");
+      super("http://localhost/.well-known/jwks.json", "");
       this.jwkSet = jwkSet;
     }
 
