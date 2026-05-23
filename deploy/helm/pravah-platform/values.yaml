@@ -383,6 +383,26 @@ runnerGrpcTls:
   clientCaKey: ca.crt
   requireClientAuth: true
 
+# cert-manager Certificate for runner-service gRPC server TLS (requires cert-manager installed)
+certManager:
+  runnerGrpc:
+    enabled: false
+    certificateName: ""
+    secretName: pravah-runner-grpc-tls
+    issuerKind: ClusterIssuer
+    issuerName: ""
+    commonName: ""
+    duration: 2160h
+    renewBefore: 720h
+    dnsNames: []
+
+# Vault PKI issuance for runner client mTLS certificates on registration (ADR-008)
+runnerPki:
+  enabled: false
+  issuePath: pki/issue/runner
+  ttl: 168h
+  spiffeTrustDomain: pravah.local
+
 # Pravah application configuration
 pravah:
   jwtIssuer: pravah-dev

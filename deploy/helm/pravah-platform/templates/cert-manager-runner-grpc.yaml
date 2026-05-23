@@ -1,0 +1,27 @@
+{{- if and .Values.certManager.runnerGrpc.enabled .Values.runnerGrpcTls.enabled .Values.certManager.runnerGrpc.issuerName }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.certManager.runnerGrpc.certificateName | default (printf "%s-runner-grpc" (include "pravah.fullname" .)) }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner-service
+spec:
+  secretName: {{ .Values.certManager.runnerGrpc.secretName | default .Values.runnerGrpcTls.existingSecret }}
+  duration: {{ .Values.certManager.runnerGrpc.duration | default "2160h" }}
+  renewBefore: {{ .Values.certManager.runnerGrpc.renewBefore | default "720h" }}
+  subject:
+    organizations:
+      - pravah
+  commonName: {{ .Values.certManager.runnerGrpc.commonName | default (printf "%s-runner-grpc" (include "pravah.fullname" .)) }}
+  dnsNames:
+    {{- $full := include "pravah.fullname" . }}
+    {{- $ns := .Release.Namespace }}
+    {{- range .Values.certManager.runnerGrpc.dnsNames | default (list (printf "%s-runner-service" $full) (printf "%s-runner-service.%s" $full $ns) (printf "%s-runner-service.%s.svc.cluster.local" $full $ns) (printf "%s-runner-service-grpc.%s.svc.cluster.local" $full $ns)) }}
+    - {{ . | quote }}
+    {{- end }}
+  issuerRef:
+    name: {{ .Values.certManager.runnerGrpc.issuerName }}
+    kind: {{ .Values.certManager.runnerGrpc.issuerKind | default "ClusterIssuer" }}
+{{- end }}

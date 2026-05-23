@@ -131,7 +131,7 @@ spec:
         {{- if and (eq $svcKey "runner-service") $.Values.runnerGrpcTls.enabled }}
         - name: runner-grpc-tls
           secret:
-            secretName: {{ $.Values.runnerGrpcTls.existingSecret }}
+            secretName: {{ include "pravah.runnerGrpcTls.secretName" $ }}
             items:
               - key: {{ $.Values.runnerGrpcTls.certChainKey }}
                 path: {{ $.Values.runnerGrpcTls.certChainKey }}

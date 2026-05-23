@@ -29,7 +29,9 @@ class RunnerServiceAuthTest {
 
   @BeforeEach
   void setUp() {
-    runnerService = new RunnerService(repository, connectionManager, maintenanceRlsHelper);
+    runnerService =
+        new RunnerService(
+            repository, connectionManager, maintenanceRlsHelper, java.util.Optional.empty());
     tenantId = UUID.randomUUID();
   }
 

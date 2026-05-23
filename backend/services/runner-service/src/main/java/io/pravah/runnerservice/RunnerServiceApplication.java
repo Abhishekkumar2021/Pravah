@@ -24,7 +24,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     basePackages = {
       "io.pravah.runnerservice",
       "io.pravah.spring.security",
-      "io.pravah.spring.multitenancy"
+      "io.pravah.spring.multitenancy",
+      "io.pravah.spring.vault"
     })
 @EnableScheduling
 public class RunnerServiceApplication {

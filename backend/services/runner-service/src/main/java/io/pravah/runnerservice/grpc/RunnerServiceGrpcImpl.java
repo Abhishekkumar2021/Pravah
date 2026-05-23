@@ -64,12 +64,22 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
 
       var result = runnerService.registerRunner(tenantId, registerRequest);
 
-      responseObserver.onNext(
+      RegisterRunnerResponse.Builder responseBuilder =
           RegisterRunnerResponse.newBuilder()
               .setRunnerId(result.runnerId().toString())
               .setToken(result.token())
-              .setHeartbeatIntervalSeconds(result.heartbeatIntervalSeconds())
-              .build());
+              .setHeartbeatIntervalSeconds(result.heartbeatIntervalSeconds());
+      result
+          .mtlsCertificate()
+          .ifPresent(
+              cert ->
+                  responseBuilder.setMtls(
+                      RunnerMtlsCertificate.newBuilder()
+                          .setCertificatePem(cert.certificatePem())
+                          .setPrivateKeyPem(cert.privateKeyPem())
+                          .setCaChainPem(cert.issuingCaPem())
+                          .build()));
+      responseObserver.onNext(responseBuilder.build());
       responseObserver.onCompleted();
 
     } catch (IllegalArgumentException e) {

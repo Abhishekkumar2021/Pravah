@@ -3,6 +3,7 @@ package io.pravah.common.grpc;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -85,6 +86,16 @@ public final class RunnerCertificateIdentityParser {
           new RunnerCertificateIdentity(UUID.fromString(runnerOnly.group(1)), Optional.empty()));
     }
     return Optional.empty();
+  }
+
+  /** Builds the SPIFFE URI for a runner workload certificate (ADR-008). */
+  public static String runnerSpiffeUri(String trustDomain, UUID tenantId, UUID runnerId) {
+    Objects.requireNonNull(trustDomain, "trustDomain");
+    Objects.requireNonNull(runnerId, "runnerId");
+    if (tenantId != null) {
+      return "spiffe://" + trustDomain + "/tenant/" + tenantId + "/runner/" + runnerId;
+    }
+    return "spiffe://" + trustDomain + "/runner/" + runnerId;
   }
 
   private static Optional<RunnerCertificateIdentity> parseSubjectCn(X509Certificate certificate) {

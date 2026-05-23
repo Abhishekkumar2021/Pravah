@@ -57,7 +57,25 @@ helm upgrade --install pravah deploy/helm/pravah-platform ... \
 
 When mTLS is enabled, `RunnerGrpcIdentityInterceptor` extracts `runner_id` (and optional `tenant_id`) from the client certificate SPIFFE URI — not from the heartbeat payload. Heartbeats with a mismatched `runner_id` are rejected.
 
-Runner agent (outside cluster): `--tls-enabled --tls-trust-cert=ca.crt --tls-client-cert=client.crt --tls-client-key=client.key` (files from `deploy/certs/runner-grpc/`).
+**Local kind/minikube (full mTLS + Vault PKI path):**
+
+```bash
+./scripts/deploy/generate-runner-grpc-tls.sh
+./scripts/deploy/k8s-local-runner-grpc-tls.sh pravah
+./scripts/deploy/k8s-local-vault-pki.sh pravah   # replaces ca.crt with Vault PKI CA
+helm upgrade --install pravah deploy/helm/pravah-platform ... \
+  --set runnerGrpcTls.enabled=true \
+  --set runnerGrpcTls.existingSecret=pravah-runner-grpc-tls \
+  --set runnerPki.enabled=true \
+  --set services.runner-service.needsVault=true
+./scripts/deploy/k8s-local-smoke.sh pravah
+```
+
+Runner agent registers once with `--tls-enabled --tls-trust-cert=ca.crt` (server trust only); Vault PKI returns client cert in `RegisterRunnerResponse.mtls` and the agent applies it before opening the Connect stream.
+
+**cert-manager (runner gRPC server TLS):** Set `certManager.runnerGrpc.enabled=true` and `issuerName` to auto-renew the server certificate Secret (instead of manual `generate-runner-grpc-tls.sh`).
+
+Runner agent (outside cluster): `--tls-enabled --tls-trust-cert=ca.crt --tls-client-cert=client.crt --tls-client-key=client.key` (files from `deploy/certs/runner-grpc/`). When Vault PKI is enabled, the agent receives client cert material in the registration response and persists it automatically.
 
 ## Prerequisites
 

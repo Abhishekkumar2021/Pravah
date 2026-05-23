@@ -44,7 +44,8 @@ jobs:
             --set pravah.wsAllowedOrigins=https://app.example.com \
             --set pravah.frontendBaseUrl=https://app.example.com \
             --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
-            --set externalArtifact.endpoint=https://s3.example.com >/dev/null
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com >/dev/null
 
       - name: Fail when production secrets missing
         run: |
@@ -61,6 +62,7 @@ jobs:
             --set pravah.frontendBaseUrl=https://app.example.com \
             --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
             --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com \
             --set pravah.internalServiceExistingSecret="" \
             --set pravah.internalServiceSecret="" 2>&1; then
             echo "Expected helm template to fail without internal service credentials"
@@ -81,7 +83,8 @@ jobs:
             --set pravah.wsAllowedOrigins=https://app.example.com \
             --set pravah.frontendBaseUrl=https://app.example.com \
             --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
-            --set externalArtifact.endpoint=https://s3.example.com 2>&1; then
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com 2>&1; then
             echo "Expected helm template to fail with image.tag=latest"
             exit 1
           fi
@@ -103,6 +106,7 @@ jobs:
             --set pravah.frontendBaseUrl=https://app.example.com \
             --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
             --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com \
             --set pravah.internalServiceSecret=ci-secret \
             --set pravah.runnerBootstrapSecret=ci-runner-secret 2>&1; then
             echo "Expected helm template to fail when exposeGrpc is enabled without runnerGrpcTls"

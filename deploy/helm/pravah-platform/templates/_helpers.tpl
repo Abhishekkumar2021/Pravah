@@ -25,6 +25,14 @@ Create a default fully qualified app name.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
+{{- define "pravah.runnerGrpcTls.secretName" -}}
+{{- if .Values.certManager.runnerGrpc.enabled -}}
+{{- .Values.certManager.runnerGrpc.secretName | default .Values.runnerGrpcTls.existingSecret -}}
+{{- else -}}
+{{- .Values.runnerGrpcTls.existingSecret -}}
+{{- end -}}
+{{- end }}
+
 {{- define "pravah.labels" -}}
 helm.sh/chart: {{ include "pravah.chart" . }}
 {{ include "pravah.selectorLabels" . }}
@@ -452,6 +460,16 @@ Common environment variables for all services
 - name: PRAVAH_RUNNER_GRPC_TLS_CLIENT_CA
   value: {{ printf "%s/%s" $root.Values.runnerGrpcTls.mountPath $root.Values.runnerGrpcTls.clientCaKey | quote }}
 {{- end }}
+{{- end }}
+{{- if $root.Values.runnerPki.enabled }}
+- name: PRAVAH_RUNNER_PKI_ENABLED
+  value: "true"
+- name: PRAVAH_RUNNER_PKI_ISSUE_PATH
+  value: {{ $root.Values.runnerPki.issuePath | quote }}
+- name: PRAVAH_RUNNER_PKI_TTL
+  value: {{ $root.Values.runnerPki.ttl | quote }}
+- name: PRAVAH_RUNNER_PKI_SPIFFE_TRUST_DOMAIN
+  value: {{ $root.Values.runnerPki.spiffeTrustDomain | quote }}
 {{- end }}
 {{- end }}
 {{- range $k, $v := $svc.extraEnv }}

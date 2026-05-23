@@ -38,6 +38,9 @@ mailhog:
 vault:
   enabled: true
 
+runnerPki:
+  enabled: true
+
 # Relax security context for local dev (some images don't support non-root)
 podSecurityContext:
   runAsNonRoot: false
@@ -137,6 +140,7 @@ services:
         cpu: "1"
         memory: 512Mi
   runner-service:
+    needsVault: true
     resources:
       requests:
         cpu: 50m
