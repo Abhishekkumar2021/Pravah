@@ -76,9 +76,9 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | **tenant-service** | 8082 | Implemented | Email/password login, JWT/JWKS, password reset email, users, tenants, roles, API tokens, Redis tenant config cache (ADR-012) |
 | **pipeline-service** | 8083 | Implemented | Pipeline CRUD, YAML validation, connections, secrets, event sourcing + outbox |
 | **execution-service** | 8084 | Implemented | Executions, jobs, Kafka consumers + DLT (`pravah.kafka.execution-events.dlt-topic`), outbox relay, embedded stage executors (echo, SQL, container), WebSocket realtime, `@PreAuthorize` on REST APIs, circuit breaker + retry for inter-service calls (Resilience4j) |
-| **scheduler-service** | 8085 | Implemented | Cron schedules API, event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, claim-first Kafka idempotency + DLT (`pravah.scheduler.kafka-trigger.dlt-topic`), circuit breaker + retry (Resilience4j) |
+| **scheduler-service** | 8085 | Implemented | Cron schedules API with `catchupPolicy` (`skip`/`run_all`) and multi-fire catchup (`pravah.scheduler.max-catchup-fires`), event triggers (webhook + Kafka US-03.06/US-03.07), Redis webhook rate limiting, claim-first Kafka idempotency + DLT, circuit breaker + retry (Resilience4j) |
 | **graphql** | 8081 | Stub | Boot app only; UI uses REST |
-| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API, job assignment with label matching, stale runner detection |
+| **runner-service** | 8086 | Partial | gRPC bidirectional streaming, REST fleet API with `@PreAuthorize`, gateway route `/api/v1/runners/**`, job assignment with label matching, stale runner detection |
 | **metadata-service** | 8087 | Stub | Boot app only |
 | **notification-service** | 8088 | Partial | Alert rules CRUD, Kafka consumer + DLT (`pravah.kafka.notification.dlt-topic`), email (SMTP/Thymeleaf), Slack/webhook channels, dedup, audit log API, in-app notifications + preferences API, `@PreAuthorize` on REST APIs |
 | **agent-service** | 8089 | Stub | Boot app only |
@@ -168,11 +168,11 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
-| Gateway rate limiting | Implemented | Redis token bucket per-tenant/API-token/IP (ADR-012), HTTP 429 + Retry-After + `X-RateLimit-*` headers |
+| Gateway rate limiting | Implemented | Redis token bucket per-tenant/API-token/IP (ADR-012), HTTP 429 + Retry-After + `X-RateLimit-*` headers; `pravah.ratelimit.fail-open` (default true) with `fail_open` Prometheus outcome |
 | Webhook rate limiting | Implemented | Redis token bucket per trigger (`ratelimit:webhook:{id}`), shared Lua script in `libs/common` |
 | Rate limit metrics | Implemented | `pravah_ratelimit_requests_total{layer,gateway\|webhook,key_type,outcome}` on `/actuator/prometheus` |
 | JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012); optional `JwtBlocklistChecker` in servlet services when Redis is configured |
-| Service JWT + internal S2S | Partial | `ApiTenantJwtFilter` skips `/api/v1/internal/**`; `InternalServiceAuthFilter` on internal routes; `@PreAuthorize` on pipeline, execution, scheduler, connect, notification, tenant public APIs |
+| Service JWT + internal S2S | Partial | `ApiTenantJwtFilter` skips `/api/v1/internal/**`; `InternalServiceAuthFilter` on internal routes; `@PreAuthorize` on pipeline, execution, scheduler, connect, notification, tenant, runner public APIs; tenant-service refresh JWT in HttpOnly cookie + in-memory access token in web |
 | Gateway circuit breaker | Implemented | Resilience4j reactive circuit breaker for all backend routes (LLD-01) |
 | Request logging | Implemented | Structured JSON logs with tenant_id, user_id, request_id, duration, route |
 | Service circuit breakers | Implemented | Resilience4j on `execution-service` → `pipeline-service` and `scheduler-service` → `execution-service` |

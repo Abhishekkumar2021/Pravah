@@ -17,9 +17,9 @@ import io.pravah.scheduler.infrastructure.persistence.SchedulerRlsHelper;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,7 +37,19 @@ class ScheduleEvaluationJobTest {
   @Mock private ExecutionTriggerClient executionTriggerClient;
   @Mock private SchedulerRlsHelper schedulerRlsHelper;
 
-  @InjectMocks private ScheduleEvaluationJob scheduleEvaluationJob;
+  private ScheduleEvaluationJob scheduleEvaluationJob;
+
+  @BeforeEach
+  void setUp() {
+    scheduleEvaluationJob =
+        new ScheduleEvaluationJob(
+            leaderElectionService,
+            scheduleRepository,
+            scheduleHistoryRepository,
+            executionTriggerClient,
+            schedulerRlsHelper,
+            32);
+  }
 
   @Test
   void evaluateDueSchedules_skipsWhenNotLeader() {
@@ -131,20 +143,20 @@ class ScheduleEvaluationJobTest {
     Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
     Instant now = Instant.parse("2026-05-16T09:00:00Z");
 
-    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled, now);
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
 
     assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
   }
 
   @Test
-  void nextRunAfterSuccessfulTrigger_runAllAdvancesFromNow() {
+  void nextRunAfterSuccessfulTrigger_runAllAdvancesFromScheduledSlot() {
     Schedule schedule = minimalSchedule("run_all");
     Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
     Instant now = Instant.parse("2026-05-16T09:00:00Z");
 
-    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled, now);
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled);
 
-    assertThat(next).isEqualTo(Instant.parse("2026-05-17T09:00:00Z"));
+    assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
   }
 
   private static Schedule minimalSchedule(String catchupPolicy) {

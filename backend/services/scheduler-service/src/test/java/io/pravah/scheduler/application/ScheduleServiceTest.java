@@ -74,7 +74,7 @@ class ScheduleServiceTest {
 
     var response =
         scheduleService.createSchedule(
-            new CreateScheduleRequest(PIPELINE_ID, "Daily ETL", "0 9 * * *", "UTC"));
+            new CreateScheduleRequest(PIPELINE_ID, "Daily ETL", "0 9 * * *", "UTC", null));
 
     assertThat(response.name()).isEqualTo("Daily ETL");
     assertThat(response.nextRunAt()).isNotNull();
@@ -86,7 +86,7 @@ class ScheduleServiceTest {
     assertThatThrownBy(
             () ->
                 scheduleService.createSchedule(
-                    new CreateScheduleRequest(PIPELINE_ID, "Bad", "invalid", "UTC")))
+                    new CreateScheduleRequest(PIPELINE_ID, "Bad", "invalid", "UTC", null)))
         .isInstanceOf(ValidationException.class);
   }
 
@@ -193,7 +193,7 @@ class ScheduleServiceTest {
     assertThatThrownBy(
             () ->
                 scheduleService.createSchedule(
-                    new CreateScheduleRequest(PIPELINE_ID, "Daily", "0 9 * * *", "UTC")))
+                    new CreateScheduleRequest(PIPELINE_ID, "Daily", "0 9 * * *", "UTC", null)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("tenant");
   }

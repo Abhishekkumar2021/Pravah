@@ -37,12 +37,15 @@ pravah:
   security:
     jwt:
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  ratelimit:
+    fail-open: ${PRAVAH_RATE_LIMIT_FAIL_OPEN:true}
   internal-service:
     secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
   execution-service:
     base-url: ${EXECUTION_SERVICE_BASE_URL:http://localhost:8084}
   scheduler:
     evaluation-interval-ms: ${PRAVAH_SCHEDULER_EVALUATION_INTERVAL_MS:60000}
+    max-catchup-fires: ${PRAVAH_SCHEDULER_MAX_CATCHUP_FIRES:32}
     leader-lock-ttl-seconds: ${PRAVAH_SCHEDULER_LEADER_LOCK_TTL_SECONDS:90}
     kafka-trigger:
       dlt-topic: ${PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC:pravah.scheduler.trigger.dlt}

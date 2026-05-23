@@ -24,7 +24,8 @@ class RedisRateLimiterIT {
     factory.afterPropertiesSet();
     ReactiveStringRedisTemplate template = new ReactiveStringRedisTemplate(factory);
     rateLimiter =
-        new RedisRateLimiter(template, new GatewayRateLimitMetrics(new SimpleMeterRegistry()));
+        new RedisRateLimiter(
+            template, new GatewayRateLimitMetrics(new SimpleMeterRegistry()), true);
   }
 
   @Test

@@ -57,6 +57,9 @@ pravah:
     email-verification-token-ttl: 24h
     frontend-base-url: ${PRAVAH_FRONTEND_URL:http://localhost:5173}
     mail-from: ${PRAVAH_MAIL_FROM:noreply@localhost.pravah}
+    refresh-cookie:
+      secure: ${PRAVAH_AUTH_REFRESH_COOKIE_SECURE:false}
+      max-age-seconds: ${PRAVAH_AUTH_REFRESH_COOKIE_MAX_AGE_SECONDS:604800}
   security:
     jwt:
       issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}

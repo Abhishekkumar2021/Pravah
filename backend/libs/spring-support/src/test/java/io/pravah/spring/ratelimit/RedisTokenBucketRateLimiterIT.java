@@ -25,7 +25,7 @@ class RedisTokenBucketRateLimiterIT {
     template.afterPropertiesSet();
     rateLimiter =
         new RedisTokenBucketRateLimiter(
-            template, java.util.Optional.of(new RateLimitMetrics(new SimpleMeterRegistry())));
+            template, java.util.Optional.of(new RateLimitMetrics(new SimpleMeterRegistry())), true);
   }
 
   @Test

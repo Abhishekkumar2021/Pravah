@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,18 +30,21 @@ public class ScheduleEvaluationJob {
   private final ScheduleHistoryRepository scheduleHistoryRepository;
   private final ExecutionTriggerClient executionTriggerClient;
   private final SchedulerRlsHelper schedulerRlsHelper;
+  private final int maxCatchupFires;
 
   public ScheduleEvaluationJob(
       LeaderElectionService leaderElectionService,
       ScheduleRepository scheduleRepository,
       ScheduleHistoryRepository scheduleHistoryRepository,
       ExecutionTriggerClient executionTriggerClient,
-      SchedulerRlsHelper schedulerRlsHelper) {
+      SchedulerRlsHelper schedulerRlsHelper,
+      @Value("${pravah.scheduler.max-catchup-fires:32}") int maxCatchupFires) {
     this.leaderElectionService = leaderElectionService;
     this.scheduleRepository = scheduleRepository;
     this.scheduleHistoryRepository = scheduleHistoryRepository;
     this.executionTriggerClient = executionTriggerClient;
     this.schedulerRlsHelper = schedulerRlsHelper;
+    this.maxCatchupFires = maxCatchupFires;
   }
 
   @Scheduled(fixedDelayString = "${pravah.scheduler.evaluation-interval-ms:60000}")
@@ -68,20 +72,61 @@ public class ScheduleEvaluationJob {
     for (Schedule schedule : due) {
       try {
         schedulerRlsHelper.enableEvaluation();
-        processSchedule(schedule, now);
+        if ("run_all".equals(schedule.getCatchupPolicy())) {
+          processScheduleRunAll(schedule, now);
+        } else {
+          processScheduleOnce(schedule, now);
+        }
       } finally {
         schedulerRlsHelper.disableEvaluation();
       }
     }
   }
 
-  private void processSchedule(Schedule schedule, Instant now) {
+  private void processScheduleOnce(Schedule schedule, Instant now) {
     Instant scheduledTime = schedule.getNextRunAt();
+    if (scheduledTime == null || scheduledTime.isAfter(now)) {
+      return;
+    }
+    triggerSlot(schedule, scheduledTime, now);
+  }
+
+  /**
+   * Fires every missed cron slot up to {@code pravah.scheduler.max-catchup-fires} (US-03.13).
+   *
+   * <p>Advances {@code next_run_at} from each fired slot so missed intervals are not skipped.
+   */
+  private void processScheduleRunAll(Schedule schedule, Instant now) {
+    int fired = 0;
+    while (schedule.getNextRunAt() != null
+        && !schedule.getNextRunAt().isAfter(now)
+        && fired < maxCatchupFires) {
+      Instant slot = schedule.getNextRunAt();
+      if (!triggerSlot(schedule, slot, now)) {
+        return;
+      }
+      fired++;
+    }
+    if (fired >= maxCatchupFires
+        && schedule.getNextRunAt() != null
+        && !schedule.getNextRunAt().isAfter(now)) {
+      log.warn(
+          "Schedule catchup limit reached; remaining slots deferred",
+          kv("schedule_id", schedule.getId()),
+          kv("max_catchup_fires", maxCatchupFires),
+          kv("next_run_at", schedule.getNextRunAt()));
+    }
+  }
+
+  /**
+   * @return true if trigger succeeded and schedule was updated; false if trigger failed
+   */
+  private boolean triggerSlot(Schedule schedule, Instant scheduledTime, Instant now) {
     try {
       UUID executionId =
           executionTriggerClient.triggerScheduledExecution(
               schedule.getTenantId(), schedule.getPipelineId(), schedule.getId());
-      Instant nextRun = nextRunAfterSuccessfulTrigger(schedule, scheduledTime, now);
+      Instant nextRun = nextRunAfterSuccessfulTrigger(schedule, scheduledTime);
       schedule.recordTriggeredRun(now, nextRun);
       scheduleRepository.save(schedule);
       scheduleHistoryRepository.save(
@@ -91,7 +136,9 @@ public class ScheduleEvaluationJob {
           "Triggered scheduled execution",
           kv("schedule_id", schedule.getId()),
           kv("execution_id", executionId),
+          kv("scheduled_time", scheduledTime),
           kv("next_run_at", nextRun));
+      return true;
     } catch (Exception e) {
       log.warn(
           "Failed to trigger scheduled execution",
@@ -100,9 +147,9 @@ public class ScheduleEvaluationJob {
           e);
       scheduleHistoryRepository.save(
           ScheduleHistory.failed(schedule.getTenantId(), schedule.getId(), scheduledTime));
-      // Keep the same slot so a transient execution outage does not skip a scheduled run.
       schedule.setNextRunAt(scheduledTime);
       scheduleRepository.save(schedule);
+      return false;
     }
   }
 
@@ -111,14 +158,12 @@ public class ScheduleEvaluationJob {
    *
    * <ul>
    *   <li>{@code skip} — advance from the slot that fired, dropping missed intermediate fires
-   *   <li>{@code run_all} — advance from now so the evaluator can pick up additional missed slots
+   *   <li>{@code run_all} — advance from the slot that fired (catchup loop handles additional
+   *       slots)
    * </ul>
    */
-  static Instant nextRunAfterSuccessfulTrigger(
-      Schedule schedule, Instant scheduledTime, Instant now) {
-    String policy = schedule.getCatchupPolicy();
-    Instant base = "run_all".equals(policy) ? now : scheduledTime;
+  static Instant nextRunAfterSuccessfulTrigger(Schedule schedule, Instant scheduledTime) {
     return CronScheduleCalculator.nextRunAfter(
-        schedule.getCronExpression(), schedule.getTimezone(), base);
+        schedule.getCronExpression(), schedule.getTimezone(), scheduledTime);
   }
 }

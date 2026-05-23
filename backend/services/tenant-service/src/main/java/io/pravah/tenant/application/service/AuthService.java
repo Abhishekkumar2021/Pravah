@@ -11,6 +11,7 @@ import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
+import io.pravah.tenant.application.dto.LoginResult;
 import io.pravah.tenant.application.dto.RegisterRequest;
 import io.pravah.tenant.application.dto.RegisterResponse;
 import io.pravah.tenant.application.dto.UserResponse;
@@ -133,6 +134,12 @@ public class AuthService {
    */
   @Transactional
   public AuthTokenResponse login(LoginRequest request) {
+    return loginWithRefresh(request).access();
+  }
+
+  /** Login returning access token and refresh token for HttpOnly cookie (ADR-009). */
+  @Transactional
+  public LoginResult loginWithRefresh(LoginRequest request) {
     String email = normalizeEmail(request.email());
 
     authRlsHelper.enableAuthLookup();
@@ -178,7 +185,29 @@ public class AuthService {
     user.recordLogin();
     userRepository.save(user);
     log.info("User logged in", kv("user_id", user.getId()), kv("tenant_id", user.getTenantId()));
-    return issueToken(user);
+    AuthTokenResponse access = issueToken(user);
+    String refreshToken = jwtTokenIssuer.generateRefreshToken(user.getId(), user.getTenantId());
+    return new LoginResult(access, refreshToken);
+  }
+
+  /** Issues a new access token from a valid refresh JWT (cookie-based session renewal). */
+  @Transactional
+  public LoginResult refreshSession(String refreshToken) {
+    JwtTokenIssuer.RefreshTokenClaims claims = jwtTokenIssuer.validateRefreshToken(refreshToken);
+    authRlsHelper.enableAuthLookup();
+    User user =
+        userRepository
+            .findById(claims.userId())
+            .orElseThrow(() -> new AuthenticationException("Not authenticated"));
+    authRlsHelper.disableAuthLookup();
+    if (!user.getTenantId().equals(claims.tenantId()) || !user.isActive()) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    TenantContext.setCurrentTenantId(user.getTenantId());
+    TenantContext.setCurrentUserId(user.getId());
+    AuthTokenResponse access = issueToken(user);
+    String rotatedRefresh = jwtTokenIssuer.generateRefreshToken(user.getId(), user.getTenantId());
+    return new LoginResult(access, rotatedRefresh);
   }
 
   /**

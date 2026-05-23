@@ -108,8 +108,18 @@ The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a *
 | `pravah.ratelimit.default-burst-capacity` | `PRAVAH_RATE_LIMIT_BURST` | `200` | Tenant burst capacity |
 | `pravah.ratelimit.api-token-requests-per-second` | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | API token RPS |
 | `pravah.ratelimit.api-token-burst-capacity` | `PRAVAH_RATE_LIMIT_API_TOKEN_BURST` | `100` | API token burst |
+| `pravah.ratelimit.fail-open` | `PRAVAH_RATE_LIMIT_FAIL_OPEN` | `true` | Allow traffic when Redis/script errors (`outcome=fail_open` metric when true) |
 
-Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` on `/actuator/prometheus`.
+Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` (outcomes: `allowed`, `denied`, `fail_open`) on `/actuator/prometheus`. Outbox dead letters: `pravah_outbox_dead_lettered_total{service,event_type,topic}`.
+
+### Auth refresh cookie (tenant-service, ADR-009)
+
+Login sets a **HttpOnly** refresh cookie (`pravah_refresh`, path `/api/v1/auth`). The SPA keeps the access token in memory only and calls `POST /api/v1/auth/refresh` with `credentials: include` on startup.
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.auth.refresh-cookie.secure` | `PRAVAH_AUTH_REFRESH_COOKIE_SECURE` | `false` | Set `true` in production (HTTPS) |
+| `pravah.auth.refresh-cookie.max-age-seconds` | `PRAVAH_AUTH_REFRESH_COOKIE_MAX_AGE_SECONDS` | `604800` | Refresh cookie TTL (7 days) |
 
 ### Scheduler webhooks (Redis rate limiting)
 

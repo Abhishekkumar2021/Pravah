@@ -95,6 +95,9 @@ const ACCESS_TOKEN_STORAGE_KEY = "pravah.accessToken";
 const AUTH_USER_STORAGE_KEY = "pravah.authUser";
 const SESSION_CHANGED_EVENT = "pravah:session-changed";
 
+/** In-memory access token (ADR-009); not persisted to localStorage/sessionStorage. */
+let memoryAccessToken: string | undefined;
+
 function authStorage(): Storage {
   if (typeof window === "undefined") {
     return localStorage;
@@ -107,6 +110,9 @@ function authStorage(): Storage {
 }
 
 export function getAccessToken(): string | undefined {
+  if (memoryAccessToken?.trim()) {
+    return memoryAccessToken;
+  }
   return (
     authStorage().getItem(ACCESS_TOKEN_STORAGE_KEY) ??
     localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
@@ -177,13 +183,9 @@ export function subscribeSession(listener: () => void): () => void {
 }
 
 export function setAccessToken(token: string | null) {
-  if (token) {
-    authStorage().setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-  } else {
-    authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
-    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-  }
+  memoryAccessToken = token?.trim() ? token : undefined;
+  authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
   }
@@ -196,6 +198,7 @@ export async function signOut() {
     try {
       await fetch(apiUrl("/api/v1/auth/logout"), {
         method: "POST",
+        credentials: "include",
         headers: { Authorization: `Bearer ${token}` },
       });
     } catch {
@@ -206,6 +209,7 @@ export async function signOut() {
   authStorage().removeItem(AUTH_USER_STORAGE_KEY);
   localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  memoryAccessToken = undefined;
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
   }
@@ -251,13 +255,29 @@ export type RegisterResponse = {
   message: string;
 };
 
-/** Email/password login (US-10.01). Stores JWT for subsequent API calls. */
+/** Email/password login (US-10.01). Access token in memory; refresh token in HttpOnly cookie. */
 export async function login(email: string, password: string): Promise<AuthTokenResponse> {
   const res = await fetch(apiUrl("/api/v1/auth/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
+  const body = await handleResponse<AuthTokenResponse>(res);
+  setAccessToken(body.accessToken);
+  setStoredUser(body.user);
+  return body;
+}
+
+/** Renew access token using HttpOnly refresh cookie (ADR-009). */
+export async function refreshAccessToken(): Promise<AuthTokenResponse | null> {
+  const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+  });
+  if (res.status === 401) {
+    return null;
+  }
   const body = await handleResponse<AuthTokenResponse>(res);
   setAccessToken(body.accessToken);
   setStoredUser(body.user);

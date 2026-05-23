@@ -1,5 +1,6 @@
 package io.pravah.execution.api;
 
+import io.pravah.common.artifact.TenantArtifactKeys;
 import io.pravah.execution.infrastructure.artifact.*;
 import io.pravah.spring.multitenancy.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -109,7 +110,7 @@ public class ArtifactController {
   @PreAuthorize(
       "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<ArtifactMetadata> getArtifactMetadata(@RequestParam String key) {
-
+    TenantArtifactKeys.requireOwnedByTenant(key, requireTenantId());
     return artifactStorageService
         .getMetadata(key)
         .map(ResponseEntity::ok)
