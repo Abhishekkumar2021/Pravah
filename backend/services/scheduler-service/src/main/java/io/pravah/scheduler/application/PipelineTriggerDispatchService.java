@@ -32,6 +32,12 @@ public class PipelineTriggerDispatchService {
 
   @Transactional
   public UUID dispatch(PipelineTrigger trigger, Map<String, Object> payload) {
+    return dispatch(trigger, payload, null);
+  }
+
+  @Transactional
+  public UUID dispatch(
+      PipelineTrigger trigger, Map<String, Object> payload, String idempotencyKey) {
     Map<String, Object> parameters = buildParameters(trigger, payload);
     TenantContext.setCurrentTenantId(trigger.getTenantId());
     try {
@@ -41,7 +47,8 @@ public class PipelineTriggerDispatchService {
               trigger.getPipelineId(),
               trigger.getTriggerType().value(),
               trigger.getId(),
-              parameters);
+              parameters,
+              idempotencyKey);
       trigger.recordTriggered();
       triggerRepository.save(trigger);
       log.info(

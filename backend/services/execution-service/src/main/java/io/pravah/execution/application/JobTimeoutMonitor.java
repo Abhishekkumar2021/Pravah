@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import io.pravah.common.domain.JobState;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
+import io.pravah.spring.multitenancy.SystemMaintenanceRlsHelper;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -21,16 +22,22 @@ public class JobTimeoutMonitor {
 
   private final JobEntityRepository jobEntityRepository;
   private final JobTimeoutProcessor jobTimeoutProcessor;
+  private final SystemMaintenanceRlsHelper maintenanceRlsHelper;
 
   public JobTimeoutMonitor(
-      JobEntityRepository jobEntityRepository, JobTimeoutProcessor jobTimeoutProcessor) {
+      JobEntityRepository jobEntityRepository,
+      JobTimeoutProcessor jobTimeoutProcessor,
+      SystemMaintenanceRlsHelper maintenanceRlsHelper) {
     this.jobEntityRepository = jobEntityRepository;
     this.jobTimeoutProcessor = jobTimeoutProcessor;
+    this.maintenanceRlsHelper = maintenanceRlsHelper;
   }
 
   @Scheduled(fixedDelayString = "${pravah.job.timeout.check-interval-ms:5000}")
   public void checkRunningJobTimeouts() {
-    List<JobEntity> running = jobEntityRepository.findByStatus(JobState.RUNNING);
+    List<JobEntity> running =
+        maintenanceRlsHelper.runWithMaintenance(
+            () -> jobEntityRepository.findByStatus(JobState.RUNNING));
     if (running.isEmpty()) {
       return;
     }

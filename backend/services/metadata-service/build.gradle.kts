@@ -16,9 +16,11 @@ description = "Pravah Metadata Service - Artifacts and analytics"
 
 dependencies {
     implementation(project(":libs:common"))
+    implementation(project(":libs:spring-support"))
 
-    // Web
+    // Web + JWT (ADR-009)
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // DuckDB for analytics
     implementation("org.duckdb:duckdb_jdbc:0.10.1")

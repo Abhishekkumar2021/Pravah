@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ToastProvider } from "./components/ui/Toast";
+import { TooltipProvider } from "./components/ui/Tooltip";
 import App from "./App";
 import "./index.css";
 import { ThemeProvider } from "./lib/theme";
@@ -20,7 +21,9 @@ createRoot(root).render(
       <BrowserRouter>
         <ThemeProvider>
           <ToastProvider>
-            <App />
+            <TooltipProvider delayDuration={300}>
+              <App />
+            </TooltipProvider>
           </ToastProvider>
         </ThemeProvider>
       </BrowserRouter>

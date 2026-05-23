@@ -1,5 +1,6 @@
 package io.pravah.scheduler.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -121,5 +122,40 @@ class ScheduleEvaluationJobTest {
             org.mockito.ArgumentMatchers.argThat(
                 h -> h.getStatus().equals(ScheduleHistory.STATUS_FAILED)));
     verify(scheduleRepository).save(schedule);
+    assertThat(schedule.getNextRunAt()).isEqualTo(now);
+  }
+
+  @Test
+  void nextRunAfterSuccessfulTrigger_skipAdvancesFromScheduledSlot() {
+    Schedule schedule = minimalSchedule("skip");
+    Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
+    Instant now = Instant.parse("2026-05-16T09:00:00Z");
+
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled, now);
+
+    assertThat(next).isEqualTo(Instant.parse("2026-05-15T09:00:00Z"));
+  }
+
+  @Test
+  void nextRunAfterSuccessfulTrigger_runAllAdvancesFromNow() {
+    Schedule schedule = minimalSchedule("run_all");
+    Instant scheduled = Instant.parse("2026-05-14T09:00:00Z");
+    Instant now = Instant.parse("2026-05-16T09:00:00Z");
+
+    Instant next = ScheduleEvaluationJob.nextRunAfterSuccessfulTrigger(schedule, scheduled, now);
+
+    assertThat(next).isEqualTo(Instant.parse("2026-05-17T09:00:00Z"));
+  }
+
+  private static Schedule minimalSchedule(String catchupPolicy) {
+    return Schedule.builder()
+        .tenantId(TENANT_ID)
+        .pipelineId(PIPELINE_ID)
+        .name("Daily")
+        .cronExpression("0 9 * * *")
+        .timezone("UTC")
+        .catchupPolicy(catchupPolicy)
+        .createdBy(UUID.randomUUID())
+        .build();
   }
 }

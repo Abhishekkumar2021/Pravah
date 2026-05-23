@@ -3,6 +3,7 @@ package io.pravah.notification.infrastructure.channel;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.pravah.common.net.UrlSafetyValidator;
 import io.pravah.notification.application.dto.AlertContext;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,6 +43,11 @@ public class WebhookChannel implements NotificationChannel {
     String url = (String) channelConfig.get("url");
     if (url == null || url.isBlank()) {
       return DeliveryResult.failure("webhook", "No webhook URL configured");
+    }
+    try {
+      UrlSafetyValidator.validateHttpUrlForOutboundRequest(url);
+    } catch (IllegalArgumentException e) {
+      return DeliveryResult.failure("webhook", e.getMessage());
     }
 
     Map<String, String> headers =

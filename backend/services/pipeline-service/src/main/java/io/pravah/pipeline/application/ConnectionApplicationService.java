@@ -27,6 +27,7 @@ import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
@@ -40,14 +41,18 @@ public class ConnectionApplicationService {
   private final ConnectionRepository connectionRepository;
   private final ConnectionCredentialResolver credentialResolver;
   private final ObjectMapper objectMapper;
+  private final boolean allowPrivateNetworkTargets;
 
   public ConnectionApplicationService(
       ConnectionRepository connectionRepository,
       ConnectionCredentialResolver credentialResolver,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      @Value("${pravah.security.allow-private-network-targets:false}")
+          boolean allowPrivateNetworkTargets) {
     this.connectionRepository = connectionRepository;
     this.credentialResolver = credentialResolver;
     this.objectMapper = objectMapper;
+    this.allowPrivateNetworkTargets = allowPrivateNetworkTargets;
   }
 
   @Transactional
@@ -174,7 +179,7 @@ public class ConnectionApplicationService {
           new ResolvedConnection(
               entity.getName(),
               entity.getType(),
-              PostgresConnectionConfig.resolveJdbcUrl(config),
+              PostgresConnectionConfig.resolveJdbcUrl(config, allowPrivateNetworkTargets),
               PostgresConnectionConfig.resolveUsername(config),
               password);
       default ->
@@ -211,12 +216,12 @@ public class ConnectionApplicationService {
         .orElseThrow(() -> new EntityNotFoundException("Connection", name));
   }
 
-  private static void validateConfig(String type, Map<String, Object> config) {
+  private void validateConfig(String type, Map<String, Object> config) {
     if (config == null || config.isEmpty()) {
       throw new IllegalArgumentException("Connection config is required");
     }
     if ("postgres".equals(type)) {
-      PostgresConnectionConfig.validate(config);
+      PostgresConnectionConfig.validate(config, allowPrivateNetworkTargets);
     }
   }
 

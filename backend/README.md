@@ -39,20 +39,30 @@ backend/
 └── build.gradle.kts             # Root build configuration
 ```
 
-**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, connect. Partial: notification, runner-service. Stubs: graphql, metadata, agent.
+**Service implementation status:** see [Implementation Status](../docs/IMPLEMENTATION_STATUS.md). Implemented: gateway, tenant, pipeline, execution, scheduler, notification, connect, runner-service. Partial/stub: graphql, metadata, agent (JWT-secured HTTP stubs).
 
-**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`. Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+**Runner dispatch (execution-service):** `PRAVAH_RUNNER_SERVICE_ENABLED` (default `true`), `RUNNER_SERVICE_BASE_URL` (default `http://localhost:8086`), `PRAVAH_INTERNAL_SERVICE_SECRET` for S2S calls to `/api/v1/internal/runners/assignments`. Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` and assign via runner-service gRPC.
 
-Example stage snippet:
+**Runner agent (gRPC 9091):** Register with tenant metadata + bootstrap secret, then authenticate the bidirectional stream with the issued token on the first heartbeat.
 
-```yaml
-- id: extract
-  type: container
-  runOn: runner
-  config:
-    image: python:3.12-slim
-    command: ["python", "-c", "print(1)"]
-``` Stages with `runOn: runner` build a resolved `RemoteJobSpecPayload` (container image/command, python script + requirements, SQL JDBC from connection catalog, dbt/spark shell commands) and assign via runner-service gRPC. Terminal status includes `output_json` forwarded to execution completion.
+```bash
+cd backend && ./gradlew :runner:fatJar
+java -jar runner/build/libs/runner-*-all.jar \
+  --server-url localhost:9091 \
+  --tenant-id "<tenant-uuid>" \
+  --bootstrap-secret "${PRAVAH_INTERNAL_SERVICE_SECRET:-pravah-local-internal-secret}" \
+  --name my-runner
+# Save printed runner id + token; reconnect with:
+#   --runner-id "<uuid>" --token "<token>"
+```
+
+Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (defaults to internal service secret locally). Config: `pravah.runner.bootstrap-secret` on runner-service.
+
+**Runner gRPC TLS (optional):** Set `pravah.runner.grpc.tls.enabled=true` on runner-service with `cert-chain`, `private-key`, and optional `client-ca` for mTLS. Runner agent: `--tls-enabled`, `--tls-trust-cert`, optional `--tls-client-cert` / `--tls-client-key` (or `PRAVAH_RUNNER_GRPC_TLS_*` env vars).
+
+**Scheduler Kafka DLT:** Failed trigger consumption after retries routes to `pravah.scheduler.kafka-trigger.dlt-topic` (default `pravah.scheduler.trigger.dlt`). Override with `PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC`.
+
+**Method security:** Pipeline and execution REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (`pipelines:*`, `executions:*` permissions from JWT).
 
 Example stage snippet:
 
@@ -80,7 +90,7 @@ Example stage snippet:
 ```bash
 make local-setup      # once: copy env templates
 make local-up         # docker-compose infra
-make local-services   # tenant, pipeline, execution, scheduler, gateway
+make local-services   # tenant, pipeline, execution, scheduler, notification, connect, runner, metadata, agent, gateway
 make local-seed       # demo data
 make local-web        # Vite dev server (../web)
 ```
@@ -311,7 +321,7 @@ Start Redis from `docker-compose.yml` when running execution-service with defaul
 | Metadata Service | 8087 | - |
 | Notification Service | 8088 | - |
 | Agent Service | 8089 | - |
-| Connect Service | 8090 | - |
+| Connect Service | 8091 | JWT + internal S2S (port 8091 avoids Kafka UI on 8090 locally) |
 
 ## API Documentation (US-11.12)
 

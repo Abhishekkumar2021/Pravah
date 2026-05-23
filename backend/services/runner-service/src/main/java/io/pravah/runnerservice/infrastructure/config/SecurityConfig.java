@@ -18,8 +18,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
   @Bean
-  public ApiTenantJwtFilter apiTenantJwtFilter(JwtTokenVerifier jwtTokenVerifier) {
-    return new ApiTenantJwtFilter(jwtTokenVerifier);
+  public ApiTenantJwtFilter apiTenantJwtFilter(
+      JwtTokenVerifier jwtTokenVerifier,
+      io.pravah.spring.security.OptionalJwtBlocklistChecker blocklistChecker) {
+    return new ApiTenantJwtFilter(jwtTokenVerifier, blocklistChecker);
   }
 
   @Bean

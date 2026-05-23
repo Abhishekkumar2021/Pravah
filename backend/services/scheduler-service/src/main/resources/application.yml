@@ -44,6 +44,8 @@ pravah:
   scheduler:
     evaluation-interval-ms: ${PRAVAH_SCHEDULER_EVALUATION_INTERVAL_MS:60000}
     leader-lock-ttl-seconds: ${PRAVAH_SCHEDULER_LEADER_LOCK_TTL_SECONDS:90}
+    kafka-trigger:
+      dlt-topic: ${PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC:pravah.scheduler.trigger.dlt}
   hooks:
     base-url: ${PRAVAH_HOOKS_BASE_URL:http://localhost:8080/api/v1/hooks}
 

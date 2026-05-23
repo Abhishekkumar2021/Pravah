@@ -44,7 +44,7 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
     try {
       if (internalSecret == null
           || internalSecret.isBlank()
-          || !internalSecret.equals(request.getHeader(SECRET_HEADER))) {
+          || !constantTimeEquals(internalSecret, request.getHeader(SECRET_HEADER))) {
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid internal service secret");
         return;
       }
@@ -53,7 +53,13 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing tenant header");
         return;
       }
-      UUID tenantId = UUID.fromString(tenantHeader);
+      UUID tenantId;
+      try {
+        tenantId = UUID.fromString(tenantHeader.trim());
+      } catch (IllegalArgumentException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid tenant header");
+        return;
+      }
       TenantContext.setCurrentTenantId(tenantId);
 
       var authentication =
@@ -65,5 +71,14 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
       TenantContext.clear();
       SecurityContextHolder.clearContext();
     }
+  }
+
+  private static boolean constantTimeEquals(String expected, String provided) {
+    if (expected == null || provided == null) {
+      return false;
+    }
+    byte[] a = expected.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    byte[] b = provided.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    return java.security.MessageDigest.isEqual(a, b);
   }
 }

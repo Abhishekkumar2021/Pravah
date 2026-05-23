@@ -81,6 +81,14 @@ public class RemoteJobCompletionService {
       job.assign(runnerId);
       jobStatus = job.getStatus();
     }
+    if (job.getRunnerId() != null && runnerId != null && !job.getRunnerId().equals(runnerId)) {
+      log.warn(
+          "Ignoring remote completion from unexpected runner",
+          kv("job_id", jobId),
+          kv("expected_runner_id", job.getRunnerId()),
+          kv("actual_runner_id", runnerId));
+      return;
+    }
     if (jobStatus != JobState.RUNNING) {
       log.warn(
           "Ignoring remote completion for job in unexpected state",

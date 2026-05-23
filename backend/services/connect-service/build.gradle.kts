@@ -19,9 +19,10 @@ dependencies {
     implementation(project(":libs:common"))
     implementation(project(":libs:spring-support"))
 
-    // Web
+    // Web + security (JWT per ADR-009)
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // OAuth2 client for integrations
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
@@ -34,7 +35,8 @@ dependencies {
     implementation(libs.mysql.connector)
     implementation(libs.mssql.jdbc)
     implementation(libs.oracle.jdbc)
-    implementation(libs.mongodb.driver)
+    // Align with Spring Boot BOM (avoid bson/driver-core version skew)
+    implementation("org.mongodb:mongodb-driver-sync")
     implementation(libs.snowflake.jdbc)
 
     // AWS S3 SDK for S3/MinIO connector

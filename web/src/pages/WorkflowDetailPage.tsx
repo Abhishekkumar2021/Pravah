@@ -11,7 +11,7 @@ import { TriggerRunButton } from "@/components/workspace/TriggerRunButton";
 import { WorkflowSchedulePanel } from "@/components/workspace/WorkflowSchedulePanel";
 import { WorkflowDAG } from "@/components/workflow/WorkflowDAG";
 import { PipelineEditor } from "@/components/workflow/editor";
-import { publishPipeline, validatePipelineDefinition } from "@/lib/api";
+import { publishPipeline, validatePipelineDefinition, updatePipeline, archivePipeline } from "@/lib/api";
 import { stagesToYaml } from "@/lib/pipelineYaml";
 import {
   ApiError,
@@ -45,6 +45,7 @@ export function WorkflowDetailPage() {
   >([]);
   const [runsError, setRunsError] = useState<string | null>(null);
   const [stages, setStages] = useState<StageDefinition[]>([]);
+  const [settingsDefinitionYaml, setSettingsDefinitionYaml] = useState<string | null>(null);
 
   const isUuid = workflowId ? UUID_RE.test(workflowId) : false;
 
@@ -55,6 +56,7 @@ export function WorkflowDetailPage() {
       setRecentRuns([]);
       setRunsError(null);
       setStages([]);
+      setSettingsDefinitionYaml(null);
       return;
     }
     let cancelled = false;
@@ -66,6 +68,21 @@ export function WorkflowDetailPage() {
       .then((p) => {
         if (!cancelled) {
           setPipeline(p);
+          if (p.draftDefinitionYaml) {
+            setSettingsDefinitionYaml(p.draftDefinitionYaml);
+          } else {
+            void getPipelineVersionDefinition(workflowId, p.currentVersion)
+              .then((def) => {
+                if (cancelled) return;
+                const stageList = def.definition?.stages ?? [];
+                setSettingsDefinitionYaml(
+                  stagesToYaml(p.name, stageList, p.description, retryFromDefinition(def.definition)),
+                );
+              })
+              .catch(() => {
+                if (!cancelled) setSettingsDefinitionYaml(null);
+              });
+          }
           void getPipelineVersionDefinition(workflowId, p.currentVersion)
             .then((def) => {
               if (!cancelled && def.definition?.stages) {
@@ -318,14 +335,64 @@ export function WorkflowDetailPage() {
           {pipeline ? (
             <WorkflowSettings
               pipeline={pipeline}
+              definitionYaml={settingsDefinitionYaml}
               onUpdate={async (patch) => {
-                console.log("Update workflow:", patch);
-                // TODO: Implement API call to update pipeline
+                if (!workflowId) return;
+                const updated = await updatePipeline(workflowId, patch);
+                setPipeline((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        name: updated.name,
+                        description: updated.description,
+                        status: updated.status,
+                        updatedAt: updated.updatedAt,
+                      }
+                    : prev,
+                );
               }}
+              onUpdateDefinitionYaml={
+                workflowId
+                  ? async (definitionYaml) => {
+                      await updatePipeline(workflowId, { definitionYaml });
+                      setSettingsDefinitionYaml(definitionYaml);
+                      const refreshed = await getPipeline(workflowId);
+                      setPipeline((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              draftDefinitionYaml: refreshed.draftDefinitionYaml,
+                              updatedAt: refreshed.updatedAt,
+                            }
+                          : prev,
+                      );
+                    }
+                  : undefined
+              }
+              onArchive={
+                workflowId
+                  ? async () => {
+                      const updated = await archivePipeline(workflowId);
+                      setPipeline((prev) =>
+                        prev ? { ...prev, status: updated.status, updatedAt: updated.updatedAt } : prev,
+                      );
+                    }
+                  : undefined
+              }
             />
           ) : null}
         </TabsContent>
       </Tabs>
     </div>
   );
+}
+
+function retryFromDefinition(
+  definition: { retry?: Record<string, unknown> } | undefined,
+): { maxAttempts: number } | undefined {
+  const raw = definition?.retry?.max_attempts;
+  if (typeof raw === "number" && raw >= 1) {
+    return { maxAttempts: raw };
+  }
+  return undefined;
 }

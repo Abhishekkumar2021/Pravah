@@ -21,12 +21,21 @@ class JobTimeoutMonitorTest {
 
   @Mock private JobEntityRepository jobEntityRepository;
   @Mock private JobTimeoutProcessor jobTimeoutProcessor;
+  @Mock private io.pravah.spring.multitenancy.SystemMaintenanceRlsHelper maintenanceRlsHelper;
 
   private JobTimeoutMonitor monitor;
 
   @BeforeEach
   void setUp() {
-    monitor = new JobTimeoutMonitor(jobEntityRepository, jobTimeoutProcessor);
+    when(maintenanceRlsHelper.runWithMaintenance(
+            org.mockito.ArgumentMatchers.<java.util.function.Supplier<List<JobEntity>>>any()))
+        .thenAnswer(
+            inv -> {
+              @SuppressWarnings("unchecked")
+              var supplier = (java.util.function.Supplier<List<JobEntity>>) inv.getArgument(0);
+              return supplier.get();
+            });
+    monitor = new JobTimeoutMonitor(jobEntityRepository, jobTimeoutProcessor, maintenanceRlsHelper);
   }
 
   @Test

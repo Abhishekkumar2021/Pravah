@@ -35,8 +35,11 @@ public class LocalJwtTokenVerifier extends JwtTokenVerifier {
 
   private final JwtTokenIssuer jwtTokenIssuer;
 
-  public LocalJwtTokenVerifier(JwtTokenIssuer jwtTokenIssuer) {
-    super("http://localhost/.well-known/jwks.json");
+  public LocalJwtTokenVerifier(
+      JwtTokenIssuer jwtTokenIssuer,
+      @org.springframework.beans.factory.annotation.Value("${pravah.security.jwt.issuer:}")
+          String issuer) {
+    super("http://localhost/.well-known/jwks.json", issuer);
     this.jwtTokenIssuer = jwtTokenIssuer;
   }
 

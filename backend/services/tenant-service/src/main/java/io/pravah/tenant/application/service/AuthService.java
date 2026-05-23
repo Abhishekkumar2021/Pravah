@@ -6,6 +6,8 @@ import io.pravah.common.exception.AuthenticationException;
 import io.pravah.common.exception.EmailNotVerifiedException;
 import io.pravah.common.exception.ValidationException;
 import io.pravah.spring.multitenancy.TenantContext;
+import io.pravah.spring.security.JwtTokenVerifier;
+import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
 import io.pravah.tenant.application.dto.AuthTokenResponse;
 import io.pravah.tenant.application.dto.ConfirmPasswordResetRequest;
 import io.pravah.tenant.application.dto.LoginRequest;
@@ -60,6 +62,9 @@ public class AuthService {
   private final PasswordResetEmailService passwordResetEmailService;
   private final EmailVerificationTokenRepository emailVerificationTokenRepository;
   private final EmailVerificationEmailService emailVerificationEmailService;
+  private final JwtTokenVerifier jwtTokenVerifier;
+  private final java.util.Optional<io.pravah.tenant.infrastructure.security.JwtRevocationService>
+      jwtRevocationService;
 
   public AuthService(
       UserRepository userRepository,
@@ -72,7 +77,10 @@ public class AuthService {
       PasswordResetTokenRepository passwordResetTokenRepository,
       PasswordResetEmailService passwordResetEmailService,
       EmailVerificationTokenRepository emailVerificationTokenRepository,
-      EmailVerificationEmailService emailVerificationEmailService) {
+      EmailVerificationEmailService emailVerificationEmailService,
+      JwtTokenVerifier jwtTokenVerifier,
+      java.util.Optional<io.pravah.tenant.infrastructure.security.JwtRevocationService>
+          jwtRevocationService) {
     this.userRepository = userRepository;
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
@@ -84,6 +92,36 @@ public class AuthService {
     this.passwordResetEmailService = passwordResetEmailService;
     this.emailVerificationTokenRepository = emailVerificationTokenRepository;
     this.emailVerificationEmailService = emailVerificationEmailService;
+    this.jwtTokenVerifier = jwtTokenVerifier;
+    this.jwtRevocationService = jwtRevocationService;
+  }
+
+  /** Returns the authenticated user (US-10.01 / CLI). */
+  @Transactional(readOnly = true)
+  public UserResponse currentUser() {
+    UUID userId = TenantContext.getCurrentUserId();
+    UUID tenantId = TenantContext.getCurrentTenantId();
+    if (userId == null || tenantId == null) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new AuthenticationException("Not authenticated"));
+    if (!user.getTenantId().equals(tenantId)) {
+      throw new AuthenticationException("Not authenticated");
+    }
+    RoleService.UserAuthorization authorization =
+        roleService.resolveAuthorization(tenantId, userId);
+    return UserResponse.from(user, authorization.role());
+  }
+
+  /** Revokes the current access token (Redis blocklist when configured). */
+  public void logout(String accessToken) {
+    JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(accessToken);
+    if (claims.jwtId() != null && claims.expiresAt() != null) {
+      jwtRevocationService.ifPresent(s -> s.revoke(claims.jwtId(), claims.expiresAt()));
+    }
   }
 
   /**

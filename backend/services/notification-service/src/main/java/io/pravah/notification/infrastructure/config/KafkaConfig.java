@@ -16,7 +16,7 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 @Configuration
 public class KafkaConfig {
 
-  @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
+  @Value("${spring.kafka.bootstrap-servers:localhost:29092}")
   private String bootstrapServers;
 
   @Value("${spring.kafka.consumer.group-id:notification-service}")
@@ -33,7 +33,7 @@ public class KafkaConfig {
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
     // JSON deserializer config
-    props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+    props.put(JsonDeserializer.TRUSTED_PACKAGES, "java.util,java.lang,io.pravah");
     props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
     props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "java.util.LinkedHashMap");
 

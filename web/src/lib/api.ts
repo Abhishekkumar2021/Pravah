@@ -63,7 +63,21 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (res.ok) {
+    if (res.status === 204) {
+      return undefined as T;
+    }
     return (await res.json()) as T;
+  }
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
+    void signOut();
+    const redirect = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.assign(`/login?redirect=${redirect}`);
   }
   let message = res.statusText;
   let errorCode: string | undefined;
@@ -81,8 +95,23 @@ const ACCESS_TOKEN_STORAGE_KEY = "pravah.accessToken";
 const AUTH_USER_STORAGE_KEY = "pravah.authUser";
 const SESSION_CHANGED_EVENT = "pravah:session-changed";
 
+function authStorage(): Storage {
+  if (typeof window === "undefined") {
+    return localStorage;
+  }
+  try {
+    return window.sessionStorage;
+  } catch {
+    return localStorage;
+  }
+}
+
 export function getAccessToken(): string | undefined {
-  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? undefined;
+  return (
+    authStorage().getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+    localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+    undefined
+  );
 }
 
 /** True when a signed-in session exists and the access token is not expired. */
@@ -105,7 +134,9 @@ export function hasValidSession(): boolean {
 }
 
 export function getStoredUser(): AuthUserResponse | undefined {
-  const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+  const raw =
+    authStorage().getItem(AUTH_USER_STORAGE_KEY) ??
+    localStorage.getItem(AUTH_USER_STORAGE_KEY);
   if (!raw) return undefined;
   try {
     return JSON.parse(raw) as AuthUserResponse;
@@ -147,8 +178,10 @@ export function subscribeSession(listener: () => void): () => void {
 
 export function setAccessToken(token: string | null) {
   if (token) {
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    authStorage().setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   } else {
+    authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
     localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   }
   if (typeof window !== "undefined") {
@@ -156,13 +189,38 @@ export function setAccessToken(token: string | null) {
   }
 }
 
-/** Clear session and sign out. */
-export function signOut() {
+/** Clear session and sign out (revokes token server-side when possible). */
+export async function signOut() {
+  const token = getAccessToken();
+  if (token) {
+    try {
+      await fetch(apiUrl("/api/v1/auth/logout"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // Best-effort revocation; still clear local session.
+    }
+  }
+  authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  authStorage().removeItem(AUTH_USER_STORAGE_KEY);
   localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   localStorage.removeItem(AUTH_USER_STORAGE_KEY);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
   }
+}
+
+/** Update the signed-in user's display name. */
+export async function updateProfileName(userId: string, name: string): Promise<AuthUserResponse> {
+  const res = await fetch(apiUrl(`/api/v1/users/${userId}/name`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name }),
+  });
+  const updated = await handleResponse<AuthUserResponse>(res);
+  setStoredUser(updated);
+  return updated;
 }
 
 function authHeaders(): HeadersInit {
@@ -409,6 +467,7 @@ export type PipelineDetailResponse = {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  draftDefinitionYaml: string | null;
   versions: { version: number; publishedAt: string | null; publishedBy: string | null }[];
 };
 
@@ -465,6 +524,29 @@ export async function getPipeline(pipelineId: string): Promise<PipelineDetailRes
     headers: authHeaders(),
   });
   return handleResponse<PipelineDetailResponse>(res);
+}
+
+export async function updatePipeline(
+  pipelineId: string,
+  body: { name?: string; description?: string; definitionYaml?: string },
+): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}`), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PipelineResponse>(res);
+}
+
+export async function archivePipeline(pipelineId: string): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/archive`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineResponse>(res);
 }
 
 export type PipelineVersionDefinitionResponse = {

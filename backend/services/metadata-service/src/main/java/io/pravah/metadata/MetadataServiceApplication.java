@@ -11,6 +11,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see <a href="../../../docs/adr/ADR-009-duckdb-analytics.md">ADR-009: DuckDB for Analytics</a>
  */
 @SpringBootApplication
+@org.springframework.context.annotation.ComponentScan(
+    basePackages = {"io.pravah.metadata", "io.pravah.spring.security"})
 public class MetadataServiceApplication {
 
   public static void main(String[] args) {

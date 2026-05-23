@@ -146,7 +146,7 @@ class JwtTokenVerifierTest {
     private final TestJwtIssuer issuer;
 
     TestJwtVerifier(TestJwtIssuer issuer) {
-      super("http://localhost/.well-known/jwks.json");
+      super("http://localhost/.well-known/jwks.json", "");
       this.issuer = issuer;
     }
 

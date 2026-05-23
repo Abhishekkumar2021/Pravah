@@ -68,7 +68,7 @@ class JwtTokenVerifierClaimsTest {
 
   private static final class TestJwtTokenVerifier extends JwtTokenVerifier {
     TestJwtTokenVerifier() {
-      super("http://localhost/jwks.json");
+      super("http://localhost/jwks.json", "");
     }
   }
 }

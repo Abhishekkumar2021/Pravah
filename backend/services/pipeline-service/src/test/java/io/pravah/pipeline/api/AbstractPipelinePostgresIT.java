@@ -23,6 +23,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(
     properties = {
       "pravah.outbox.relay.enabled=false",
+      "pravah.security.allow-private-network-targets=true",
       "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
     })
 public abstract class AbstractPipelinePostgresIT {

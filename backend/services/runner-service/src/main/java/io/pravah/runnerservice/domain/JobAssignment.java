@@ -13,6 +13,9 @@ public class JobAssignment {
   @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
+  @Column(name = "tenant_id", nullable = false)
+  private UUID tenantId;
+
   @Column(name = "runner_id", nullable = false)
   private UUID runnerId;
 
@@ -40,6 +43,14 @@ public class JobAssignment {
 
   public void setId(UUID id) {
     this.id = id;
+  }
+
+  public UUID getTenantId() {
+    return tenantId;
+  }
+
+  public void setTenantId(UUID tenantId) {
+    this.tenantId = tenantId;
   }
 
   public UUID getRunnerId() {

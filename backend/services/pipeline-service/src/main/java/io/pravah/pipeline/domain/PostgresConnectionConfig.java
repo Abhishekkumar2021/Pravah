@@ -1,5 +1,6 @@
 package io.pravah.pipeline.domain;
 
+import io.pravah.common.net.UrlSafetyValidator;
 import java.util.Map;
 
 /**
@@ -31,7 +32,12 @@ public final class PostgresConnectionConfig {
    */
   @SuppressWarnings("unchecked")
   public static void validate(Map<String, Object> config) {
-    resolveJdbcUrl(config);
+    validate(config, false);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static void validate(Map<String, Object> config, boolean allowPrivateNetworkTargets) {
+    resolveJdbcUrl(config, allowPrivateNetworkTargets);
     resolveUsername(config);
 
     Object credentials = config.get("credentials");
@@ -51,15 +57,26 @@ public final class PostgresConnectionConfig {
   }
 
   public static String resolveJdbcUrl(Map<String, Object> config) {
+    return resolveJdbcUrl(config, false);
+  }
+
+  public static String resolveJdbcUrl(
+      Map<String, Object> config, boolean allowPrivateNetworkTargets) {
     String explicitUrl = getString(config, "url");
     if (explicitUrl != null && !explicitUrl.isBlank()) {
       if (!explicitUrl.startsWith("jdbc:")) {
         throw new IllegalArgumentException("Postgres connection url must start with 'jdbc:'");
       }
+      if (!allowPrivateNetworkTargets) {
+        UrlSafetyValidator.validateJdbcTarget(explicitUrl);
+      }
       return explicitUrl;
     }
 
     String host = require(config, "host");
+    if (!allowPrivateNetworkTargets) {
+      UrlSafetyValidator.validateJdbcTarget(host);
+    }
     String database = require(config, "database");
     int port = parsePort(config.get("port"));
     return "jdbc:postgresql://%s:%d/%s".formatted(host, port, database);

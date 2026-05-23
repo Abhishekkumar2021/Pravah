@@ -58,6 +58,7 @@ class AuthServiceTest {
   @Mock private PasswordResetEmailService passwordResetEmailService;
   @Mock private EmailVerificationTokenRepository emailVerificationTokenRepository;
   @Mock private EmailVerificationEmailService emailVerificationEmailService;
+  @Mock private io.pravah.spring.security.JwtTokenVerifier jwtTokenVerifier;
 
   private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
   private AuthService authService;
@@ -86,7 +87,9 @@ class AuthServiceTest {
             passwordResetTokenRepository,
             passwordResetEmailService,
             emailVerificationTokenRepository,
-            emailVerificationEmailService);
+            emailVerificationEmailService,
+            jwtTokenVerifier,
+            Optional.empty());
     passwordHash = passwordEncoder.encode("PravahDev1!");
     lenient()
         .when(roleService.resolveAuthorization(TENANT_ID, USER_ID))

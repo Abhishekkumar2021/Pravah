@@ -85,7 +85,7 @@ public class ExecutionKafkaConsumerConfiguration {
 
     JsonDeserializer<Map<String, Object>> jsonDeserializer =
         new JsonDeserializer<>((Class<Map<String, Object>>) (Class<?>) Map.class, false);
-    jsonDeserializer.addTrustedPackages("*");
+    jsonDeserializer.addTrustedPackages("java.util", "java.lang", "io.pravah");
 
     return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), jsonDeserializer);
   }

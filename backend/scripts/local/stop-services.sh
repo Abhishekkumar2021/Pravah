@@ -38,12 +38,17 @@ kill_port() {
   fi
 }
 
-for svc in gateway notification-service scheduler-service execution-service pipeline-service tenant-service; do
+for svc in gateway agent-service metadata-service runner-service connect-service \
+  notification-service scheduler-service execution-service pipeline-service tenant-service; do
   stop_pidfile "$svc"
 done
 
 # Gradle bootRun leaves the JVM listening even when the wrapper pid exits.
 kill_port "gateway" 8080
+kill_port "agent-service" 8089
+kill_port "metadata-service" 8087
+kill_port "runner-service" 8086
+kill_port "connect-service" 8091
 kill_port "notification-service" 8088
 kill_port "tenant-service" 8082
 kill_port "scheduler-service" 8085

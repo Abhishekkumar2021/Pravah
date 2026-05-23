@@ -2,8 +2,11 @@ package io.pravah.runner;
 
 import static net.logstash.logback.argument.StructuredArguments.kv;
 
+import io.pravah.common.grpc.GrpcTlsConfig;
 import java.net.UnknownHostException;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,9 +50,25 @@ public class RunnerMain implements Callable<Integer> {
 
   @Option(
       names = {"--token", "-t"},
-      description = "Authentication token for registration",
-      required = true)
+      description =
+          "Runner stream token (from prior registration, or returned after first register)")
   private String token;
+
+  @Option(
+      names = {"--tenant-id"},
+      description = "Tenant UUID for runner registration (required unless --runner-id is set)")
+  private String tenantId;
+
+  @Option(
+      names = {"--bootstrap-secret"},
+      description =
+          "Bootstrap secret for registration (default: PRAVAH_RUNNER_BOOTSTRAP_SECRET env)")
+  private String bootstrapSecret;
+
+  @Option(
+      names = {"--runner-id"},
+      description = "Existing runner ID to reconnect without re-registering")
+  private String runnerId;
 
   @Option(
       names = {"--name", "-n"},
@@ -79,6 +98,26 @@ public class RunnerMain implements Callable<Integer> {
       defaultValue = "/tmp/pravah-runner")
   private String workDir;
 
+  @Option(
+      names = {"--tls-enabled"},
+      description = "Enable TLS for gRPC (mTLS when client cert/key are set)")
+  private boolean tlsEnabled;
+
+  @Option(
+      names = {"--tls-trust-cert"},
+      description = "CA or server certificate for gRPC TLS trust")
+  private String tlsTrustCert;
+
+  @Option(
+      names = {"--tls-client-cert"},
+      description = "Client certificate for gRPC mTLS")
+  private String tlsClientCert;
+
+  @Option(
+      names = {"--tls-client-key"},
+      description = "Client private key for gRPC mTLS")
+  private String tlsClientKey;
+
   public static void main(String[] args) {
     int exitCode = new CommandLine(new RunnerMain()).execute(args);
     System.exit(exitCode);
@@ -86,6 +125,13 @@ public class RunnerMain implements Callable<Integer> {
 
   @Override
   public Integer call() {
+    try {
+      validateConfiguration();
+    } catch (IllegalArgumentException e) {
+      log.error("Configuration error: {}", e.getMessage());
+      return 1;
+    }
+
     String resolvedName = name != null ? name : getDefaultName();
     ParsedServer parsed = parseServerUrl(serverUrl);
     Map<String, String> labelMap = parseLabels(labels);
@@ -97,9 +143,22 @@ public class RunnerMain implements Callable<Integer> {
         kv("maxJobs", maxJobs),
         kv("workDir", workDir));
 
+    UUID tenantUuid = resolveTenantId();
+    String bootstrap = resolveBootstrapSecret();
+    GrpcTlsConfig tlsConfig = resolveTlsConfig();
     try (RunnerAgent agent =
         new RunnerAgent(
-            parsed.host(), parsed.port(), token, resolvedName, labelMap, maxJobs, workDir)) {
+            parsed.host(),
+            parsed.port(),
+            tenantUuid,
+            bootstrap,
+            token,
+            runnerId,
+            resolvedName,
+            labelMap,
+            maxJobs,
+            workDir,
+            tlsConfig)) {
       agent.start();
       Runtime.getRuntime().addShutdownHook(new Thread(agent::close));
       agent.awaitTermination();
@@ -108,6 +167,32 @@ public class RunnerMain implements Callable<Integer> {
       return 1;
     }
     return 0;
+  }
+
+  private void validateConfiguration() {
+    if (runnerId != null && !runnerId.isBlank()) {
+      if (token == null || token.isBlank()) {
+        throw new IllegalArgumentException(
+            "--token is required when reconnecting with --runner-id");
+      }
+      try {
+        UUID.fromString(runnerId);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("--runner-id must be a valid UUID");
+      }
+    }
+
+    if (maxJobs < 1 || maxJobs > 100) {
+      throw new IllegalArgumentException("--max-jobs must be between 1 and 100");
+    }
+
+    java.io.File workDirFile = new java.io.File(workDir);
+    if (!workDirFile.exists() && !workDirFile.mkdirs()) {
+      throw new IllegalArgumentException("Cannot create work directory: " + workDir);
+    }
+    if (!workDirFile.isDirectory() || !workDirFile.canWrite()) {
+      throw new IllegalArgumentException("Work directory is not writable: " + workDir);
+    }
   }
 
   private static Map<String, String> parseLabels(String[] labels) {
@@ -134,6 +219,69 @@ public class RunnerMain implements Callable<Integer> {
           normalized.substring(0, colon), Integer.parseInt(normalized.substring(colon + 1)));
     }
     return new ParsedServer(normalized, 9091);
+  }
+
+  private UUID resolveTenantId() {
+    // Check CLI argument first
+    if (tenantId != null && !tenantId.isBlank()) {
+      return UUID.fromString(tenantId);
+    }
+    // Fall back to environment variable
+    String env = System.getenv("PRAVAH_TENANT_ID");
+    if (env != null && !env.isBlank()) {
+      return UUID.fromString(env);
+    }
+    throw new IllegalArgumentException(
+        "--tenant-id or PRAVAH_TENANT_ID is required for runner registration");
+  }
+
+  private String resolveBootstrapSecret() {
+    if (bootstrapSecret != null && !bootstrapSecret.isBlank()) {
+      return bootstrapSecret;
+    }
+    String env = System.getenv("PRAVAH_RUNNER_BOOTSTRAP_SECRET");
+    if (env != null && !env.isBlank()) {
+      return env;
+    }
+    String internal = System.getenv("PRAVAH_INTERNAL_SERVICE_SECRET");
+    if (internal != null && !internal.isBlank()) {
+      return internal;
+    }
+    return "pravah-local-internal-secret";
+  }
+
+  private GrpcTlsConfig resolveTlsConfig() {
+    boolean enabled = tlsEnabled || isTruthyEnv("PRAVAH_RUNNER_GRPC_TLS_ENABLED");
+    if (!enabled) {
+      return GrpcTlsConfig.disabled();
+    }
+    String trust = firstNonBlank(tlsTrustCert, System.getenv("PRAVAH_RUNNER_GRPC_TLS_TRUST_CERT"));
+    String clientCert =
+        firstNonBlank(tlsClientCert, System.getenv("PRAVAH_RUNNER_GRPC_TLS_CLIENT_CERT"));
+    String clientKey =
+        firstNonBlank(tlsClientKey, System.getenv("PRAVAH_RUNNER_GRPC_TLS_CLIENT_KEY"));
+    if (trust == null) {
+      throw new IllegalArgumentException(
+          "--tls-trust-cert or PRAVAH_RUNNER_GRPC_TLS_TRUST_CERT is required when TLS is enabled");
+    }
+    return GrpcTlsConfig.client(
+        Path.of(trust),
+        clientCert != null ? Path.of(clientCert) : null,
+        clientKey != null ? Path.of(clientKey) : null);
+  }
+
+  private static boolean isTruthyEnv(String name) {
+    String value = System.getenv(name);
+    return value != null && (value.equalsIgnoreCase("true") || value.equals("1"));
+  }
+
+  private static String firstNonBlank(String... values) {
+    for (String value : values) {
+      if (value != null && !value.isBlank()) {
+        return value;
+      }
+    }
+    return null;
   }
 
   private String getDefaultName() {

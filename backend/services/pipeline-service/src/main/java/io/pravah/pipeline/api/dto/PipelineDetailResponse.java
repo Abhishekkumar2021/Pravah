@@ -14,6 +14,7 @@ public record PipelineDetailResponse(
     Instant createdAt,
     Instant updatedAt,
     UUID createdBy,
+    String draftDefinitionYaml,
     List<VersionSummary> versions) {
 
   public record VersionSummary(int version, Instant publishedAt, UUID publishedBy) {}

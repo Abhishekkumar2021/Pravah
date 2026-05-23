@@ -79,6 +79,15 @@ public class ExecutionTriggerClient {
         "Execution service is temporarily unavailable. Scheduled run will be retried.");
   }
 
+  public UUID triggerEventExecution(
+      UUID tenantId,
+      UUID pipelineId,
+      String triggerType,
+      UUID triggerId,
+      Map<String, Object> parameters) {
+    return triggerEventExecution(tenantId, pipelineId, triggerType, triggerId, parameters, null);
+  }
+
   @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "triggerEventFallback")
   @Retry(name = CIRCUIT_BREAKER_NAME)
   public UUID triggerEventExecution(
@@ -86,7 +95,8 @@ public class ExecutionTriggerClient {
       UUID pipelineId,
       String triggerType,
       UUID triggerId,
-      Map<String, Object> parameters) {
+      Map<String, Object> parameters,
+      String idempotencyKey) {
     try {
       EventExecutionResponse response =
           restClient
@@ -94,7 +104,9 @@ public class ExecutionTriggerClient {
               .uri("/api/v1/internal/executions/event")
               .header(InternalServiceHeaders.SECRET_HEADER, internalSecret)
               .header(InternalServiceHeaders.TENANT_HEADER, tenantId.toString())
-              .body(new EventExecutionRequest(pipelineId, triggerType, triggerId, parameters))
+              .body(
+                  new EventExecutionRequest(
+                      pipelineId, triggerType, triggerId, parameters, idempotencyKey))
               .retrieve()
               .body(EventExecutionResponse.class);
       if (response == null || response.executionId() == null) {
@@ -121,6 +133,7 @@ public class ExecutionTriggerClient {
       String triggerType,
       UUID triggerId,
       Map<String, Object> parameters,
+      String idempotencyKey,
       Throwable t) {
     log.error(
         "Circuit breaker fallback triggered for execution-service (event)",
@@ -138,7 +151,11 @@ public class ExecutionTriggerClient {
   public record ScheduledExecutionResponse(UUID executionId) {}
 
   public record EventExecutionRequest(
-      UUID pipelineId, String triggerType, UUID triggerId, Map<String, Object> parameters) {}
+      UUID pipelineId,
+      String triggerType,
+      UUID triggerId,
+      Map<String, Object> parameters,
+      String idempotencyKey) {}
 
   public record EventExecutionResponse(UUID executionId) {}
 }

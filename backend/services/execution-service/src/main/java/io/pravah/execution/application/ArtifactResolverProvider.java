@@ -120,6 +120,12 @@ public class ArtifactResolverProvider implements ValueResolverProvider {
 
     String property = artifactRef.property();
     String key = (String) artifactMeta.get("key");
+    if (key != null && ctx.tenantId() != null) {
+      String expectedPrefix = "tenants/" + ctx.tenantId() + "/";
+      if (!key.startsWith(expectedPrefix)) {
+        throw new IllegalStateException("Artifact key is not owned by the current tenant");
+      }
+    }
 
     return switch (property) {
       case "key" -> key;

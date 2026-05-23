@@ -2,6 +2,7 @@ package io.pravah.runnerservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -19,6 +20,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @see <a href="../../../docs/adr/ADR-005-grpc-runner-communication.md">ADR-005</a>
  */
 @SpringBootApplication
+@ComponentScan(
+    basePackages = {
+      "io.pravah.runnerservice",
+      "io.pravah.spring.security",
+      "io.pravah.spring.multitenancy"
+    })
 @EnableScheduling
 public class RunnerServiceApplication {
 

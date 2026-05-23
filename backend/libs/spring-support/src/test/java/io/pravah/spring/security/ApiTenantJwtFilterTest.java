@@ -30,6 +30,7 @@ class ApiTenantJwtFilterTest {
   @Mock private HttpServletResponse response;
   @Mock private FilterChain filterChain;
   @Mock private JwtTokenVerifier jwtTokenVerifier;
+  @Mock private OptionalJwtBlocklistChecker blocklistChecker;
 
   private ApiTenantJwtFilter apiTenantJwtFilter;
   private TestJwtIssuer testJwtIssuer;
@@ -37,7 +38,7 @@ class ApiTenantJwtFilterTest {
   @BeforeEach
   void setUp() {
     testJwtIssuer = new TestJwtIssuer();
-    apiTenantJwtFilter = new ApiTenantJwtFilter(jwtTokenVerifier);
+    apiTenantJwtFilter = new ApiTenantJwtFilter(jwtTokenVerifier, blocklistChecker);
     TenantContext.clear();
     SecurityContextHolder.clearContext();
   }

@@ -1,6 +1,9 @@
 spring:
   application:
     name: gateway
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.gateway.config.GatewayRedisAutoConfiguration
 
   data:
     redis:

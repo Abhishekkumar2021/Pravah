@@ -49,6 +49,7 @@ ingress:
 
 # Local Pravah settings
 pravah:
+  internalServiceSecret: pravah-local-internal-secret
   wsAllowedOrigins: "http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://pravah.local"
   frontendBaseUrl: "http://localhost:5173"
 

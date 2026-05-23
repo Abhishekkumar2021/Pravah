@@ -65,8 +65,6 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/password-reset/**")
                     .permitAll()
-                    .requestMatchers("/api/v1/tenants")
-                    .permitAll()
                     .anyRequest()
                     .authenticated())
         .addFilterBefore(tenantFilter, UsernamePasswordAuthenticationFilter.class)

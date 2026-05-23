@@ -1,4 +1,4 @@
-package io.pravah.tenant.infrastructure.security;
+package io.pravah.spring.security;
 
 import io.pravah.common.security.PermissionMatcher;
 import java.util.Collection;
@@ -10,10 +10,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
- * Method-security helper for {@code @PreAuthorize("@permissionChecker.has('users:write')")}.
+ * Method-security helper for {@code @PreAuthorize("@permissionChecker.has('pipelines:write')")}.
  *
- * <p>Denies access by default when no permissions are present in the token. All JWT tokens must
- * include explicit permission claims for authorization to succeed.
+ * <p>Denies access by default when no permissions are present in the token.
  */
 @Component("permissionChecker")
 public class PermissionChecker {

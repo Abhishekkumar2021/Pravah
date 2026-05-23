@@ -81,9 +81,7 @@ public class ScheduleEvaluationJob {
       UUID executionId =
           executionTriggerClient.triggerScheduledExecution(
               schedule.getTenantId(), schedule.getPipelineId(), schedule.getId());
-      Instant nextRun =
-          CronScheduleCalculator.nextRunAfter(
-              schedule.getCronExpression(), schedule.getTimezone(), now);
+      Instant nextRun = nextRunAfterSuccessfulTrigger(schedule, scheduledTime, now);
       schedule.recordTriggeredRun(now, nextRun);
       scheduleRepository.save(schedule);
       scheduleHistoryRepository.save(
@@ -102,11 +100,25 @@ public class ScheduleEvaluationJob {
           e);
       scheduleHistoryRepository.save(
           ScheduleHistory.failed(schedule.getTenantId(), schedule.getId(), scheduledTime));
-      Instant retryAt =
-          CronScheduleCalculator.nextRunAfter(
-              schedule.getCronExpression(), schedule.getTimezone(), now);
-      schedule.setNextRunAt(retryAt);
+      // Keep the same slot so a transient execution outage does not skip a scheduled run.
+      schedule.setNextRunAt(scheduledTime);
       scheduleRepository.save(schedule);
     }
+  }
+
+  /**
+   * Computes the next fire time after a successful trigger.
+   *
+   * <ul>
+   *   <li>{@code skip} — advance from the slot that fired, dropping missed intermediate fires
+   *   <li>{@code run_all} — advance from now so the evaluator can pick up additional missed slots
+   * </ul>
+   */
+  static Instant nextRunAfterSuccessfulTrigger(
+      Schedule schedule, Instant scheduledTime, Instant now) {
+    String policy = schedule.getCatchupPolicy();
+    Instant base = "run_all".equals(policy) ? now : scheduledTime;
+    return CronScheduleCalculator.nextRunAfter(
+        schedule.getCronExpression(), schedule.getTimezone(), base);
   }
 }

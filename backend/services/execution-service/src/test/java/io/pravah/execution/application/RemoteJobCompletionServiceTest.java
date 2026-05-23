@@ -111,6 +111,23 @@ class RemoteJobCompletionServiceTest {
   }
 
   @Test
+  void ignoresCompletionFromWrongRunner() {
+    UUID otherRunner = UUID.randomUUID();
+    JobEntity job =
+        JobEntity.builder().executionId(executionId).stageId("s1").stageName("S1").build();
+    setField(job, "id", jobId);
+    job.queue();
+    job.assign(runnerId);
+
+    when(jobEntityRepository.findById(jobId)).thenReturn(Optional.of(job));
+
+    service.completeJob(tenantId, jobId, otherRunner, 0, Map.of());
+
+    assertThat(job.getStatus()).isEqualTo(JobState.RUNNING);
+    verify(checkpointService, never()).saveAfterJobSuccess(any());
+  }
+
+  @Test
   void ignoresDuplicateTerminalCompletion() {
     JobEntity job =
         JobEntity.builder().executionId(executionId).stageId("s1").stageName("S1").build();

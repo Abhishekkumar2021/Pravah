@@ -1,4 +1,4 @@
-package io.pravah.tenant.infrastructure.security;
+package io.pravah.spring.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

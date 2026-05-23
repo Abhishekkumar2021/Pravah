@@ -13,6 +13,7 @@ import io.pravah.pipeline.application.PipelineApplicationService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,22 +36,26 @@ public class PipelineController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineResponse create(@Valid @RequestBody CreatePipelineRequest request) {
     return pipelineApplicationService.createPipeline(request);
   }
 
   @PostMapping("/validate")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ValidatePipelineResponse validate(@Valid @RequestBody ValidatePipelineRequest request) {
     return pipelineApplicationService.validatePipelineDefinition(request);
   }
 
   @GetMapping("/{id}/versions/{version}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public PipelineVersionDefinitionResponse getPublishedVersion(
       @PathVariable UUID id, @PathVariable int version) {
     return pipelineApplicationService.getPublishedVersionDefinition(id, version);
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public PipelineDetailResponse get(@PathVariable UUID id) {
     return pipelineApplicationService.getPipeline(id);
   }
@@ -58,6 +63,7 @@ public class PipelineController {
   private static final int MAX_PAGE_SIZE = 100;
 
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public PipelineListResponse list(
       @RequestParam UUID projectId,
       @RequestParam(required = false) String status,
@@ -69,23 +75,27 @@ public class PipelineController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineResponse update(
       @PathVariable UUID id, @Valid @RequestBody UpdatePipelineRequest request) {
     return pipelineApplicationService.updatePipeline(id, request);
   }
 
   @PostMapping("/{id}/publish")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineResponse publish(
       @PathVariable UUID id, @Valid @RequestBody PublishPipelineRequest request) {
     return pipelineApplicationService.publishPipeline(id, request.definitionYaml());
   }
 
   @PostMapping("/{id}/archive")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineResponse archive(@PathVariable UUID id) {
     return pipelineApplicationService.archivePipeline(id);
   }
 
   @PostMapping("/{id}/restore")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public PipelineResponse restore(@PathVariable UUID id) {
     return pipelineApplicationService.restorePipeline(id);
   }

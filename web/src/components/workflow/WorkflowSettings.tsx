@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Archive, Copy, Info, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -7,17 +7,22 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Switch } from "@/components/ui/Switch";
 import type { PipelineDetailResponse } from "@/lib/api";
+import { applyRetryToYaml, parseRetryFromYaml } from "@/lib/pipelineYaml";
 
 type WorkflowSettingsProps = {
   pipeline: PipelineDetailResponse;
+  definitionYaml: string | null;
   onUpdate: (patch: { name?: string; description?: string }) => Promise<void>;
+  onUpdateDefinitionYaml?: (definitionYaml: string) => Promise<void>;
   onArchive?: () => Promise<void>;
   onDelete?: () => Promise<void>;
 };
 
 export function WorkflowSettings({
   pipeline,
+  definitionYaml,
   onUpdate,
+  onUpdateDefinitionYaml,
   onArchive,
   onDelete,
 }: WorkflowSettingsProps) {
@@ -27,12 +32,23 @@ export function WorkflowSettings({
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [notifyOnFailure, setNotifyOnFailure] = useState(true);
   const [autoRetry, setAutoRetry] = useState(false);
   const [retryCount, setRetryCount] = useState(3);
+  const [executionSaving, setExecutionSaving] = useState(false);
+  const [executionMessage, setExecutionMessage] = useState<string | null>(null);
+  const [executionError, setExecutionError] = useState<string | null>(null);
 
   const [archiving, setArchiving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  useEffect(() => {
+    if (!definitionYaml) {
+      return;
+    }
+    const retry = parseRetryFromYaml(definitionYaml);
+    setAutoRetry(retry.autoRetry);
+    setRetryCount(retry.maxAttempts);
+  }, [definitionYaml]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -46,6 +62,28 @@ export function WorkflowSettings({
       setSaveError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveExecution = async () => {
+    if (!onUpdateDefinitionYaml || !definitionYaml) {
+      return;
+    }
+    setExecutionSaving(true);
+    setExecutionMessage(null);
+    setExecutionError(null);
+    try {
+      const updatedYaml = applyRetryToYaml(definitionYaml, {
+        autoRetry,
+        maxAttempts: retryCount,
+      });
+      await onUpdateDefinitionYaml(updatedYaml);
+      setExecutionMessage("Execution settings saved to draft");
+      setTimeout(() => setExecutionMessage(null), 3000);
+    } catch (e) {
+      setExecutionError(e instanceof Error ? e.message : "Failed to save execution settings");
+    } finally {
+      setExecutionSaving(false);
     }
   };
 
@@ -66,6 +104,7 @@ export function WorkflowSettings({
   };
 
   const isActive = pipeline.status.toLowerCase() === "active";
+  const canEditExecution = Boolean(onUpdateDefinitionYaml && definitionYaml);
 
   return (
     <div className="space-y-6">
@@ -148,50 +187,67 @@ export function WorkflowSettings({
         <div className="space-y-4 p-4 pt-0">
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="notify-failure">Notify on failure</Label>
-              <p className="text-xs text-neutral-500">Send alerts when the workflow fails</p>
+              <Label htmlFor="auto-retry">Auto retry on failure</Label>
+              <p className="text-xs text-neutral-500">Automatically retry failed runs</p>
             </div>
             <Switch
-              id="notify-failure"
-              checked={notifyOnFailure}
-              onCheckedChange={setNotifyOnFailure}
+              id="auto-retry"
+              checked={autoRetry}
+              onCheckedChange={setAutoRetry}
+              disabled={!canEditExecution}
             />
           </div>
 
-          <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="auto-retry">Auto retry on failure</Label>
-                <p className="text-xs text-neutral-500">Automatically retry failed runs</p>
-              </div>
-              <Switch
-                id="auto-retry"
-                checked={autoRetry}
-                onCheckedChange={setAutoRetry}
+          {autoRetry && (
+            <div>
+              <Label htmlFor="retry-count">Retry count</Label>
+              <Input
+                id="retry-count"
+                type="number"
+                min={1}
+                max={10}
+                value={retryCount}
+                onChange={(e) => setRetryCount(parseInt(e.target.value, 10) || 1)}
+                disabled={!canEditExecution}
+                className="mt-1.5 w-24"
               />
             </div>
-            {autoRetry && (
-              <div className="mt-3">
-                <Label htmlFor="retry-count">Retry count</Label>
-                <Input
-                  id="retry-count"
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={retryCount}
-                  onChange={(e) => setRetryCount(parseInt(e.target.value, 10) || 1)}
-                  className="mt-1.5 w-24"
-                />
-              </div>
-            )}
-          </div>
+          )}
 
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          {!canEditExecution && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Retry settings require a pipeline draft. Open the editor to configure them.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-400">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Execution settings will take effect on the next run. These features require backend support (US-02.xx).
+              Retry settings are saved to the pipeline draft and apply on the next publish.
             </p>
           </div>
+
+          {canEditExecution && (
+            <div className="flex items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+              {executionMessage && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">{executionMessage}</p>
+              )}
+              {executionError && (
+                <p className="text-sm text-rose-600 dark:text-rose-400">{executionError}</p>
+              )}
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void handleSaveExecution()}
+                disabled={executionSaving}
+              >
+                {executionSaving ? "Saving…" : "Save execution settings"}
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 

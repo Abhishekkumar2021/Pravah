@@ -41,7 +41,7 @@ class ConnectionApplicationServiceTest {
     credentialResolver = new ConnectionCredentialResolver();
     service =
         new ConnectionApplicationService(
-            connectionRepository, credentialResolver, new ObjectMapper());
+            connectionRepository, credentialResolver, new ObjectMapper(), true);
     tenantId = UUID.randomUUID();
     userId = UUID.randomUUID();
     TenantContext.setCurrentTenantId(tenantId);
@@ -159,7 +159,8 @@ class ConnectionApplicationServiceTest {
     when(mockResolver.resolvePassword(anyMap()))
         .thenReturn(PostgresContainerExtension.getPassword());
     ConnectionApplicationService testService =
-        new ConnectionApplicationService(connectionRepository, mockResolver, new ObjectMapper());
+        new ConnectionApplicationService(
+            connectionRepository, mockResolver, new ObjectMapper(), true);
 
     UUID connectionId = UUID.randomUUID();
     Map<String, Object> config =

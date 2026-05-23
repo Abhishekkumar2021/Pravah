@@ -23,9 +23,11 @@ import io.pravah.execution.domain.ExecutionEventTypes;
 import io.pravah.execution.infrastructure.persistence.entity.ExecutionEntity;
 import io.pravah.execution.infrastructure.persistence.entity.JobEntity;
 import io.pravah.execution.infrastructure.persistence.entity.OutboxEntity;
+import io.pravah.execution.infrastructure.persistence.entity.TriggerExecutionIdempotencyEntity;
 import io.pravah.execution.infrastructure.persistence.repository.ExecutionEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.JobEntityRepository;
 import io.pravah.execution.infrastructure.persistence.repository.OutboxRepository;
+import io.pravah.execution.infrastructure.persistence.repository.TriggerExecutionIdempotencyRepository;
 import io.pravah.execution.infrastructure.pipeline.InternalHttpPipelineCatalog;
 import io.pravah.execution.infrastructure.realtime.ExecutionRealtimeEvents;
 import io.pravah.spring.multitenancy.TenantContext;
@@ -76,6 +78,7 @@ public class ExecutionApplicationService {
   private final ExecutionEntityRepository executionEntityRepository;
   private final JobEntityRepository jobEntityRepository;
   private final OutboxRepository outboxRepository;
+  private final TriggerExecutionIdempotencyRepository triggerIdempotencyRepository;
   private final EntityManager entityManager;
   private final CheckpointService checkpointService;
   private final ExecutionJobQueueingService executionJobQueueingService;
@@ -89,6 +92,7 @@ public class ExecutionApplicationService {
       ExecutionEntityRepository executionEntityRepository,
       JobEntityRepository jobEntityRepository,
       OutboxRepository outboxRepository,
+      TriggerExecutionIdempotencyRepository triggerIdempotencyRepository,
       EntityManager entityManager,
       CheckpointService checkpointService,
       ExecutionJobQueueingService executionJobQueueingService,
@@ -100,6 +104,7 @@ public class ExecutionApplicationService {
     this.executionEntityRepository = executionEntityRepository;
     this.jobEntityRepository = jobEntityRepository;
     this.outboxRepository = outboxRepository;
+    this.triggerIdempotencyRepository = triggerIdempotencyRepository;
     this.entityManager = entityManager;
     this.checkpointService = checkpointService;
     this.executionJobQueueingService = executionJobQueueingService;
@@ -175,8 +180,26 @@ public class ExecutionApplicationService {
       String triggerType,
       UUID triggerId,
       Map<String, Object> parameters) {
+    return startEventExecution(tenantId, pipelineId, triggerType, triggerId, parameters, null);
+  }
+
+  @Transactional
+  public CreateExecutionResponse startEventExecution(
+      UUID tenantId,
+      UUID pipelineId,
+      String triggerType,
+      UUID triggerId,
+      Map<String, Object> parameters,
+      String idempotencyKey) {
     if (!TRIGGER_WEBHOOK.equals(triggerType) && !TRIGGER_KAFKA.equals(triggerType)) {
       throw new IllegalArgumentException("Unsupported event trigger type: " + triggerType);
+    }
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      var existing =
+          triggerIdempotencyRepository.findByTenantIdAndIdempotencyKey(tenantId, idempotencyKey);
+      if (existing.isPresent()) {
+        return toCreateResponse(existing.get().getExecutionId());
+      }
     }
     PublishedPipelineSnapshot snapshot =
         internalPipelineCatalog.resolvePublished(tenantId, pipelineId);
@@ -186,8 +209,15 @@ public class ExecutionApplicationService {
         kv("pipeline_id", pipelineId),
         kv("trigger_id", triggerId),
         kv("trigger_type", triggerType));
-    return materializeExecution(
-        tenantId, null, triggerType, snapshot, normalizeParameters(parameters));
+    CreateExecutionResponse created =
+        materializeExecution(
+            tenantId, null, triggerType, snapshot, normalizeParameters(parameters));
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      triggerIdempotencyRepository.save(
+          new TriggerExecutionIdempotencyEntity(
+              tenantId, idempotencyKey, created.id(), Instant.now()));
+    }
+    return created;
   }
 
   private static Map<String, Object> normalizeParameters(Map<String, Object> parameters) {
@@ -759,6 +789,31 @@ public class ExecutionApplicationService {
         (int) retryCount,
         execution.getCreatedAt(),
         jobSummaries);
+  }
+
+  private CreateExecutionResponse toCreateResponse(UUID executionId) {
+    ExecutionEntity execution =
+        executionEntityRepository
+            .findById(executionId)
+            .orElseThrow(() -> new EntityNotFoundException("Execution", executionId));
+    List<JobEntity> jobs =
+        jobEntityRepository.findByExecutionIdOrderByStageIdAsc(execution.getId());
+    List<CreateExecutionResponse.JobResponse> jobResponses =
+        jobs.stream()
+            .map(
+                j ->
+                    new CreateExecutionResponse.JobResponse(
+                        j.getId(),
+                        j.getStageId(),
+                        j.getStageName(),
+                        j.getStatus().asDatabaseValue()))
+            .toList();
+    return new CreateExecutionResponse(
+        execution.getId(),
+        execution.getPipelineId(),
+        execution.getPipelineVersion(),
+        execution.getStatus().asDatabaseValue(),
+        jobResponses);
   }
 
   private static RetryPolicy resolveRetryPolicyForJob(

@@ -1,0 +1,55 @@
+name: Helm
+
+on:
+  pull_request:
+    paths:
+      - "deploy/helm/**"
+      - ".github/workflows/helm-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/helm/**"
+      - ".github/workflows/helm-ci.yml"
+
+jobs:
+  template:
+    name: Helm · Template validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Template local values
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            --namespace pravah >/dev/null
+
+      - name: Template production values (required secrets)
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set pravah.internalServiceSecret=ci-test-secret >/dev/null
+
+      - name: Fail when production secrets missing
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com 2>&1; then
+            echo "Expected helm template to fail without internalServiceSecret"
+            exit 1
+          fi

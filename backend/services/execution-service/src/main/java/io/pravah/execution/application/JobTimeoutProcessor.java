@@ -52,6 +52,26 @@ public class JobTimeoutProcessor {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void processTimedOutJob(UUID jobId, Instant now) {
+    JobEntity snapshot = jobEntityRepository.findById(jobId).orElse(null);
+    if (snapshot == null || snapshot.getExecutionId() == null) {
+      return;
+    }
+    ExecutionEntity executionSnapshot =
+        executionEntityRepository.findById(snapshot.getExecutionId()).orElse(null);
+    if (executionSnapshot == null) {
+      return;
+    }
+
+    UUID tenantId = executionSnapshot.getTenantId();
+    TenantContext.setCurrentTenantId(tenantId);
+    try {
+      processTimedOutJobWithTenant(jobId, now, tenantId);
+    } finally {
+      TenantContext.clear();
+    }
+  }
+
+  private void processTimedOutJobWithTenant(UUID jobId, Instant now, UUID tenantId) {
     JobEntity job = jobEntityRepository.findById(jobId).orElse(null);
     if (job == null || job.getStatus() != JobState.RUNNING || job.getStartedAt() == null) {
       return;
@@ -62,9 +82,6 @@ public class JobTimeoutProcessor {
     if (execution == null) {
       return;
     }
-
-    UUID tenantId = execution.getTenantId();
-    TenantContext.setCurrentTenantId(tenantId);
     try {
       Map<String, Object> definition = execution.getDefinitionSnapshot();
       StageTimeout timeout = StageTimeoutParser.resolveForStage(definition, job.getStageId());
@@ -85,8 +102,8 @@ public class JobTimeoutProcessor {
             kv("timeout_seconds", timeout.timeoutSeconds()));
         publishExecutionStatusIfChanged(statusBefore, execution, tenantId);
       }
-    } finally {
-      TenantContext.clear();
+    } catch (Exception e) {
+      log.warn("Timeout processing failed", kv("job_id", jobId), kv("error", e.getMessage()));
     }
   }
 

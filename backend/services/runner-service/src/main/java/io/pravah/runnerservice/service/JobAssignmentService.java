@@ -73,6 +73,7 @@ public class JobAssignmentService {
     }
 
     JobAssignment assignment = new JobAssignment();
+    assignment.setTenantId(tenantId);
     assignment.setRunnerId(runner.getId());
     assignment.setJobId(jobId);
     assignment.setExecutionId(executionId);
@@ -90,7 +91,18 @@ public class JobAssignmentService {
     return Optional.of(assignment);
   }
 
-  public void markStarted(UUID jobId) {
+  public boolean isAssignedToRunner(UUID jobId, UUID runnerId) {
+    return assignmentRepository
+        .findByJobId(jobId)
+        .map(a -> a.getRunnerId().equals(runnerId))
+        .orElse(false);
+  }
+
+  public void markStarted(UUID jobId, UUID runnerId) {
+    if (!isAssignedToRunner(jobId, runnerId)) {
+      log.warn("Ignoring markStarted for job {} from runner {}", jobId, runnerId);
+      return;
+    }
     assignmentRepository
         .findByJobId(jobId)
         .ifPresent(
@@ -108,8 +120,22 @@ public class JobAssignmentService {
   public void markCompleted(UUID jobId, boolean success, int exitCode, Map<String, Object> output) {
     assignmentRepository
         .findByJobId(jobId)
+        .ifPresent(a -> markCompleted(jobId, a.getRunnerId(), success, exitCode, output));
+  }
+
+  public void markCompleted(
+      UUID jobId, UUID runnerId, boolean success, int exitCode, Map<String, Object> output) {
+    if (!isAssignedToRunner(jobId, runnerId)) {
+      log.warn("Ignoring markCompleted for job {} from runner {}", jobId, runnerId);
+      return;
+    }
+    assignmentRepository
+        .findByJobId(jobId)
         .ifPresent(
             a -> {
+              if ("COMPLETED".equals(a.getStatus()) || "FAILED".equals(a.getStatus())) {
+                return;
+              }
               a.setStatus(success ? "COMPLETED" : "FAILED");
               a.setCompletedAt(Instant.now());
               assignmentRepository.save(a);

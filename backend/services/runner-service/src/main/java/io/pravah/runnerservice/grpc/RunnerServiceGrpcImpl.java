@@ -56,7 +56,8 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
               request.getCapabilities().getMaxConcurrentJobs(),
               request.getCapabilities().getSupportedExecutorsList(),
               request.getCapabilities().getAvailableMemoryBytes(),
-              request.getCapabilities().getAvailableCpus());
+              request.getCapabilities().getAvailableCpus(),
+              request.getRegistrationToken());
 
       var result = runnerService.registerRunner(tenantId, registerRequest);
 
@@ -69,8 +70,11 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
       responseObserver.onCompleted();
 
     } catch (IllegalArgumentException e) {
-      responseObserver.onError(
-          Status.ALREADY_EXISTS.withDescription(e.getMessage()).asRuntimeException());
+      Status status =
+          e.getMessage() != null && e.getMessage().contains("Invalid registration token")
+              ? Status.PERMISSION_DENIED
+              : Status.ALREADY_EXISTS;
+      responseObserver.onError(status.withDescription(e.getMessage()).asRuntimeException());
     } catch (Exception e) {
       log.error("Failed to register runner", e);
       responseObserver.onError(
@@ -86,6 +90,10 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
 
       @Override
       public void onNext(RunnerMessage message) {
+        if (!authenticated && message.getMessageCase() != RunnerMessage.MessageCase.HEARTBEAT) {
+          log.warn("Ignoring message before stream authentication: {}", message.getMessageCase());
+          return;
+        }
         switch (message.getMessageCase()) {
           case HEARTBEAT -> handleHeartbeat(message.getHeartbeat(), responseObserver);
           case JOB_STATUS -> handleJobStatus(message.getJobStatus());
@@ -99,11 +107,33 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
           UUID heartbeatRunnerId = UUID.fromString(heartbeat.getRunnerId());
 
           if (!authenticated) {
-            // First heartbeat establishes the connection
+            String token = heartbeat.getToken();
+            if (token == null || token.isBlank()) {
+              rejectStream(
+                  observer, Status.UNAUTHENTICATED.withDescription("Missing runner token"));
+              return;
+            }
+            UUID tenantId = requireTenantIdOrNull();
+            var validated = runnerService.validateToken(heartbeatRunnerId, token);
+            if (validated.isEmpty()) {
+              rejectStream(
+                  observer, Status.UNAUTHENTICATED.withDescription("Invalid runner token"));
+              return;
+            }
+            if (tenantId != null && !validated.get().getTenantId().equals(tenantId)) {
+              rejectStream(
+                  observer, Status.PERMISSION_DENIED.withDescription("Runner tenant mismatch"));
+              return;
+            }
             this.runnerId = heartbeatRunnerId;
             connectionManager.register(runnerId, responseObserver);
             runnerService.markOnline(runnerId);
             authenticated = true;
+            log.info("Runner stream authenticated: runnerId={}", runnerId);
+          } else if (!heartbeatRunnerId.equals(runnerId)) {
+            log.warn(
+                "Heartbeat runner_id mismatch: expected={}, got={}", runnerId, heartbeatRunnerId);
+            return;
           }
 
           runnerService.processHeartbeat(
@@ -130,20 +160,33 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
       }
 
       private void handleJobStatus(JobStatusUpdate status) {
-        log.info("Job status update: jobId={}, status={}", status.getJobId(), status.getStatus());
+        if (!authenticated || runnerId == null) {
+          log.warn("Ignoring job status before stream authentication");
+          return;
+        }
+        log.info(
+            "Job status update: jobId={}, status={}, runnerId={}",
+            status.getJobId(),
+            status.getStatus(),
+            runnerId);
         UUID jobId = UUID.fromString(status.getJobId());
         int exitCode = status.getExitCode();
         java.util.Map<String, Object> output = parseOutputJson(status.getOutputJson());
         switch (status.getStatus()) {
-          case JOB_STATUS_RUNNING -> jobAssignmentService.markStarted(jobId);
+          case JOB_STATUS_RUNNING -> jobAssignmentService.markStarted(jobId, runnerId);
           case JOB_STATUS_SUCCEEDED ->
-              jobAssignmentService.markCompleted(jobId, true, exitCode, output);
+              jobAssignmentService.markCompleted(jobId, runnerId, true, exitCode, output);
           case JOB_STATUS_FAILED ->
-              jobAssignmentService.markCompleted(jobId, false, exitCode, output);
+              jobAssignmentService.markCompleted(jobId, runnerId, false, exitCode, output);
           case JOB_STATUS_CANCELLED, JOB_STATUS_TIMED_OUT ->
-              jobAssignmentService.markCompleted(jobId, false, exitCode, output);
+              jobAssignmentService.markCompleted(jobId, runnerId, false, exitCode, output);
           default -> {}
         }
+      }
+
+      private void rejectStream(StreamObserver<ServerMessage> observer, Status status) {
+        observer.onError(status.asRuntimeException());
+        cleanup();
       }
 
       private void handleLogChunk(JobLogChunk chunk) {
@@ -245,6 +288,10 @@ public class RunnerServiceGrpcImpl extends RunnerServiceGrpc.RunnerServiceImplBa
       throw new IllegalStateException("Tenant context not set");
     }
     return tenantId;
+  }
+
+  private UUID requireTenantIdOrNull() {
+    return TenantContext.getCurrentTenantId();
   }
 
   private java.util.Map<String, String> labelsToMap(List<Label> labels) {

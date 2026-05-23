@@ -6,6 +6,7 @@ import io.pravah.spring.multitenancy.TenantContext;
 import io.pravah.spring.security.JwtTokenVerifier;
 import io.pravah.spring.security.JwtTokenVerifier.JwtClaims;
 import io.pravah.spring.security.JwtTokenVerifier.JwtVerificationException;
+import io.pravah.spring.security.OptionalJwtBlocklistChecker;
 import io.pravah.spring.security.SecurityAuthorities;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -45,11 +46,15 @@ public class TenantFilter extends OncePerRequestFilter {
 
   private final JwtTokenVerifier jwtTokenVerifier;
   private final ApiTokenAuthenticator apiTokenAuthenticator;
+  private final OptionalJwtBlocklistChecker blocklistChecker;
 
   public TenantFilter(
-      JwtTokenVerifier jwtTokenVerifier, ApiTokenAuthenticator apiTokenAuthenticator) {
+      JwtTokenVerifier jwtTokenVerifier,
+      ApiTokenAuthenticator apiTokenAuthenticator,
+      OptionalJwtBlocklistChecker blocklistChecker) {
     this.jwtTokenVerifier = jwtTokenVerifier;
     this.apiTokenAuthenticator = apiTokenAuthenticator;
+    this.blocklistChecker = blocklistChecker;
   }
 
   @Override
@@ -100,6 +105,10 @@ public class TenantFilter extends OncePerRequestFilter {
   private void authenticateJwt(String token) {
     try {
       JwtClaims claims = jwtTokenVerifier.validateAndGetClaims(token);
+      if (claims.jwtId() != null && blocklistChecker.isBlocklisted(claims.jwtId())) {
+        log.debug("Rejected blocklisted JWT", kv("jti", claims.jwtId()));
+        return;
+      }
       TenantContext.setCurrentUserId(claims.userId());
       TenantContext.setCurrentTenantId(claims.tenantId());
 

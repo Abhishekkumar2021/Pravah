@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -40,6 +41,8 @@ public class ArtifactController {
       summary = "Generate upload URL",
       description = "Generate a presigned URL for uploading an artifact")
   @PostMapping("/upload-url")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<PresignedUrlResponse> generateUploadUrl(
       @RequestBody GenerateUploadUrlRequest request) {
 
@@ -59,6 +62,8 @@ public class ArtifactController {
       summary = "Generate download URL",
       description = "Generate a presigned URL for downloading an artifact")
   @PostMapping("/download-url")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<PresignedUrlResponse> generateDownloadUrl(
       @RequestBody GenerateDownloadUrlRequest request) {
 
@@ -77,6 +82,8 @@ public class ArtifactController {
       summary = "List execution artifacts",
       description = "List all artifacts for an execution")
   @GetMapping("/executions/{executionId}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<List<ArtifactMetadata>> listExecutionArtifacts(
       @PathVariable UUID executionId) {
 
@@ -86,6 +93,8 @@ public class ArtifactController {
 
   @Operation(summary = "List job artifacts", description = "List all artifacts for a specific job")
   @GetMapping("/executions/{executionId}/jobs/{jobId}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<List<ArtifactMetadata>> listJobArtifacts(
       @PathVariable UUID executionId, @PathVariable UUID jobId) {
 
@@ -97,6 +106,8 @@ public class ArtifactController {
       summary = "Get artifact metadata",
       description = "Get metadata for a specific artifact")
   @GetMapping("/metadata")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ResponseEntity<ArtifactMetadata> getArtifactMetadata(@RequestParam String key) {
 
     return artifactStorageService
@@ -109,6 +120,8 @@ public class ArtifactController {
       summary = "Delete execution artifacts",
       description = "Delete all artifacts for an execution")
   @DeleteMapping("/executions/{executionId}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Void> deleteExecutionArtifacts(@PathVariable UUID executionId) {
 
     artifactStorageService.deleteExecutionArtifacts(requireTenantId(), executionId);

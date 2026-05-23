@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +39,8 @@ public class ExecutionController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public CreateExecutionResponse start(
       @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
       @Valid @RequestBody CreateExecutionRequest request) {
@@ -45,6 +48,8 @@ public class ExecutionController {
   }
 
   @PostMapping("/{id}/cancel")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'executions:cancel', 'pipelines:write', 'pipelines:*')")
   public GetExecutionResponse cancel(@PathVariable("id") UUID id) {
     return executionApplicationService.cancelExecution(id);
   }
@@ -52,6 +57,8 @@ public class ExecutionController {
   /** Retry from a failed stage (US-02.05). Creates a new execution linked via {@code retry_of}. */
   @PostMapping("/{id}/retry")
   @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public CreateExecutionResponse retry(
       @PathVariable("id") UUID id, @Valid @RequestBody RetryExecutionRequest request) {
     return executionApplicationService.retryFromStage(id, request);
@@ -60,11 +67,15 @@ public class ExecutionController {
   /** Clears persisted checkpoints for an execution (US-02.12). */
   @DeleteMapping("/{id}/checkpoints")
   @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:write', 'executions:*', 'pipelines:write', 'pipelines:*')")
   public void clearCheckpoints(@PathVariable UUID id) {
     executionApplicationService.clearCheckpoints(id);
   }
 
   @GetMapping
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public ListExecutionsResponse list(
       @RequestParam(required = false) String status,
       @RequestParam(required = false) UUID pipelineId,
@@ -80,12 +91,16 @@ public class ExecutionController {
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public GetExecutionResponse get(@PathVariable UUID id) {
     return executionApplicationService.getExecution(id);
   }
 
   /** Per-job logs for run detail (US-02.03). */
   @GetMapping("/{executionId}/jobs/{jobId}/logs")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('executions:read', 'executions:*', 'pipelines:read', 'pipelines:*')")
   public JobLogsResponse jobLogs(
       @PathVariable UUID executionId,
       @PathVariable UUID jobId,
