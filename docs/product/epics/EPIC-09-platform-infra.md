@@ -141,8 +141,8 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** scaling is automatic
 
 **Acceptance Criteria:**
-- [ ] Kubernetes Service DNS
-- [ ] Health checks
+- [x] Kubernetes Service DNS (Helm Services; gateway routes via cluster DNS)
+- [x] Health checks (`/actuator/health` probes; `k8s-local-smoke.sh` post-install validation)
 - [ ] Graceful degradation
 
 **Story Points:** 5  
