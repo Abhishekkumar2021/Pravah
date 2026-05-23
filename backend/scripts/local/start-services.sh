@@ -55,6 +55,7 @@ start_one() {
     EXECUTION_SERVICE_BASE_URL="${EXECUTION_SERVICE_BASE_URL:-http://localhost:8084}" \
     RUNNER_SERVICE_BASE_URL="${RUNNER_SERVICE_BASE_URL:-http://localhost:8086}" \
     PRAVAH_INTERNAL_SERVICE_SECRET="${PRAVAH_INTERNAL_SERVICE_SECRET:-pravah-local-internal-secret}" \
+    PRAVAH_RUNNER_BOOTSTRAP_SECRET="${PRAVAH_RUNNER_BOOTSTRAP_SECRET:-${PRAVAH_INTERNAL_SERVICE_SECRET:-pravah-local-internal-secret}}" \
   ./gradlew "$gradle_path:bootRun" --no-daemon >"$logfile" 2>&1 &
   echo $! >"$pidfile"
 }

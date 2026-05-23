@@ -68,6 +68,8 @@ Set `--runner-http-url` or `PRAVAH_RUNNER_HTTP_URL` (default `http://localhost:8
 
 **Scheduler Kafka DLT:** Failed trigger consumption after retries routes to `pravah.scheduler.kafka-trigger.dlt-topic` (default `pravah.scheduler.trigger.dlt`). Override with `PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC`.
 
+**Scheduler coalesce catchup (US-03.15):** Set `catchupPolicy: coalesce` on a schedule. Missed cron slots within `pravah.scheduler.coalesce-max-interval` (env `PRAVAH_SCHEDULER_COALESCE_MAX_INTERVAL`, default `7d`) fire once; execution parameters include `_trigger.coalesce.{scheduleId, firstScheduledAt, lastScheduledAt, missedSlotCount}`. Spans exceeding the threshold fall back to `run_all`.
+
 **Method security:** Pipeline, execution, scheduler, connect, notification, and tenant REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (JWT permissions such as `pipelines:*`, `executions:*`, `users:*`, `settings:read`).
 
 Example stage snippet:

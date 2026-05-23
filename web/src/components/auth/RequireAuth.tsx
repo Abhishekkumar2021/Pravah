@@ -13,14 +13,13 @@ export function RequireAuth() {
       return;
     }
     let cancelled = false;
-    void refreshAccessToken().then((body) => {
-      if (!cancelled) {
-        setChecking(false);
-        if (!body && !hasValidSession()) {
-          // stay on redirect path below
+    void refreshAccessToken()
+      .catch(() => null)
+      .then(() => {
+        if (!cancelled) {
+          setChecking(false);
         }
-      }
-    });
+      });
     return () => {
       cancelled = true;
     };

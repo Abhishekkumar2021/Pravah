@@ -25,6 +25,14 @@ export async function seedSession(page: Page, token = TEST_JWT) {
   );
 }
 
+/** Clears persisted auth state so unauthenticated E2E scenarios start clean. */
+export async function clearSession(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+}
+
 export type MockJob = {
   id: string;
   stageId: string;

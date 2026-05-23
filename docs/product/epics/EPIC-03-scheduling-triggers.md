@@ -264,10 +264,10 @@ Define when and how workflows run — from simple cron schedules to complex even
 **So that** I catch up efficiently
 
 **Acceptance Criteria:**
-- [ ] Configure catchup=coalesce
-- [ ] Combine multiple missed into one run
-- [ ] Pass combined interval to workflow
-- [ ] Only for intervals less than threshold
+- [x] Configure catchup=coalesce
+- [x] Combine multiple missed into one run
+- [x] Pass combined interval to workflow (`_trigger.coalesce` execution parameters)
+- [x] Only for intervals less than threshold (`pravah.scheduler.coalesce-max-interval`, default `7d`; falls back to `run_all`)
 
 **Story Points:** 5  
 **Priority:** P1
