@@ -94,7 +94,7 @@ for component in "${BUNDLED_COMPONENTS[@]}"; do
   fi
 done
 
-if [[ "$VAULT_REQUIRED" == "1 ]]; then
+if [[ "$VAULT_REQUIRED" == "1" ]]; then
   if kubectl -n "$NAMESPACE" get job -l app.kubernetes.io/component=vault-pki-init --no-headers 2>/dev/null | grep -q .; then
     log "Waiting for Vault PKI init job..."
     kubectl -n "$NAMESPACE" wait --for=condition=complete job -l app.kubernetes.io/component=vault-pki-init --timeout=120s \

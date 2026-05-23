@@ -30,6 +30,14 @@ jobs:
             -f deploy/helm/pravah-platform/values-local.yaml \
             --namespace pravah >/dev/null
 
+      - name: Template CI values (kind smoke)
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            -f deploy/helm/pravah-platform/values-ci.yaml \
+            --namespace pravah-ci >/dev/null
+
       - name: Template production values (required secrets)
         run: |
           helm template pravah deploy/helm/pravah-platform \
