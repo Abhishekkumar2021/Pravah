@@ -39,7 +39,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "*"
+        spring.json.trusted.packages: "java.util,java.lang,io.pravah"
         spring.json.use.type.headers: false
         spring.json.value.default.type: java.util.LinkedHashMap
     producer:
@@ -109,6 +109,8 @@ pravah:
   kafka:
     execution-created-listener-enabled: ${PRAVAH_EXECUTION_CREATED_LISTENER_ENABLED:true}
     job-worker-listener-enabled: ${PRAVAH_JOB_WORKER_LISTENER_ENABLED:true}
+    execution-events:
+      dlt-topic: ${PRAVAH_EXECUTION_EVENTS_DLT_TOPIC:pravah.execution.events.dlt}
     job-worker:
       consumer-group-id: ${PRAVAH_JOB_WORKER_KAFKA_GROUP:execution-service-job-worker}
       concurrency: ${PRAVAH_JOB_WORKER_CONCURRENCY:4}

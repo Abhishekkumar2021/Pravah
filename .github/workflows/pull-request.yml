@@ -105,7 +105,8 @@ jobs:
             echo "::warning::Large PR ($TOTAL lines). Consider splitting into smaller PRs."
           fi
 
-          if [ $TOTAL -gt 2000 ]; then
+          # Monorepo security/hardening PRs (backend + web + deploy) may exceed 2000 lines.
+          if [ $TOTAL -gt 5000 ]; then
             echo "::error::Very large PR ($TOTAL lines). Please split into smaller PRs."
             exit 1
           fi

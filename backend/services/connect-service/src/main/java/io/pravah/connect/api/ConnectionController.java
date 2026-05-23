@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /** REST API for managing configured connections. */
@@ -35,6 +36,7 @@ public class ConnectionController {
 
   @Operation(summary = "List all connections")
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public ResponseEntity<List<ConnectionDto>> listConnections(
       @RequestParam(required = false) String connectorId,
       @RequestParam(required = false) String search) {
@@ -54,6 +56,7 @@ public class ConnectionController {
 
   @Operation(summary = "Get connection by ID")
   @GetMapping("/{connectionId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:*')")
   public ResponseEntity<ConnectionDto> getConnection(@PathVariable UUID connectionId) {
     UUID tenantId = requireTenantId();
     return connectionService
@@ -65,6 +68,7 @@ public class ConnectionController {
 
   @Operation(summary = "Create a new connection")
   @PostMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public ResponseEntity<ConnectionDto> createConnection(
       @RequestBody CreateConnectionRequest request) {
     UUID tenantId = requireTenantId();
@@ -78,6 +82,7 @@ public class ConnectionController {
 
   @Operation(summary = "Update a connection")
   @PutMapping("/{connectionId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public ResponseEntity<ConnectionDto> updateConnection(
       @PathVariable UUID connectionId, @RequestBody UpdateConnectionRequest request) {
     UUID tenantId = requireTenantId();
@@ -92,6 +97,7 @@ public class ConnectionController {
 
   @Operation(summary = "Delete a connection")
   @DeleteMapping("/{connectionId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:write', 'pipelines:*')")
   public ResponseEntity<Void> deleteConnection(@PathVariable UUID connectionId) {
     UUID tenantId = requireTenantId();
     connectionService.delete(tenantId, connectionId);
@@ -100,6 +106,7 @@ public class ConnectionController {
 
   @Operation(summary = "Test a connection")
   @PostMapping("/{connectionId}/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Connector.TestResult> testConnection(@PathVariable UUID connectionId) {
     UUID tenantId = requireTenantId();
     return ResponseEntity.ok(connectionService.testConnection(tenantId, connectionId));
@@ -107,6 +114,7 @@ public class ConnectionController {
 
   @Operation(summary = "Test connection configuration without saving")
   @PostMapping("/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Connector.TestResult> testConfig(@RequestBody TestConfigRequest request) {
     return ResponseEntity.ok(connectionService.testConfig(request.connectorId(), request.config()));
   }

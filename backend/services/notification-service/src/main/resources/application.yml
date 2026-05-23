@@ -66,6 +66,8 @@ pravah:
     topics:
       execution-events: pravah.execution.execution.events
       job-events: pravah.job.created
+    notification:
+      dlt-topic: ${PRAVAH_NOTIFICATION_EVENTS_DLT_TOPIC:pravah.notification.events.dlt}
 
 management:
   endpoints:

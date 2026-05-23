@@ -98,6 +98,7 @@ export function mockPipelineBody() {
     createdAt: "2026-05-16T09:00:00.000Z",
     updatedAt: "2026-05-16T09:00:00.000Z",
     createdBy: "33333333-3333-4333-8333-333333333333",
+    draftDefinitionYaml: null,
     versions: [{ version: 1, publishedAt: "2026-05-16T09:00:00.000Z", publishedBy: null }],
   };
 }

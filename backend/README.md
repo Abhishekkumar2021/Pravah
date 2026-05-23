@@ -62,7 +62,7 @@ Env: `PRAVAH_TENANT_ID`, `PRAVAH_RUNNER_BOOTSTRAP_SECRET` (defaults to internal 
 
 **Scheduler Kafka DLT:** Failed trigger consumption after retries routes to `pravah.scheduler.kafka-trigger.dlt-topic` (default `pravah.scheduler.trigger.dlt`). Override with `PRAVAH_SCHEDULER_KAFKA_TRIGGER_DLT_TOPIC`.
 
-**Method security:** Pipeline and execution REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (`pipelines:*`, `executions:*` permissions from JWT).
+**Method security:** Pipeline, execution, scheduler, connect, notification, and tenant REST controllers enforce `@PreAuthorize` via shared `PermissionChecker` (JWT permissions such as `pipelines:*`, `executions:*`, `users:*`, `settings:read`).
 
 Example stage snippet:
 

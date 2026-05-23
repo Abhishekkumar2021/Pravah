@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /** REST API for managing connectors. */
@@ -28,6 +29,7 @@ public class ConnectorController {
       summary = "List all connectors",
       description = "Returns catalog of all available connectors")
   @GetMapping
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<List<ConnectorSpec>> listConnectors(
       @RequestParam(required = false) ConnectorType type,
       @RequestParam(required = false) String search) {
@@ -46,18 +48,21 @@ public class ConnectorController {
 
   @Operation(summary = "List source connectors")
   @GetMapping("/sources")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<List<ConnectorSpec>> listSources() {
     return ResponseEntity.ok(registry.listSources());
   }
 
   @Operation(summary = "List sink connectors")
   @GetMapping("/sinks")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<List<ConnectorSpec>> listSinks() {
     return ResponseEntity.ok(registry.listSinks());
   }
 
   @Operation(summary = "Get connector specification")
   @GetMapping("/{connectorId}")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<ConnectorSpec> getConnector(@PathVariable String connectorId) {
     return registry
         .get(connectorId)
@@ -68,6 +73,7 @@ public class ConnectorController {
 
   @Operation(summary = "Validate connector configuration")
   @PostMapping("/{connectorId}/validate")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Connector.ValidationResult> validateConfig(
       @PathVariable String connectorId, @RequestBody Map<String, Object> config) {
     return registry
@@ -78,6 +84,7 @@ public class ConnectorController {
 
   @Operation(summary = "Test connector connection")
   @PostMapping("/{connectorId}/test")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<Connector.TestResult> testConnection(
       @PathVariable String connectorId, @RequestBody Map<String, Object> config) {
     return registry
@@ -88,6 +95,7 @@ public class ConnectorController {
 
   @Operation(summary = "Discover available streams")
   @PostMapping("/{connectorId}/discover")
+  @PreAuthorize("@permissionChecker.hasAny('pipelines:read', 'pipelines:write', 'pipelines:*')")
   public ResponseEntity<List<SourceConnector.StreamInfo>> discoverStreams(
       @PathVariable String connectorId, @RequestBody Map<String, Object> config) {
     return registry
