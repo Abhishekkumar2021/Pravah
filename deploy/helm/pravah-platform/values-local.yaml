@@ -38,6 +38,10 @@ mailhog:
 vault:
   enabled: true
 
+# Pipeline-service needsVault enables KV + Transit for stored tenant secrets.
+vaultTransit:
+  enabled: true
+
 # Enable with runnerGrpcTls + pravah-runner-grpc-tls Secret (see deploy/README.md).
 runnerPki:
   enabled: false
