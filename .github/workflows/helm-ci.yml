@@ -85,3 +85,26 @@ jobs:
             echo "Expected helm template to fail with image.tag=latest"
             exit 1
           fi
+
+      - name: Fail when runner gRPC exposed without TLS
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set requireProductionSecrets=true \
+            --set image.tag=ci-test-sha \
+            --set runnerGrpcTls.enabled=false \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set pravah.internalServiceSecret=ci-secret \
+            --set pravah.runnerBootstrapSecret=ci-runner-secret 2>&1; then
+            echo "Expected helm template to fail when exposeGrpc is enabled without runnerGrpcTls"
+            exit 1
+          fi

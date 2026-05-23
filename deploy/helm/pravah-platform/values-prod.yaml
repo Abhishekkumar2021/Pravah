@@ -193,6 +193,12 @@ services:
         cpu: "1"
         memory: 768Mi
 
+# mTLS for external runner gRPC (cert-manager or pre-created Secret)
+runnerGrpcTls:
+  enabled: true
+  existingSecret: pravah-runner-grpc-tls
+  requireClientAuth: true
+
 # Production Pravah settings (set via secrets manager / CI)
 pravah:
   jwtIssuer: pravah
