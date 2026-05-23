@@ -135,6 +135,24 @@ Alternatively:
 kubectl -n pravah wait --for=condition=ready pod --all --timeout=600s
 ```
 
+### CI / nightly kind smoke
+
+GitHub Actions workflow **K8s · kind smoke** (`.github/workflows/k8s-smoke-nightly.yml`) runs daily at 03:00 UTC and on PRs that touch `deploy/`, `scripts/deploy/`, or `backend/`:
+
+1. Creates a ephemeral `kind` cluster (`deploy/kind/pravah-ci.yaml`)
+2. Builds and loads all 8 service images (`k8s-local-build.sh`)
+3. Installs the chart with `values-local.yaml` + `values-ci.yaml`
+4. Runs `k8s-local-smoke.sh` (actuator health + JWKS + Vault)
+
+Local reproduction (requires Docker, kind, JDK 21, Helm):
+
+```bash
+make k8s-ci-smoke
+# Debug: SKIP_CLUSTER_DELETE=1 make k8s-ci-smoke
+```
+
+On failure, logs are written to `build/k8s-ci-smoke/` and uploaded as a CI artifact.
+
 ### 5. Seed Demo Data
 
 ```bash

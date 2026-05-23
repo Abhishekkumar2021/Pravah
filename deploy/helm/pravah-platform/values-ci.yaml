@@ -1,0 +1,27 @@
+# kind smoke on CI runners (GitHub Actions). Layer on values-local.yaml.
+# Disables ingress (smoke uses cluster DNS) and extends startup timeouts.
+
+ingress:
+  enabled: false
+
+probes:
+  startup:
+    failureThreshold: 90
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Slightly tighter than local dev; still enough for Spring Boot on shared runners.
+resources:
+  requests:
+    cpu: 50m
+    memory: 192Mi
+  limits:
+    cpu: "1"
+    memory: 448Mi
+
+services:
+  execution-service:
+    resources:
+      limits:
+        memory: 640Mi

@@ -143,6 +143,7 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **Acceptance Criteria:**
 - [x] Kubernetes Service DNS (Helm Services; gateway routes via cluster DNS)
 - [x] Health checks (`/actuator/health` probes; `k8s-local-smoke.sh` post-install validation)
+- [x] Automated kind smoke in CI (nightly + PR; `k8s-smoke-nightly.yml`)
 - [ ] Graceful degradation
 
 **Story Points:** 5  

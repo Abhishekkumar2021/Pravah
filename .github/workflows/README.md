@@ -7,6 +7,7 @@
 | **CLI CI** | `cli-ci.yml` | PR/push (`cli/**` paths) | golangci-lint, `go test -race`, build, GoReleaser check (main only) |
 | **Pull Request** | `pull-request.yml` | Every PR | Conventional title, doc link check, size guard |
 | **Deploy** | `deploy.yml` | Push to `main`, GitHub Release published | Build & push service/runner images to GHCR |
+| **K8s Smoke** | `k8s-smoke-nightly.yml` | Nightly 03:00 UTC, PR (deploy/backend paths), manual | kind cluster + Helm install + `k8s-local-smoke.sh` |
 | **Release** | `release.yml` | Manual (`workflow_dispatch`) | Tag version, changelog, GitHub Release (then Deploy) |
 
 ## Required status checks (branch protection)
