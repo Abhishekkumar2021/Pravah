@@ -185,6 +185,7 @@ Requires Helm 3, `kubectl`, and a cluster (kind/minikube). See [deploy/README.md
 ```bash
 ./scripts/deploy/k8s-local-build.sh    # build + load images (kind)
 ./scripts/deploy/k8s-local-install.sh  # helm install
+./scripts/deploy/k8s-local-smoke.sh pravah  # verify all services healthy
 kubectl -n pravah port-forward svc/pravah-gateway 8080:8080
 ./scripts/deploy/k8s-local-seed.sh pravah
 ```

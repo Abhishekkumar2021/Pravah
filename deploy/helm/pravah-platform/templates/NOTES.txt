@@ -8,6 +8,9 @@ Then open the UI (separate process): cd web && npm run dev — API base http://l
 Seed demo data (after all pods are Ready):
   ./scripts/deploy/k8s-local-seed.sh {{ .Release.Namespace }}
 
+Verify platform health (all services + JWKS + optional Vault):
+  ./scripts/deploy/k8s-local-smoke.sh {{ .Release.Namespace }}
+
 Sign in: dev@localhost.pravah / PravahDev1!  (after seed)
 
 Alpha K8s note: container stages are disabled (PRAVAH_CONTAINER_ENABLED=false). Use echo/sql stages.

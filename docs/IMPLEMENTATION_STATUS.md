@@ -319,7 +319,7 @@ All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
 | CLI | `cd cli && make build` or `make install` |
-| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh` |
+| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-smoke.sh` |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
 See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md), and [cli/README.md](../cli/README.md).
@@ -332,7 +332,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 |-----------|--------|-------|
 | Docker Compose (local deps) | Implemented | `backend/docker-compose.yml` |
 | Helm umbrella chart (US-09.04) | Implemented (beta) | `deploy/helm/pravah-platform` — 8 services + MinIO/Mailhog/Vault dev (local); prod validation gates (pinned image tag, external deps, fail-closed rate limits, secure cookies, runner bootstrap secret, external egress NP) |
-| HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; token auth (local) + Kubernetes auth (K8s prod); tenant secrets still in Postgres |
+| HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; Testcontainers IT (`ConnectionCredentialResolverVaultIT`); tenant secrets still in Postgres |
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
 | Argo CD GitOps | Planned | ADR-010; beta |
 | Terraform (cloud) | Planned | US-09.06+ |

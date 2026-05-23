@@ -86,7 +86,17 @@ helm upgrade --install pravah deploy/helm/pravah-platform \
   -f deploy/helm/pravah-platform/values-local.yaml
 ```
 
-### 4. Wait for Ready
+### 4. Verify platform health
+
+```bash
+./scripts/deploy/k8s-local-smoke.sh pravah
+```
+
+Waits for all 8 platform pods (plus bundled Postgres/Kafka/Redis/MinIO/Mailhog/Vault when enabled), then runs in-cluster HTTP checks against each service `/actuator/health` (expects `"status":"UP"`), tenant JWKS, and Vault when deployed.
+
+Optional env: `HELM_RELEASE` (default `pravah`), `HELM_FULLNAME` (auto from `helm get values` when `jq` is installed), `SMOKE_TIMEOUT` (default `600s`).
+
+Alternatively:
 
 ```bash
 kubectl -n pravah wait --for=condition=ready pod --all --timeout=600s
