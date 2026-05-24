@@ -42,7 +42,9 @@ deploy/helm/pravah-platform/
 
 **Bundled dependencies (disable in production):** PostgreSQL 16, Apache Kafka 3.7 (KRaft), Redis 7, MinIO (artifacts), optional Mailhog (local SMTP), optional Vault dev server (local KV secrets).
 
-**Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole` matching your Vault Kubernetes auth role. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production).
+**Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole` matching your Vault Kubernetes auth role. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production). For stored tenant secrets (`transit` provider), enable the **Transit** secrets engine on your Vault cluster (mount `transit/` by default); per-tenant keys are created on first write.
+
+**Vault Transit (tenant secrets, pathway #8):** When `vault.enabled=true` and `vaultTransit.enabled=true` (default in `values-local.yaml` with `pipeline-service.needsVault`), a post-install Helm job enables the Transit engine. Manual bootstrap: `./scripts/deploy/k8s-local-vault-transit.sh pravah`. Docker Compose / bare metal: `./backend/scripts/vault/init-local-transit.sh`.
 
 **Runner gRPC mTLS (ADR-005/008):** When `services.runner-service.exposeGrpc.enabled` is true, set `runnerGrpcTls.enabled=true` and provide `runnerGrpcTls.existingSecret` with keys `tls.crt`, `tls.key`, and `ca.crt` (client CA for mTLS). Production values enable this by default. Local kind/minikube:
 

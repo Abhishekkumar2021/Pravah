@@ -332,7 +332,8 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 |-----------|--------|-------|
 | Docker Compose (local deps) | Implemented | `backend/docker-compose.yml` |
 | Helm umbrella chart (US-09.04) | Implemented (beta) | `deploy/helm/pravah-platform` — 8 services + MinIO/Mailhog/Vault dev (local); prod validation gates; **nightly kind smoke CI** (`k8s-smoke-nightly.yml` + `k8s-ci-smoke.sh`) |
-| HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; Testcontainers IT (`ConnectionCredentialResolverVaultIT`); tenant secrets still in Postgres |
+| HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; Testcontainers IT (`ConnectionCredentialResolverVaultIT`) |
+| Vault Transit tenant secrets (ADR-007) | Partial | `HttpVaultTransitClient`; pipeline-service `transit` provider stores ciphertext in Postgres; write-only `value` on create/update; decrypt at execution (`SecretTransitIT`); Helm `vault-transit-init` job + `k8s-local-vault-transit.sh` |
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
 | Argo CD GitOps | Planned | ADR-010; beta |
 | Terraform (cloud) | Planned | US-09.06+ |

@@ -44,7 +44,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreateSecretRequest createRequest =
-        new CreateSecretRequest("api_key", "External API key", "env", "MY_API_KEY");
+        new CreateSecretRequest("api_key", "External API key", "env", "MY_API_KEY", null);
 
     MvcResult created =
         mockMvc
@@ -81,7 +81,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
         .andExpect(jsonPath("$.id").value(secretId.toString()));
 
     UpdateSecretRequest updateRequest =
-        new UpdateSecretRequest("Updated description", "env", "NEW_ENV_VAR");
+        new UpdateSecretRequest("Updated description", "env", "NEW_ENV_VAR", null);
 
     mockMvc
         .perform(
@@ -112,7 +112,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
     UUID userId = UUID.randomUUID();
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
-    CreateSecretRequest request = new CreateSecretRequest("dup_secret", null, "env", "VAR");
+    CreateSecretRequest request = new CreateSecretRequest("dup_secret", null, "env", "VAR", null);
 
     mockMvc
         .perform(
@@ -137,7 +137,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
     UUID userId = UUID.randomUUID();
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
-    CreateSecretRequest request = new CreateSecretRequest("Invalid-Name", null, "env", "VAR");
+    CreateSecretRequest request = new CreateSecretRequest("Invalid-Name", null, "env", "VAR", null);
 
     mockMvc
         .perform(
@@ -155,7 +155,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreateSecretRequest request =
-        new CreateSecretRequest("valid_name", null, "unknown_provider", "path");
+        new CreateSecretRequest("valid_name", null, "unknown_provider", "path", null);
 
     mockMvc
         .perform(
@@ -173,7 +173,7 @@ class SecretCrudIT extends AbstractPipelinePostgresIT {
     String token = testJwtIssuer.generateAccessToken(userId, tenantId);
 
     CreateSecretRequest request =
-        new CreateSecretRequest("vault_secret", null, "vault", "secret/path/without/key");
+        new CreateSecretRequest("vault_secret", null, "vault", "secret/path/without/key", null);
 
     mockMvc
         .perform(

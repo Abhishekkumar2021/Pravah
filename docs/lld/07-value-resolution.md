@@ -165,8 +165,9 @@ CREATE TABLE tenant_secrets (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL,
     name            VARCHAR(255) NOT NULL,  -- reference name: ${secret.name}
-    provider        VARCHAR(50) NOT NULL,   -- 'env', 'vault', 'aws_sm', etc.
-    provider_path   VARCHAR(500) NOT NULL,  -- provider-specific path
+    provider        VARCHAR(50) NOT NULL,   -- 'env', 'vault', 'transit', 'aws_sm', etc.
+    provider_path   VARCHAR(500),           -- provider-specific path (Transit key name)
+    encrypted_value TEXT,                   -- Vault Transit ciphertext when provider=transit
     created_by      UUID NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -189,9 +190,13 @@ CREATE POLICY tenant_isolation_secrets ON tenant_secrets FOR ALL
 INSERT INTO tenant_secrets (tenant_id, name, provider, provider_path, created_by)
 VALUES ('...', 'db_password', 'env', 'PRAVAH_DB_PASSWORD', '...');
 
--- HashiCorp Vault (production)
+-- HashiCorp Vault (production pointer)
 INSERT INTO tenant_secrets (tenant_id, name, provider, provider_path, created_by)
 VALUES ('...', 'api_key', 'vault', 'secret/data/myapp#api_key', '...');
+
+-- Vault Transit (stored value — ciphertext only; plaintext via API write-only `value` field)
+INSERT INTO tenant_secrets (tenant_id, name, provider, provider_path, encrypted_value, created_by)
+VALUES ('...', 'stored_token', 'transit', 'tenant-...', 'vault:v1:...', '...');
 
 -- AWS Secrets Manager (future)
 INSERT INTO tenant_secrets (tenant_id, name, provider, provider_path, created_by)
@@ -233,7 +238,7 @@ VALUES ('...', 'stripe_key', 'aws_sm', 'arn:aws:secretsmanager:...:secret:stripe
    c. Substitute into config
 3. For each ${secret.*} reference:
    a. Look up tenant_secrets by name
-   b. Resolve via appropriate provider (env/vault/aws)
+   b. Resolve via appropriate provider (env/vault/transit/aws)
    c. Substitute into config
 4. For connection credentials:
    a. Load connection config
@@ -267,14 +272,25 @@ At execution time, `credentials.password` is resolved using the same provider pa
 
 | Property | Env override | Default | Purpose |
 |----------|--------------|---------|---------|
-| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault KV reads |
+| `pravah.vault.enabled` | `PRAVAH_VAULT_ENABLED` | `false` | Enable Vault KV reads and Transit encrypt/decrypt |
 | `pravah.vault.address` | `VAULT_ADDR` | `http://localhost:8200` | Vault API base URL |
 | `pravah.vault.auth.method` | `PRAVAH_VAULT_AUTH_METHOD` | `token` | `token` (local) or `kubernetes` (pods) |
 | `pravah.vault.auth.token` | `VAULT_TOKEN` | _(empty)_ | Dev root token when method=token |
 | `pravah.vault.auth.kubernetes.mount-path` | `PRAVAH_VAULT_K8S_MOUNT_PATH` | `kubernetes` | K8s auth mount |
 | `pravah.vault.auth.kubernetes.role` | `PRAVAH_VAULT_K8S_ROLE` | _(empty)_ | Vault role bound to service account |
 
-Local: `docker-compose` Vault dev server + `backend/scripts/vault/init-local-kv.sh` seeds `secret/data/pravah/demo-db`.
+Local: `docker-compose` Vault dev server + `backend/scripts/vault/init-local-kv.sh` seeds `secret/data/pravah/demo-db`; `init-local-transit.sh` enables Transit for stored tenant secrets.
+
+### Tenant secret providers
+
+| Provider | Storage | Create API | Resolve at execution |
+|----------|---------|------------|---------------------|
+| `env` | Pointer only (`provider_path` = env var name) | `provider` + `providerPath` | Read process env |
+| `vault` | Pointer only (`provider_path` = `path#key`) | `provider` + `providerPath` | Vault KV v2 read |
+| `transit` | Ciphertext in `encrypted_value` | `value` (write-only; defaults to `transit`) | Vault Transit decrypt |
+| `aws_sm` | Pointer (future) | `provider` + `providerPath` | Not implemented |
+
+Transit keys are named `tenant-{tenant_uuid}` and created on first write.
 
 ## Security Considerations
 

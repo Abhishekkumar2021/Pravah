@@ -403,6 +403,11 @@ runnerPki:
   ttl: 168h
   spiffeTrustDomain: pravah.local
 
+# Vault Transit engine for tenant secret encryption at rest (ADR-007, pathway #8)
+vaultTransit:
+  enabled: false
+  mountPath: transit
+
 # Pravah application configuration
 pravah:
   jwtIssuer: pravah-dev

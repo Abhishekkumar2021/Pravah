@@ -2,6 +2,7 @@ package io.pravah.test.containers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.common.vault.VaultPkiBootstrap;
+import io.pravah.common.vault.VaultTransitBootstrap;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -47,6 +48,7 @@ public class VaultContainerExtension implements BeforeAllCallback, AfterAllCallb
     seedDemoSecret();
     VaultPkiBootstrap.bootstrapRunnerPki(
         getAddress(), ROOT_TOKEN, "pki", "runner", "pravah.local", "168h");
+    VaultTransitBootstrap.enableTransit(getAddress(), ROOT_TOKEN, "transit");
   }
 
   @Override

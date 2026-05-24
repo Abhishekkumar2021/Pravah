@@ -13,8 +13,8 @@ import java.util.UUID;
 /**
  * Entity for tenant-scoped secret references.
  *
- * <p>This table stores metadata about secrets (name, provider, path) but never the actual secret
- * values. Values are resolved at execution time from the configured provider.
+ * <p>Pointer providers ({@code env}, {@code vault}) store metadata only. {@code transit} provider
+ * stores Vault Transit ciphertext in {@code encrypted_value}; plaintext never persists in Postgres.
  */
 @Entity
 @Table(name = "tenant_secrets")
@@ -38,8 +38,11 @@ public class TenantSecretEntity {
   @Column(nullable = false)
   private String provider;
 
-  @Column(name = "provider_path", nullable = false)
+  @Column(name = "provider_path")
   private String providerPath;
+
+  @Column(name = "encrypted_value")
+  private String encryptedValue;
 
   @Column(name = "created_by", nullable = false)
   private UUID createdBy;
@@ -60,11 +63,24 @@ public class TenantSecretEntity {
       String providerPath,
       UUID createdBy,
       Instant createdAt) {
+    this(tenantId, name, description, provider, providerPath, null, createdBy, createdAt);
+  }
+
+  public TenantSecretEntity(
+      UUID tenantId,
+      String name,
+      String description,
+      String provider,
+      String providerPath,
+      String encryptedValue,
+      UUID createdBy,
+      Instant createdAt) {
     this.tenantId = tenantId;
     this.name = name;
     this.description = description;
     this.provider = provider;
     this.providerPath = providerPath;
+    this.encryptedValue = encryptedValue;
     this.createdBy = createdBy;
     this.createdAt = createdAt;
     this.updatedAt = createdAt;
@@ -94,6 +110,10 @@ public class TenantSecretEntity {
     return providerPath;
   }
 
+  public String getEncryptedValue() {
+    return encryptedValue;
+  }
+
   public UUID getCreatedBy() {
     return createdBy;
   }
@@ -107,9 +127,15 @@ public class TenantSecretEntity {
   }
 
   public void update(String description, String provider, String providerPath) {
+    update(description, provider, providerPath, encryptedValue);
+  }
+
+  public void update(
+      String description, String provider, String providerPath, String encryptedValue) {
     this.description = description;
     this.provider = provider;
     this.providerPath = providerPath;
+    this.encryptedValue = encryptedValue;
     this.updatedAt = Instant.now();
   }
 }
