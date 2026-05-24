@@ -40,6 +40,7 @@ RUBY
 echo "Validating Argo CD manifests..."
 validate_yaml_file "$ROOT/deploy/argocd/appproject-pravah.yaml"
 validate_yaml_file "$ROOT/deploy/argocd/applications/pravah-platform-local.yaml"
+validate_yaml_file "$ROOT/deploy/argocd/applications/pravah-platform-ci.yaml"
 validate_yaml_file "$ROOT/deploy/argocd/applications/pravah-platform-production.yaml"
 validate_yaml_file "$ROOT/deploy/argocd/applications/pravah-platform-production.yaml.example"
 
@@ -48,6 +49,7 @@ if command -v kubectl >/dev/null 2>&1 && kubectl cluster-info >/dev/null 2>&1; t
   kubectl apply --dry-run=client --validate=false \
     -f "$ROOT/deploy/argocd/appproject-pravah.yaml" \
     -f "$ROOT/deploy/argocd/applications/pravah-platform-local.yaml" \
+    -f "$ROOT/deploy/argocd/applications/pravah-platform-ci.yaml" \
     -f "$ROOT/deploy/argocd/applications/pravah-platform-production.yaml" \
     -f "$ROOT/deploy/argocd/applications/pravah-platform-production.yaml.example"
 fi

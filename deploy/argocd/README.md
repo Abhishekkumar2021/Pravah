@@ -8,6 +8,7 @@ GitOps manifests for reconciling `deploy/helm/pravah-platform` from Git per [ADR
 |------|---------|
 | `appproject-pravah.yaml` | AppProject RBAC — allows `pravah` and `pravah-ci` destination namespaces |
 | `applications/pravah-platform-local.yaml` | Local/dev: auto-sync from `develop` + `values-local.yaml` |
+| `applications/pravah-platform-ci.yaml` | CI/kind smoke: `values-local.yaml` + `values-ci.yaml` |
 | `applications/pravah-platform-production.yaml` | Production: manual sync from `main` + `values-prod.yaml` |
 | `applications/pravah-platform-production.yaml.example` | Annotated copy template for fork-specific edits |
 | `vault-policies/pravah-pipeline-service.hcl` | Example Vault policy for external Vault + pipeline-service K8s auth |

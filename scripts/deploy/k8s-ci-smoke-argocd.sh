@@ -28,6 +28,10 @@ collect_debug_logs() {
   kubectl -n argocd get applications >"$ROOT/build/k8s-ci-smoke-argocd/argocd-apps.txt" 2>&1 || true
   kubectl -n argocd describe application pravah-platform-local \
     >"$ROOT/build/k8s-ci-smoke-argocd/argocd-app-describe.txt" 2>&1 || true
+  kubectl -n argocd get application pravah-platform-local -o yaml \
+    >"$ROOT/build/k8s-ci-smoke-argocd/argocd-app.yaml" 2>&1 || true
+  kubectl -n "$NAMESPACE" get events --sort-by='.lastTimestamp' \
+    >"$ROOT/build/k8s-ci-smoke-argocd/events.txt" 2>&1 || true
 }
 
 delete_cluster() {
@@ -73,6 +77,7 @@ log "Building and loading images..."
 log "Installing Argo CD and syncing from Git ref '${TARGET_REVISION}'..."
 ARGOCD_NAMESPACE=argocd \
   ARGOCD_APP_NAME=pravah-platform-local \
+  ARGOCD_APP_MANIFEST="$ROOT/deploy/argocd/applications/pravah-platform-ci.yaml" \
   ARGOCD_TARGET_REVISION="$TARGET_REVISION" \
   "$ROOT/scripts/deploy/k8s-local-argocd.sh" "$NAMESPACE"
 

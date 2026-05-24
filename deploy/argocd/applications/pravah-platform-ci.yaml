@@ -1,5 +1,5 @@
-# Syncs pravah-platform from Git for kind/minikube (values-local overlay).
-# Requires images loaded via k8s-local-build.sh; Argo CD reads chart from Git, not local disk.
+# CI overlay Application (kind smoke via Argo CD). Layers values-ci.yaml on values-local.yaml.
+# Applied by k8s-ci-smoke-argocd.sh (disables ingress, extends probe timeouts for shared runners).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,7 +7,7 @@ metadata:
   namespace: argocd
   labels:
     app.kubernetes.io/part-of: pravah-platform
-    pravah.io/environment: local
+    pravah.io/environment: ci
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -21,13 +21,13 @@ spec:
       valueFiles:
         - values.yaml
         - values-local.yaml
+        - values-ci.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: pravah
+    namespace: pravah-ci
   syncPolicy:
     automated:
       selfHeal: true
       prune: true
     syncOptions:
       - CreateNamespace=true
-      # ServerSideApply omitted for local/CI — it leaves sync=Unknown on Helm workloads.

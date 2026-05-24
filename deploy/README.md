@@ -155,6 +155,7 @@ Manifests live in `deploy/argocd/`:
 |------|---------|
 | `appproject-pravah.yaml` | AppProject RBAC (namespace `pravah`, Git repo allowlist) |
 | `applications/pravah-platform-local.yaml` | Auto-sync from `develop` with `values-local.yaml` |
+| `applications/pravah-platform-ci.yaml` | CI/kind smoke: `values-local.yaml` + `values-ci.yaml` (no ingress, extended probes) |
 | `applications/pravah-platform-production.yaml` | Production Application (manual sync, `values-prod.yaml`) |
 | `applications/pravah-platform-production.yaml.example` | Annotated template for fork-specific edits |
 | `vault-policies/pravah-pipeline-service.hcl` | External Vault policy example (KV + Transit) |
