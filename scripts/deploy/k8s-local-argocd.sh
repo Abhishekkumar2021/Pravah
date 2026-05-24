@@ -84,6 +84,9 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
     kubectl get application "$APP_NAME" -n "$ARGOCD_NAMESPACE" \
       -o jsonpath='{range .status.conditions[*]}{.type}={.message}{"\n"}{end}' 2>/dev/null \
       | sed 's/^/[argocd]   condition: /' || true
+    kubectl get application "$APP_NAME" -n "$ARGOCD_NAMESPACE" \
+      -o jsonpath='{range .status.resources[?(@.health.status!="Healthy")]}{.kind}/{.name}: {.health.message}{"\n"}{end}' 2>/dev/null \
+      | sed 's/^/[argocd]   degraded: /' || true
   fi
   sleep 10
 done
