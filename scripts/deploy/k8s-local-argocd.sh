@@ -33,7 +33,18 @@ kubectl wait --for=condition=available deployment/argocd-server \
 
 log "Applying AppProject and Application manifests..."
 kubectl apply -f "$ROOT/deploy/argocd/appproject-pravah.yaml"
-kubectl apply -f "$ROOT/deploy/argocd/applications/${APP_NAME}.yaml"
+
+TARGET_REVISION="${ARGOCD_TARGET_REVISION:-develop}"
+APP_MANIFEST="$ROOT/deploy/argocd/applications/${APP_NAME}.yaml"
+export PRAVAH_NAMESPACE TARGET_REVISION
+kubectl apply -f <(
+  ruby -ryaml - "$APP_MANIFEST" <<'RUBY'
+doc = YAML.load_file(ARGV[0])
+doc["spec"]["destination"]["namespace"] = ENV.fetch("PRAVAH_NAMESPACE")
+doc["spec"]["source"]["targetRevision"] = ENV.fetch("TARGET_REVISION")
+print doc.to_yaml
+RUBY
+)
 
 log "Waiting for Application ${APP_NAME} to sync (timeout 15m)..."
 for attempt in $(seq 1 90); do

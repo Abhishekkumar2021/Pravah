@@ -1,6 +1,6 @@
 # Repo-root shortcuts for local development
 .PHONY: local-setup local-up local-down local-services local-services-stop local-status local-web local-seed
-.PHONY: k8s-local-build k8s-local-install k8s-local-seed k8s-local-smoke k8s-local-runner-grpc-tls k8s-local-argocd k8s-ci-smoke validate-argocd
+.PHONY: k8s-local-build k8s-local-install k8s-local-seed k8s-local-smoke k8s-local-runner-grpc-tls k8s-local-argocd k8s-ci-smoke k8s-ci-smoke-argocd validate-argocd
 .PHONY: pre-commit ci-backend ci-web ci-cli check
 
 local-setup local-up local-down local-services local-services-stop local-status local-web local-seed:
@@ -20,6 +20,9 @@ k8s-local-smoke:
 
 k8s-ci-smoke:
 	./scripts/deploy/k8s-ci-smoke.sh
+
+k8s-ci-smoke-argocd:
+	./scripts/deploy/k8s-ci-smoke-argocd.sh
 
 k8s-local-runner-grpc-tls:
 	./scripts/deploy/generate-runner-grpc-tls.sh

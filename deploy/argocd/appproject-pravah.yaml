@@ -18,6 +18,8 @@ spec:
   destinations:
     - namespace: pravah
       server: https://kubernetes.default.svc
+    - namespace: pravah-ci
+      server: https://kubernetes.default.svc
   namespaceResourceWhitelist:
     - group: ""
       kind: ConfigMap

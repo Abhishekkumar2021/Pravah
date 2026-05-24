@@ -349,7 +349,7 @@ Integrate Prometheus, Jaeger, Loki.
 **Estimate:** 13 points
 
 ### T-09.09: Argo CD GitOps
-Argo CD Application manifests and local install script (ADR-010, pathway #9). **Partial (2026-05):** `deploy/argocd/`, `k8s-local-argocd.sh`, Helm CI manifest validation.
+Argo CD Application manifests, local/CI install scripts, production Application, GitOps image tag automation, and nightly Argo CD kind smoke (ADR-010, pathway #9). **Partial (2026-05):** `deploy/argocd/`, `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`, `deploy.yml` GitOps tag bump, gateway secrets route, external Vault policy example.
 
 **Estimate:** 8 points
 
