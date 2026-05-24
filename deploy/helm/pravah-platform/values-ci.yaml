@@ -52,10 +52,18 @@ resources:
     memory: 448Mi
 
 services:
+  scheduler-service:
+    resources:
+      limits:
+        memory: 640Mi
   execution-service:
     resources:
       limits:
         memory: 640Mi
+  connect-service:
+    resources:
+      limits:
+        memory: 512Mi
   runner-service:
     resources:
       limits:

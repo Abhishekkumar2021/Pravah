@@ -15,6 +15,7 @@
 #   SKIP_WEB=1          — skip web
 #   SKIP_CLI=1          — skip CLI
 #   SKIP_TERRAFORM=1    — skip Terraform validate
+#   SKIP_OBSERVABILITY=1 — skip observability manifest validate
 #   SKIP_INTEGRATION=1  — skip backend integrationTest (Docker/Testcontainers)
 #   SKIP_E2E=1          — skip Playwright e2e
 #   SKIP_OWASP=1        — skip OWASP dependency check (default in ci-backend.sh)
@@ -40,11 +41,13 @@ DO_BACKEND=0
 DO_WEB=0
 DO_CLI=0
 DO_TERRAFORM=0
+DO_OBSERVABILITY=0
 
 [[ "${SKIP_BACKEND:-}" == "1" ]] && DO_BACKEND=-1
 [[ "${SKIP_WEB:-}" == "1" ]] && DO_WEB=-1
 [[ "${SKIP_CLI:-}" == "1" ]] && DO_CLI=-1
 [[ "${SKIP_TERRAFORM:-}" == "1" ]] && DO_TERRAFORM=-1
+[[ "${SKIP_OBSERVABILITY:-}" == "1" ]] && DO_OBSERVABILITY=-1
 
 files="$(collect_changed_files)"
 
@@ -53,6 +56,7 @@ if [[ "${FORCE_ALL:-}" == "1" ]] || [[ -z "$files" ]]; then
   [[ "$DO_WEB" != "-1" ]] && DO_WEB=1
   [[ "$DO_CLI" != "-1" ]] && DO_CLI=1
   [[ "$DO_TERRAFORM" != "-1" ]] && DO_TERRAFORM=1
+  [[ "$DO_OBSERVABILITY" != "-1" ]] && DO_OBSERVABILITY=1
 else
   only_docs=1
   while IFS= read -r f; do
@@ -89,22 +93,25 @@ else
         [[ "$DO_BACKEND" != "-1" ]] && DO_BACKEND=1
         DO_TERRAFORM=1
         ;;
-      scripts/pre-commit.sh|scripts/ci-*.sh|.github/workflows/pull-request.yml)
+      scripts/pre-commit.sh|scripts/ci-*.sh|scripts/deploy/validate-observability.sh|scripts/deploy/k8s-local-observability.sh|.github/workflows/pull-request.yml)
         [[ "$DO_BACKEND" != "-1" ]] && DO_BACKEND=1
         [[ "$DO_WEB" != "-1" ]] && DO_WEB=1
         [[ "$DO_CLI" != "-1" ]] && DO_CLI=1
+        ;;
+      deploy/observability/*|deploy/helm/pravah-platform/values-observability.yaml)
+        DO_OBSERVABILITY=1
         ;;
     esac
   done <<<"$files"
 fi
 
-if [[ "$DO_BACKEND" != "1" && "$DO_WEB" != "1" && "$DO_CLI" != "1" && "$DO_TERRAFORM" != "1" ]]; then
+if [[ "$DO_BACKEND" != "1" && "$DO_WEB" != "1" && "$DO_CLI" != "1" && "$DO_TERRAFORM" != "1" && "$DO_OBSERVABILITY" != "1" ]]; then
   echo "No component checks selected (nothing to run)."
-  echo "  Use FORCE_ALL=1 or change files under backend/, web/, cli/, or deploy/terraform/."
+  echo "  Use FORCE_ALL=1 or change files under backend/, web/, cli/, deploy/terraform/, or deploy/observability/."
   exit 0
 fi
 
-echo "Pre-commit plan: backend=$([[ $DO_BACKEND == 1 ]] && echo yes || echo no) web=$([[ $DO_WEB == 1 ]] && echo yes || echo no) cli=$([[ $DO_CLI == 1 ]] && echo yes || echo no) terraform=$([[ $DO_TERRAFORM == 1 ]] && echo yes || echo no)"
+echo "Pre-commit plan: backend=$([[ $DO_BACKEND == 1 ]] && echo yes || echo no) web=$([[ $DO_WEB == 1 ]] && echo yes || echo no) cli=$([[ $DO_CLI == 1 ]] && echo yes || echo no) terraform=$([[ $DO_TERRAFORM == 1 ]] && echo yes || echo no) observability=$([[ $DO_OBSERVABILITY == 1 ]] && echo yes || echo no)"
 echo ""
 
 if [[ "$DO_BACKEND" == "1" ]]; then
@@ -123,6 +130,10 @@ fi
 
 if [[ "$DO_TERRAFORM" == "1" ]]; then
   "$ROOT/scripts/ci-terraform.sh"
+fi
+
+if [[ "$DO_OBSERVABILITY" == "1" ]]; then
+  "$ROOT/scripts/deploy/validate-observability.sh"
 fi
 
 echo ""

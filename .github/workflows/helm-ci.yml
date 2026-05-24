@@ -5,12 +5,16 @@ on:
     paths:
       - "deploy/helm/**"
       - "deploy/argocd/**"
+      - "deploy/observability/**"
+      - "scripts/deploy/validate-observability.sh"
       - ".github/workflows/helm-ci.yml"
   push:
     branches: [main, develop]
     paths:
       - "deploy/helm/**"
       - "deploy/argocd/**"
+      - "deploy/observability/**"
+      - "scripts/deploy/validate-observability.sh"
       - ".github/workflows/helm-ci.yml"
 
 jobs:
@@ -22,6 +26,9 @@ jobs:
 
       - name: Validate Argo CD manifests
         run: ./scripts/deploy/validate-argocd-manifests.sh
+
+      - name: Validate observability configs
+        run: ./scripts/deploy/validate-observability.sh
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -42,6 +49,14 @@ jobs:
             -f deploy/helm/pravah-platform/values-local.yaml \
             -f deploy/helm/pravah-platform/values-ci.yaml \
             --namespace pravah-ci >/dev/null
+
+      - name: Template observability overlay
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            -f deploy/helm/pravah-platform/values-observability.yaml \
+            --namespace pravah >/dev/null
 
       - name: Template production values (required secrets)
         run: |

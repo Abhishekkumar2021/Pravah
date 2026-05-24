@@ -1,6 +1,6 @@
 # Repo-root shortcuts for local development
 .PHONY: local-setup local-up local-down local-services local-services-stop local-status local-web local-seed
-.PHONY: k8s-local-build k8s-local-install k8s-local-seed k8s-local-smoke k8s-local-runner-grpc-tls k8s-local-argocd k8s-ci-smoke k8s-ci-smoke-argocd validate-argocd validate-terraform
+.PHONY: k8s-local-build k8s-local-install k8s-local-seed k8s-local-smoke k8s-local-runner-grpc-tls k8s-local-argocd k8s-local-observability k8s-ci-smoke k8s-ci-smoke-argocd validate-argocd validate-terraform validate-observability
 .PHONY: pre-commit ci-backend ci-web ci-cli check
 
 local-setup local-up local-down local-services local-services-stop local-status local-web local-seed:
@@ -31,11 +31,17 @@ k8s-local-runner-grpc-tls:
 k8s-local-argocd:
 	./scripts/deploy/k8s-local-argocd.sh
 
+k8s-local-observability:
+	./scripts/deploy/k8s-local-observability.sh
+
 validate-argocd:
 	./scripts/deploy/validate-argocd-manifests.sh
 
 validate-terraform:
 	./scripts/deploy/validate-terraform.sh
+
+validate-observability:
+	./scripts/deploy/validate-observability.sh
 
 # CI-parity checks (see scripts/pre-commit.sh)
 pre-commit:

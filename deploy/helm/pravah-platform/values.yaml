@@ -563,3 +563,11 @@ metrics:
     namespace: ""
     interval: 30s
     labels: {}
+
+# OpenTelemetry tracing (pathway #11). Enable with values-observability.yaml overlay.
+observability:
+  tracing:
+    enabled: false
+    # OTLP HTTP endpoint (Jaeger collector or OTel Collector)
+    endpoint: ""
+    samplingProbability: "0.1"

@@ -1,0 +1,31 @@
+# Jaeger all-in-one with OTLP for Pravah distributed tracing (pathway #11).
+# Install: scripts/deploy/k8s-local-observability.sh
+
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+
+allInOne:
+  enabled: true
+  image:
+    tag: "1.55"
+
+collector:
+  enabled: true
+  otlp:
+    enabled: true
+    grpc:
+      enabled: true
+      endpoint: 0.0.0.0:4317
+    http:
+      enabled: true
+      endpoint: 0.0.0.0:4318
+
+query:
+  enabled: true
+
+agent:
+  enabled: false
+
+storage:
+  type: memory

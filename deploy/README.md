@@ -1,5 +1,7 @@
 # Pravah Deployment (Helm)
 
+> **Full deployment guide (local, free cloud, AWS):** [docs/deployment/DEPLOYMENT_GUIDE.md](../docs/deployment/DEPLOYMENT_GUIDE.md)
+
 Production-grade Kubernetes packaging for the Pravah control plane per [ADR-010](../docs/adr/ADR-010-kubernetes-helm-argocd.md).
 
 ## Chart Features
@@ -188,6 +190,21 @@ make k8s-ci-smoke-argocd
 ```
 
 On failure, logs are written to `build/k8s-ci-smoke/` or `build/k8s-ci-smoke-argocd/` and uploaded as CI artifacts.
+
+## Observability (pathway #11)
+
+Install Prometheus, Grafana, and Jaeger; enable ServiceMonitors and OTLP tracing:
+
+```bash
+./scripts/deploy/k8s-local-observability.sh
+helm upgrade --install pravah deploy/helm/pravah-platform \
+  -f deploy/helm/pravah-platform/values.yaml \
+  -f deploy/helm/pravah-platform/values-local.yaml \
+  -f deploy/helm/pravah-platform/values-observability.yaml \
+  --namespace pravah --create-namespace
+```
+
+Validate: `make validate-observability`. Detail: [deploy/observability/README.md](observability/README.md).
 
 ### 5. Seed Demo Data
 

@@ -1,0 +1,31 @@
+# PrometheusRule for Pravah platform alerts (pathway #11).
+# Applied by k8s-local-observability.sh after kube-prometheus-stack install.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pravah-platform
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: pravah-platform
+      interval: 1m
+      rules:
+        - alert: PravahRateLimitFailOpen
+          expr: increase(pravah_ratelimit_requests_total{outcome="fail_open"}[5m]) > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Rate limiter fail-open events detected
+            description: Redis rate limiting failed open; review gateway/scheduler Redis connectivity.
+
+        - alert: PravahOutboxDeadLettered
+          expr: increase(pravah_outbox_dead_lettered_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Outbox messages moved to dead letter
+            description: Check execution-service and pipeline-service outbox relay logs.

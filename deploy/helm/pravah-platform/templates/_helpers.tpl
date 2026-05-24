@@ -477,9 +477,27 @@ Common environment variables for all services
   value: {{ $root.Values.runnerPki.spiffeTrustDomain | quote }}
 {{- end }}
 {{- end }}
+{{- include "pravah.tracingEnv" (dict "root" $root "serviceName" $svcKey) }}
 {{- range $k, $v := $svc.extraEnv }}
 - name: {{ $k }}
   value: {{ $v | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+OpenTelemetry tracing environment variables (pathway #11).
+Usage: include "pravah.tracingEnv" (dict "root" $ "serviceName" "gateway")
+*/}}
+{{- define "pravah.tracingEnv" -}}
+{{- $root := .root -}}
+{{- $serviceName := .serviceName -}}
+{{- if and $root.Values.observability.tracing.enabled $root.Values.observability.tracing.endpoint }}
+- name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+  value: {{ $root.Values.observability.tracing.samplingProbability | quote }}
+- name: MANAGEMENT_OTLP_TRACING_ENDPOINT
+  value: {{ $root.Values.observability.tracing.endpoint | quote }}
+- name: OTEL_SERVICE_NAME
+  value: {{ $serviceName | quote }}
 {{- end }}
 {{- end }}
 

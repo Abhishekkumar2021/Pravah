@@ -8,6 +8,7 @@ Navigation hub for all project documentation. **Keep [IMPLEMENTATION_STATUS.md](
 
 | Document | Use when |
 |----------|----------|
+| [Deployment Guide](deployment/DEPLOYMENT_GUIDE.md) | **Install locally, on free cloud, or in Kubernetes** |
 | [Implementation Status](IMPLEMENTATION_STATUS.md) | **What exists in the repo today** (services, UI, gaps) |
 | [High-Level Architecture](architecture/high-level-architecture.md) | Target platform design (not all built yet) |
 | [Product Vision](product/PRODUCT-VISION.md) | Why Pravah exists |

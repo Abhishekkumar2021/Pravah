@@ -128,6 +128,27 @@ The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a *
 
 Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` (outcomes: `allowed`, `denied`, `fail_open`) on `/actuator/prometheus`. Outbox dead letters: `pravah_outbox_dead_lettered_total{service,event_type,topic}`.
 
+### Distributed tracing (OpenTelemetry, pathway #11)
+
+All Spring Boot services include Micrometer OTel bridge + OTLP exporter. Traces export when these env vars are set:
+
+| Variable | Purpose |
+|----------|---------|
+| `MANAGEMENT_OTLP_TRACING_ENDPOINT` | OTLP HTTP endpoint (e.g. `http://localhost:4318/v1/traces`) |
+| `MANAGEMENT_TRACING_SAMPLING_PROBABILITY` | Sample rate `0.0`–`1.0` (default `0.1` in prod) |
+| `OTEL_SERVICE_NAME` | Service name in Jaeger (set per deployment) |
+
+**Docker Compose:** Jaeger runs on `localhost:4318` (see `backend/docker-compose.yml`). Before `make local-services`:
+
+```bash
+export MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
+export MANAGEMENT_OTLP_TRACING_ENDPOINT=http://localhost:4318/v1/traces
+```
+
+Jaeger UI: http://localhost:16686
+
+**Kubernetes:** Install observability stack (`./scripts/deploy/k8s-local-observability.sh`) and use `values-observability.yaml`. See [deploy/observability/README.md](../deploy/observability/README.md).
+
 ### Auth refresh cookie (tenant-service, ADR-009)
 
 Login sets a **HttpOnly** refresh cookie (`pravah_refresh`, path `/api/v1/auth`). The SPA keeps the access token in memory only and calls `POST /api/v1/auth/refresh` with `credentials: include` on startup.

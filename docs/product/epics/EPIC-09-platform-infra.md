@@ -239,10 +239,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** I diagnose issues
 
 **Acceptance Criteria:**
-- [ ] Metrics (Prometheus)
-- [ ] Logs (structured, aggregated)
-- [ ] Traces (OpenTelemetry)
-- [ ] Pre-built dashboards
+- [x] Metrics (Prometheus) _(ServiceMonitors + kube-prometheus-stack; `/actuator/prometheus`)_
+- [ ] Logs (structured, aggregated) _(JSON logs in services; Loki not deployed)_
+- [x] Traces (OpenTelemetry) _(Micrometer OTel bridge + Jaeger OTLP; pathway #11)_
+- [x] Pre-built dashboards _(Grafana `Pravah Platform Overview`)_
 
 **Story Points:** 13  
 **Priority:** P0
@@ -346,7 +346,7 @@ Build Terraform for cloud deployment. **Partial (2026-05):** AWS modules under `
 **Estimate:** 21 points
 
 ### T-09.07: Observability Integration
-Integrate Prometheus, Jaeger, Loki.
+Integrate Prometheus, Jaeger, Loki. **Partial (2026-05):** kube-prometheus-stack + Jaeger Helm values; Grafana dashboard; ServiceMonitors; OTLP tracing in platform services; `k8s-local-observability.sh`; Loki planned.
 
 **Estimate:** 13 points
 

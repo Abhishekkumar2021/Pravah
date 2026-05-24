@@ -221,6 +221,8 @@ Pravah/
 
 ## Getting Started
 
+> **Complete deployment guide** (Docker Compose, kind, Argo CD, free cloud, AWS): **[docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)**
+
 ### Local full stack (recommended)
 
 Requires **JDK 21**, **Docker**, **Node.js 22**, and `npm`.
@@ -285,6 +287,7 @@ cd playground/01-kafka && ./gradlew test
 
 | Document | Description |
 |----------|-------------|
+| **[Deployment Guide](docs/deployment/DEPLOYMENT_GUIDE.md)** | **Local, Kubernetes, free cloud, and AWS install paths** |
 | **[Implementation Status](docs/IMPLEMENTATION_STATUS.md)** | **What is built in this repo (update with each feature)** |
 | [Product Vision](docs/product/PRODUCT-VISION.md) | Mission, value props, target users |
 | [Epics Overview](docs/product/EPICS-OVERVIEW.md) | 12 epics, 180 user stories |
