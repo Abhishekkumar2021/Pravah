@@ -29,3 +29,32 @@ spec:
           annotations:
             summary: Outbox messages moved to dead letter
             description: Check execution-service and pipeline-service outbox relay logs.
+
+        - alert: PravahPgBouncerClientWaiting
+          expr: sum(pgbouncer_pools_client_waiting_connections) > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer clients waiting for a server connection
+            description: Increase default_pool_size or review long-running transactions (US-09.16).
+
+        - alert: PravahPgBouncerPoolSaturated
+          expr: |
+            sum(pgbouncer_pools_server_active_connections)
+            / clamp_min(sum(pgbouncer_pools_server_idle_connections), 1) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer server pool utilization high
+            description: Review pool sizing and RDS max_connections; see deploy/README.md PgBouncer section.
+
+        - alert: PravahPgBouncerMaxWait
+          expr: max(pgbouncer_pools_client_maxwait_seconds) > 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: PgBouncer client max wait exceeded 1s
+            description: Database pool exhaustion — scale pool or reduce service replica count.

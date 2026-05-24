@@ -49,6 +49,31 @@ postgres:
     runAsGroup: 70
     fsGroup: 70
 
+# PgBouncer connection pooling (US-09.16). When enabled, services connect via PgBouncer
+# (transaction mode) instead of directly to PostgreSQL/RDS.
+pgbouncer:
+  enabled: false
+  image: pgbouncer/pgbouncer:1.23.1
+  port: 6432
+  poolMode: transaction
+  maxClientConn: 500
+  defaultPoolSize: 25
+  minPoolSize: 5
+  reservePoolSize: 5
+  reservePoolTimeout: 3
+  maxPreparedStatements: 0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  metrics:
+    enabled: true
+    port: 9127
+    image: prometheuscommunity/pgbouncer-exporter:v0.10.2
+
 # External PostgreSQL (when postgres.enabled=false)
 externalPostgres:
   host: ""

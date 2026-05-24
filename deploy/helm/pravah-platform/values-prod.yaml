@@ -54,6 +54,9 @@ externalPostgres:
     connect-service: pravah_connect
     runner-service: pravah_runner
 
+pgbouncer:
+  enabled: true
+
 # External S3-compatible artifact store (AWS S3 via Terraform IRSA or static keys)
 externalArtifact:
   endpoint: "" # terraform output / https://s3.<region>.amazonaws.com

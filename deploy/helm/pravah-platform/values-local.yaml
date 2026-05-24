@@ -20,6 +20,9 @@ postgres:
   persistence:
     enabled: false
 
+pgbouncer:
+  enabled: true
+
 kafka:
   persistence:
     enabled: false
