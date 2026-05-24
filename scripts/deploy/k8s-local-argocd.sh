@@ -34,10 +34,13 @@ kubectl create namespace "$ARGOCD_NAMESPACE" --dry-run=client -o yaml | kubectl 
 kubectl apply -n "$ARGOCD_NAMESPACE" -f "$INSTALL_MANIFEST"
 
 log "Waiting for Argo CD control plane..."
-for dep in argocd-server argocd-repo-server argocd-application-controller; do
-  kubectl wait --for=condition=available "deployment/${dep}" \
-    -n "$ARGOCD_NAMESPACE" --timeout=300s
-done
+kubectl wait --for=condition=available deployment/argocd-server \
+  -n "$ARGOCD_NAMESPACE" --timeout=300s
+kubectl wait --for=condition=available deployment/argocd-repo-server \
+  -n "$ARGOCD_NAMESPACE" --timeout=300s
+# application-controller is a StatefulSet in Argo CD v2.13+, not a Deployment.
+kubectl rollout status statefulset/argocd-application-controller \
+  -n "$ARGOCD_NAMESPACE" --timeout=300s
 
 log "Applying AppProject and Application manifests..."
 kubectl apply -f "$ROOT/deploy/argocd/appproject-pravah.yaml"
