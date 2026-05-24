@@ -42,7 +42,9 @@ deploy/helm/pravah-platform/
 
 **Bundled dependencies (disable in production):** PostgreSQL 16, Apache Kafka 3.7 (KRaft), Redis 7, MinIO (artifacts), optional Mailhog (local SMTP), optional Vault dev server (local KV secrets).
 
-**Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole` matching your Vault Kubernetes auth role. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production). For stored tenant secrets (`transit` provider), enable the **Transit** secrets engine on your Vault cluster (mount `transit/` by default); per-tenant keys are created on first write.
+**Production secrets (Vault):** Set `externalVault.address` and `services.pipeline-service.needsVault: true` with `vaultKubernetesRole: pravah-pipeline-service`. Pipeline resolves `vault:path#key` references via token auth (bundled dev) or Kubernetes auth (production). For stored tenant secrets (`transit` provider), enable the **Transit** secrets engine on your Vault cluster (mount `transit/` by default); per-tenant keys are created on first write.
+
+Example Vault policy for pipeline-service: [`deploy/argocd/vault-policies/pravah-pipeline-service.hcl`](argocd/vault-policies/pravah-pipeline-service.hcl) (KV read + Transit encrypt/decrypt on `tenant-*` keys).
 
 **Vault Transit (tenant secrets, pathway #8):** When `vault.enabled=true` and `vaultTransit.enabled=true` (default in `values-local.yaml` with `pipeline-service.needsVault`), a post-install Helm job enables the Transit engine. Manual bootstrap: `./scripts/deploy/k8s-local-vault-transit.sh pravah`. Docker Compose / bare metal: `./backend/scripts/vault/init-local-transit.sh`.
 
@@ -137,23 +139,55 @@ Alternatively:
 kubectl -n pravah wait --for=condition=ready pod --all --timeout=600s
 ```
 
+### 3b. GitOps with Argo CD (pathway #9, ADR-010)
+
+Install Argo CD and let it reconcile `deploy/helm/pravah-platform` from Git instead of direct `helm upgrade`:
+
+```bash
+./scripts/deploy/k8s-local-build.sh          # load :local images into kind first
+./scripts/deploy/k8s-local-argocd.sh pravah  # installs Argo CD + Application
+./scripts/deploy/k8s-local-smoke.sh pravah
+```
+
+Manifests live in `deploy/argocd/`:
+
+| File | Purpose |
+|------|---------|
+| `appproject-pravah.yaml` | AppProject RBAC (namespace `pravah`, Git repo allowlist) |
+| `applications/pravah-platform-local.yaml` | Auto-sync from `develop` with `values-local.yaml` |
+| `applications/pravah-platform-ci.yaml` | CI/kind smoke: `values-local.yaml` + `values-ci.yaml` (no ingress, extended probes) |
+| `applications/pravah-platform-production.yaml` | Production Application (manual sync, `values-prod.yaml`) |
+| `applications/pravah-platform-production.yaml.example` | Annotated template for fork-specific edits |
+| `vault-policies/pravah-pipeline-service.hcl` | External Vault policy example (KV + Transit) |
+
+**Important:** Argo CD reads the chart from **Git** (`develop` branch), not your working tree. Push chart changes before expecting Argo CD to apply them.
+
+Production: apply `applications/pravah-platform-production.yaml` (manual sync). The **Deploy · GitOps image tag** job on `main` commits the pinned `image.tag` to `values-prod.yaml`; Argo CD picks it up on sync. Rollback = Git revert or `argocd app rollback`.
+
+**Gateway:** Tenant secrets API (`/api/v1/secrets/**`) routes through the API gateway to pipeline-service (required for stored Transit secrets via port 8080).
+
+Validate manifests locally: `make validate-argocd`
+
 ### CI / nightly kind smoke
 
 GitHub Actions workflow **K8s · kind smoke** (`.github/workflows/k8s-smoke-nightly.yml`) runs daily at 03:00 UTC and on PRs that touch `deploy/`, `scripts/deploy/`, or `backend/`:
 
-1. Creates a ephemeral `kind` cluster (`deploy/kind/pravah-ci.yaml`)
-2. Builds and loads all 8 service images (`k8s-local-build.sh`)
-3. Installs the chart with `values-local.yaml` + `values-ci.yaml`
-4. Runs `k8s-local-smoke.sh` (actuator health + JWKS + Vault)
+| Job | What it validates |
+|-----|-------------------|
+| **K8s · kind smoke** | Direct Helm install (`values-local.yaml` + `values-ci.yaml`) + platform smoke |
+| **K8s · Argo CD smoke** | Argo CD install + GitOps sync from PR branch + platform smoke |
+
+Both jobs: ephemeral `kind` cluster (`deploy/kind/pravah-ci.yaml`), build/load 8 service images, then `k8s-local-smoke.sh` (actuator health + JWKS + Vault).
 
 Local reproduction (requires Docker, kind, JDK 21, Helm):
 
 ```bash
 make k8s-ci-smoke
+make k8s-ci-smoke-argocd
 # Debug: SKIP_CLUSTER_DELETE=1 make k8s-ci-smoke
 ```
 
-On failure, logs are written to `build/k8s-ci-smoke/` and uploaded as a CI artifact.
+On failure, logs are written to `build/k8s-ci-smoke/` or `build/k8s-ci-smoke-argocd/` and uploaded as CI artifacts.
 
 ### 5. Seed Demo Data
 
@@ -333,7 +367,7 @@ When `requireProductionSecrets: true` (`values-prod.yaml`), Helm **fails fast** 
 ## Alpha Limitations
 
 - **Container stages** disabled (`PRAVAH_CONTAINER_ENABLED=false`) — no Docker socket in pods
-- **Argo CD** GitOps documented in ADR-010 but not wired (beta scope)
+- **Argo CD** production auto-sync disabled by default (manual sync until staging validation); see `deploy/argocd/README.md`
 - **HPA** and **PDB** require `replicaCount > 1` to be effective
 
 ## Uninstall

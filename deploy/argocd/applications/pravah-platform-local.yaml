@@ -1,0 +1,33 @@
+# Syncs pravah-platform from Git for kind/minikube (values-local overlay).
+# Requires images loaded via k8s-local-build.sh; Argo CD reads chart from Git, not local disk.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pravah-platform-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: pravah-platform
+    pravah.io/environment: local
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: pravah
+  source:
+    repoURL: https://github.com/Abhishekkumar2021/Pravah.git
+    targetRevision: develop
+    path: deploy/helm/pravah-platform
+    helm:
+      releaseName: pravah
+      valueFiles:
+        - values.yaml
+        - values-local.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pravah
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      # ServerSideApply omitted for local/CI — it leaves sync=Unknown on Helm workloads.

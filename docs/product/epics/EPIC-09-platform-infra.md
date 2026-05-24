@@ -81,6 +81,7 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 - [x] Configurable for scale (`replicaCount`, `values-prod.yaml`)
 - [x] HA configuration (PDB/HPA/replicas in `values-prod.yaml`; external managed deps)
 - [x] Clear installation docs (`deploy/README.md`)
+- [x] GitOps Application manifests (`deploy/argocd/`; local auto-sync + production manual sync; CI smoke)
 
 **Story Points:** 13  
 **Priority:** P0
@@ -348,8 +349,8 @@ Integrate Prometheus, Jaeger, Loki.
 
 **Estimate:** 13 points
 
-### T-09.08: KEDA Integration
-Configure KEDA for auto-scaling.
+### T-09.09: Argo CD GitOps
+Argo CD Application manifests, local/CI install scripts, production Application, GitOps image tag automation, and nightly Argo CD kind smoke (ADR-010, pathway #9). **Partial (2026-05):** `deploy/argocd/`, `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`, `deploy.yml` GitOps tag bump, gateway secrets route, external Vault policy example.
 
 **Estimate:** 8 points
 

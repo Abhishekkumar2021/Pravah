@@ -111,6 +111,8 @@ make local-web        # Vite dev server (../web)
 
 Gateway: `http://localhost:8080`
 
+Tenant secrets API (`/api/v1/secrets/**`) is routed to pipeline-service via the gateway (required for Vault Transit stored secrets in K8s).
+
 ### API Gateway (rate limiting, JWT blocklist)
 
 The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a **Redis token bucket** (ADR-012). Requires Redis from `docker-compose` (`REDIS_HOST` / `REDIS_PORT`, default `localhost:6379`).

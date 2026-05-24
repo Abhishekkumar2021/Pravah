@@ -1,0 +1,33 @@
+# CI overlay Application (kind smoke via Argo CD). Layers values-ci.yaml on values-local.yaml.
+# Applied by k8s-ci-smoke-argocd.sh (disables ingress, extends probe timeouts for shared runners).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pravah-platform-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: pravah-platform
+    pravah.io/environment: ci
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: pravah
+  source:
+    repoURL: https://github.com/Abhishekkumar2021/Pravah.git
+    targetRevision: develop
+    path: deploy/helm/pravah-platform
+    helm:
+      releaseName: pravah
+      valueFiles:
+        - values.yaml
+        - values-local.yaml
+        - values-ci.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pravah-ci
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true

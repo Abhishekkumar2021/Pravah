@@ -16,4 +16,6 @@ Sign in: dev@localhost.pravah / PravahDev1!  (after seed)
 Alpha K8s note: container stages are disabled (PRAVAH_CONTAINER_ENABLED=false). Use echo/sql stages.
 Bundled MinIO provides artifact storage; Mailhog (local values) captures alert/password-reset email.
 
-Docs: deploy/README.md
+GitOps (optional): ./scripts/deploy/k8s-local-argocd.sh {{ .Release.Namespace }}
+
+Docs: deploy/README.md, deploy/argocd/README.md

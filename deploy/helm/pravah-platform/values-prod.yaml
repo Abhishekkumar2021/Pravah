@@ -121,6 +121,8 @@ services:
 
   pipeline-service:
     replicaCount: 2
+    needsVault: true
+    vaultKubernetesRole: pravah-pipeline-service
     resources:
       requests:
         cpu: 250m

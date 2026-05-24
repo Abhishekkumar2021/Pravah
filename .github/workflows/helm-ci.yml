@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "deploy/helm/**"
+      - "deploy/argocd/**"
       - ".github/workflows/helm-ci.yml"
   push:
     branches: [main, develop]
     paths:
       - "deploy/helm/**"
+      - "deploy/argocd/**"
       - ".github/workflows/helm-ci.yml"
 
 jobs:
@@ -17,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Validate Argo CD manifests
+        run: ./scripts/deploy/validate-argocd-manifests.sh
 
       - name: Install Helm
         uses: azure/setup-helm@v4
