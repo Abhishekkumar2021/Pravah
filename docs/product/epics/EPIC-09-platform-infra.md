@@ -81,6 +81,7 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 - [x] Configurable for scale (`replicaCount`, `values-prod.yaml`)
 - [x] HA configuration (PDB/HPA/replicas in `values-prod.yaml`; external managed deps)
 - [x] Clear installation docs (`deploy/README.md`)
+- [x] GitOps Application manifests (`deploy/argocd/`; local auto-sync + production manual sync; CI smoke)
 
 **Story Points:** 13  
 **Priority:** P0

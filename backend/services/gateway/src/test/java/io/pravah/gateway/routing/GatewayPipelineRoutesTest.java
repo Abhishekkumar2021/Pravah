@@ -24,7 +24,10 @@ class GatewayPipelineRoutesTest {
     List<Map<String, Object>> routes = (List<Map<String, Object>>) gateway.get("routes");
 
     Map<String, Object> pipelineRoute =
-        routes.stream().filter(r -> "pipeline-service".equals(r.get("id"))).findFirst().orElseThrow();
+        routes.stream()
+            .filter(r -> "pipeline-service".equals(r.get("id")))
+            .findFirst()
+            .orElseThrow();
 
     List<String> predicates = (List<String>) pipelineRoute.get("predicates");
     String pathPredicate =

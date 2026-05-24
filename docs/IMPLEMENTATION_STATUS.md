@@ -319,7 +319,7 @@ All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
 | CLI | `cd cli && make build` or `make install` |
-| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-argocd.sh`, `k8s-local-smoke.sh`, `k8s-ci-smoke.sh` (kind CI) |
+| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-argocd.sh`, `k8s-local-smoke.sh`, `k8s-ci-smoke.sh`, `k8s-ci-smoke-argocd.sh` (kind CI) |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
 See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md), and [cli/README.md](../cli/README.md).
