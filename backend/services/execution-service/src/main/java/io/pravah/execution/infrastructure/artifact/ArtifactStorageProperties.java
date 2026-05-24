@@ -18,7 +18,8 @@ public record ArtifactStorageProperties(
     String bucket,
     Duration presignedUrlExpiry,
     long maxArtifactSizeBytes,
-    int retentionDays) {
+    int retentionDays,
+    boolean useDefaultCredentials) {
   public ArtifactStorageProperties {
     if (enabled == false) {
       endpoint = endpoint != null ? endpoint : "http://localhost:9000";
@@ -43,6 +44,7 @@ public record ArtifactStorageProperties(
         "pravah-artifacts",
         Duration.ofMinutes(15),
         5L * 1024 * 1024 * 1024,
-        30);
+        30,
+        false);
   }
 }

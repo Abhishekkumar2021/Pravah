@@ -56,6 +56,11 @@ output "artifact_region" {
   value       = module.artifacts.region
 }
 
+output "artifacts_irsa_role_arn" {
+  description = "Helm: serviceAccount.annotations.eks.amazonaws.com/role-arn"
+  value       = module.artifacts_irsa.role_arn
+}
+
 output "helm_values_snippet" {
   description = "Example Helm --set flags for values-prod.yaml external services"
   value = trimspace(<<EOT
@@ -64,6 +69,8 @@ output "helm_values_snippet" {
 --set externalArtifact.bucket=${module.artifacts.bucket_name} \
 --set externalArtifact.region=${module.artifacts.region} \
 --set externalArtifact.endpoint=https://s3.${var.aws_region}.amazonaws.com \
+--set externalArtifact.irsa.enabled=true \
+--set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=${module.artifacts_irsa.role_arn} \
 ${var.enable_msk ? "--set externalKafka.bootstrapServers=${module.msk[0].bootstrap_brokers_tls}" : "# enable_msk=false — set externalKafka.bootstrapServers to your broker"}
 EOT
   )
@@ -72,8 +79,9 @@ EOT
 output "post_apply_checklist" {
   value = <<-EOT
     1. aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region}
-    2. Create K8s secrets (see deploy/terraform/README.md)
+    2. ./scripts/deploy/terraform-create-k8s-secrets.sh (or manual — see deploy/terraform/README.md)
     3. ./scripts/deploy/terraform-init-rds.sh (creates per-service databases)
-    4. Install Argo CD Application or helm upgrade with values-prod.yaml
+    4. ./scripts/deploy/terraform-helm-bridge.sh (Helm --set flags including IRSA)
+    5. Install Argo CD Application or helm upgrade with values-prod.yaml
   EOT
 }

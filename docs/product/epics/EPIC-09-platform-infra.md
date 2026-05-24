@@ -255,10 +255,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** deployments are repeatable
 
 **Acceptance Criteria:**
-- [ ] Terraform modules (AWS, GCP, Azure)
-- [ ] Helm chart
-- [ ] Example configurations
-- [ ] Cost estimates
+- [x] Terraform modules (AWS partial; GCP/Azure planned)
+- [x] Helm chart
+- [x] Example configurations (`deploy/terraform/aws/reference`)
+- [x] Cost estimates (`deploy/terraform/README.md`)
 
 **Story Points:** 13  
 **Priority:** P1
@@ -341,7 +341,7 @@ Build docker-compose for local dev.
 **Estimate:** 5 points
 
 ### T-09.06: Terraform Modules
-Build Terraform for cloud deployment. **Partial (2026-05):** AWS modules under `deploy/terraform/modules/`; reference stack `deploy/terraform/aws/reference`; Helm output mapping; `validate-terraform.sh` CI.
+Build Terraform for cloud deployment. **Partial (2026-05):** AWS modules under `deploy/terraform/modules/` (network, EKS, RDS, ElastiCache, S3, IRSA, optional MSK); reference stack; Helm/IRSA bridge; operator scripts; CI validate.
 
 **Estimate:** 21 points
 

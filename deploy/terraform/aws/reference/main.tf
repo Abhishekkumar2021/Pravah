@@ -61,6 +61,18 @@ module "artifacts" {
   tags        = var.tags
 }
 
+module "artifacts_irsa" {
+  source = "../../modules/irsa-s3"
+
+  name                 = local.name
+  oidc_provider_arn    = module.eks.oidc_provider_arn
+  oidc_provider_url    = module.eks.cluster_oidc_issuer_url
+  namespace            = var.k8s_namespace
+  service_account_name = var.k8s_service_account_name
+  bucket_arn           = module.artifacts.bucket_arn
+  tags                 = var.tags
+}
+
 module "msk" {
   count  = var.enable_msk ? 1 : 0
   source = "../../modules/msk"

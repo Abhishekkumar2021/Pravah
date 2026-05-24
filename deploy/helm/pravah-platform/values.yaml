@@ -151,6 +151,9 @@ externalArtifact:
   existingSecret: ""
   existingSecretAccessKeyKey: artifact-access-key
   existingSecretSecretKeyKey: artifact-secret-key
+  # AWS EKS IRSA — omit static keys; execution-service uses DefaultCredentialsProvider
+  irsa:
+    enabled: false
 
 # SMTP for notification-service (password reset, alert emails)
 smtp:

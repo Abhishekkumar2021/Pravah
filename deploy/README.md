@@ -221,7 +221,7 @@ aws eks update-kubeconfig --name "$(terraform output -raw eks_cluster_name)"
 ../../../../scripts/deploy/terraform-init-rds.sh
 ```
 
-See [deploy/terraform/README.md](terraform/README.md) for Helm value mapping, cost estimates, and CI validation (`make validate-terraform`).
+See [deploy/terraform/README.md](terraform/README.md) for Helm value mapping, cost estimates, operator scripts, and CI validation (`make validate-terraform`).
 
 ## Production Deployment
 

@@ -44,6 +44,18 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+variable "k8s_namespace" {
+  description = "Namespace where Pravah Helm release runs (IRSA trust policy)"
+  type        = string
+  default     = "pravah"
+}
+
+variable "k8s_service_account_name" {
+  description = "Pravah Kubernetes service account (Helm fullnameOverride)"
+  type        = string
+  default     = "pravah"
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

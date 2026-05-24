@@ -54,14 +54,14 @@ externalPostgres:
     connect-service: pravah_connect
     runner-service: pravah_runner
 
-# External S3-compatible artifact store (AWS S3, MinIO, etc.)
+# External S3-compatible artifact store (AWS S3 via Terraform IRSA or static keys)
 externalArtifact:
-  endpoint: ""
+  endpoint: "" # terraform output / https://s3.<region>.amazonaws.com
   region: us-east-1
-  accessKey: ""
-  secretKey: ""
   bucket: pravah-artifacts
-  existingSecret: pravah-artifact-credentials
+  irsa:
+    enabled: true # set serviceAccount.annotations from terraform output artifacts_irsa_role_arn
+  existingSecret: "" # not required when irsa.enabled=true
   existingSecretAccessKeyKey: access-key
   existingSecretSecretKeyKey: secret-key
 

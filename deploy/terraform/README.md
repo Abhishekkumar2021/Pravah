@@ -29,19 +29,10 @@ terraform apply
 
 aws eks update-kubeconfig --name "$(terraform output -raw eks_cluster_name)" --region us-east-1
 
-# Create per-service databases on RDS
-../../../../scripts/deploy/terraform-init-rds.sh
-
-# Create Kubernetes secrets (passwords from terraform output -raw)
-kubectl create namespace pravah
-kubectl -n pravah create secret generic pravah-postgres-credentials \
-  --from-literal=username="$(terraform output -raw postgres_username)" \
-  --from-literal=password="$(terraform output -raw postgres_password)"
-kubectl -n pravah create secret generic pravah-redis-credentials \
-  --from-literal=password="$(terraform output -raw redis_password)"
-
-# Helm / Argo CD with external endpoints
-terraform output -raw helm_values_snippet
+# From repo root:
+./scripts/deploy/terraform-create-k8s-secrets.sh
+./scripts/deploy/terraform-init-rds.sh
+./scripts/deploy/terraform-helm-bridge.sh
 # See deploy/README.md Production Deployment
 ```
 
@@ -60,6 +51,15 @@ make validate-terraform
 | `kafka_bootstrap_servers` | `externalKafka.bootstrapServers` (when MSK enabled) |
 | `artifact_bucket` | `externalArtifact.bucket` |
 | `artifact_region` | `externalArtifact.region` |
+| `artifacts_irsa_role_arn` | `serviceAccount.annotations.eks.amazonaws.com/role-arn` + `externalArtifact.irsa.enabled=true` |
+
+Operator scripts (from repo root after `terraform apply`):
+
+| Script | Purpose |
+|--------|---------|
+| `terraform-create-k8s-secrets.sh` | Postgres + Redis + pravah-credentials secrets |
+| `terraform-init-rds.sh` | Per-service databases (`postgres-init.sql`) |
+| `terraform-helm-bridge.sh` | Print Helm `--set` flags from outputs |
 
 Vault, SMTP, and GHCR pull secrets are operator-managed (not created by this stack).
 
