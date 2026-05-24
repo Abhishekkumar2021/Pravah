@@ -7,8 +7,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -33,29 +31,30 @@ public class ArtifactStorageConfig {
   @Bean
   public S3Client s3Client(ArtifactStorageProperties props) {
     log.info(
-        "Initializing S3 client for artifact storage: endpoint={}, bucket={}",
+        "Initializing S3 client for artifact storage: endpoint={}, bucket={}, irsa={}",
         props.endpoint(),
-        props.bucket());
+        props.bucket(),
+        props.useDefaultCredentials());
 
-    var credentials = AwsBasicCredentials.create(props.accessKey(), props.secretKey());
+    var pathStyle = ArtifactCredentialsProviders.usePathStyleAccess(props.endpoint());
 
     return S3Client.builder()
         .endpointOverride(URI.create(props.endpoint()))
         .region(Region.of(props.region()))
-        .credentialsProvider(StaticCredentialsProvider.create(credentials))
-        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+        .credentialsProvider(ArtifactCredentialsProviders.forArtifactStorage(props))
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(pathStyle).build())
         .build();
   }
 
   @Bean
   public S3Presigner s3Presigner(ArtifactStorageProperties props) {
-    var credentials = AwsBasicCredentials.create(props.accessKey(), props.secretKey());
+    var pathStyle = ArtifactCredentialsProviders.usePathStyleAccess(props.endpoint());
 
     return S3Presigner.builder()
         .endpointOverride(URI.create(props.endpoint()))
         .region(Region.of(props.region()))
-        .credentialsProvider(StaticCredentialsProvider.create(credentials))
-        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+        .credentialsProvider(ArtifactCredentialsProviders.forArtifactStorage(props))
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(pathStyle).build())
         .build();
   }
 

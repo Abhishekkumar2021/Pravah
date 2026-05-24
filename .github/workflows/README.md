@@ -8,6 +8,7 @@
 | **Pull Request** | `pull-request.yml` | Every PR | Conventional title, doc link check, size guard |
 | **Deploy** | `deploy.yml` | Push to `main`, GitHub Release published | Build & push service/runner images to GHCR; bump `values-prod.yaml` image tag on `main` |
 | **K8s Smoke** | `k8s-smoke-nightly.yml` | Nightly 03:00 UTC, PR (deploy/backend paths), manual | kind + Helm direct install + Argo CD GitOps sync + smoke |
+| **Terraform** | `terraform-ci.yml` | PR/push (`deploy/terraform/**`) | `terraform fmt`, `init`, `validate` (no AWS apply) |
 | **Release** | `release.yml` | Manual (`workflow_dispatch`) | Tag version, changelog, GitHub Release (then Deploy) |
 
 ## Required status checks (branch protection)

@@ -32,11 +32,14 @@ kubectl -n argocd port-forward svc/argocd-server 8443:443
 
 ## Production
 
-1. Install Argo CD in the cluster (operator choice — Helm, manifest, or managed).
-2. Apply `appproject-pravah.yaml`, then `applications/pravah-platform-production.yaml`.
-3. Configure external Postgres/Kafka/Redis/S3/SMTP/Vault in `values-prod.yaml` (or override via Argo CD parameters).
-4. Create Kubernetes secrets listed in [deploy/README.md](../README.md#production-deployment).
-5. Sync manually in Argo CD UI/CLI until staging validation passes; then enable automated sync in the Application manifest.
+**Prerequisite:** provision cloud infrastructure with [Terraform](../terraform/README.md) (pathway #10) before syncing this Application.
+
+1. `terraform apply` in `deploy/terraform/aws/reference` → EKS, RDS, Redis, S3, IRSA
+2. Install Argo CD in the cluster (operator choice — Helm, manifest, or managed).
+3. Apply `appproject-pravah.yaml`, then `applications/pravah-platform-production.yaml`.
+4. `./scripts/deploy/terraform-create-k8s-secrets.sh` and `./scripts/deploy/terraform-init-rds.sh`
+5. Configure external Postgres/Kafka/Redis/S3/SMTP/Vault via Terraform outputs + `terraform-helm-bridge.sh`
+6. Sync manually in Argo CD UI/CLI until staging validation passes; then enable automated sync in the Application manifest.
 
 Image tags: the **Deploy · GitOps image tag** job (`.github/workflows/deploy.yml`) commits the pinned `image.tag` to `values-prod.yaml` on every `main` push that builds backend images. Argo CD picks up the change on the next sync.
 

@@ -27,6 +27,7 @@ This is not a hackathon project. This is a production-grade system being built w
 | User stories | `docs/product/epics/` |
 | Theory/concepts | `docs/theory/` |
 | Working examples | `playground/` |
+| Cloud infrastructure (Terraform) | `deploy/terraform/README.md` |
 
 **If documentation doesn't exist for what you're building, STOP and ask.**
 

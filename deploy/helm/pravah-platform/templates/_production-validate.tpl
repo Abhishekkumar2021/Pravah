@@ -15,8 +15,8 @@ Production install guardrails (active when requireProductionSecrets=true).
 {{- if and (not .Values.redis.enabled) (not .Values.externalRedis.host) }}
 {{- fail "externalRedis.host is required when redis.enabled is false" }}
 {{- end }}
-{{- if and (not .Values.minio.enabled) (not .Values.externalArtifact.endpoint) (not .Values.externalArtifact.existingSecret) }}
-{{- fail "externalArtifact.endpoint or externalArtifact.existingSecret is required when minio.enabled is false" }}
+{{- if and (not .Values.minio.enabled) (not .Values.externalArtifact.endpoint) (not .Values.externalArtifact.existingSecret) (not .Values.externalArtifact.irsa.enabled) }}
+{{- fail "externalArtifact.endpoint, externalArtifact.existingSecret, or externalArtifact.irsa.enabled is required when minio.enabled is false" }}
 {{- end }}
 {{- if .Values.minio.enabled }}
 {{- fail "minio.enabled must be false in production; use externalArtifact (S3)" }}

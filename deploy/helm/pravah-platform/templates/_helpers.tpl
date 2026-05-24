@@ -399,6 +399,10 @@ Common environment variables for all services
   value: {{ $root.Values.externalArtifact.region | default "us-east-1" | quote }}
 - name: PRAVAH_ARTIFACT_BUCKET
   value: {{ if $root.Values.minio.enabled }}{{ $root.Values.minio.bucket | quote }}{{ else }}{{ $root.Values.externalArtifact.bucket | quote }}{{ end }}
+{{- if $root.Values.externalArtifact.irsa.enabled }}
+- name: PRAVAH_ARTIFACT_IRSA_ENABLED
+  value: "true"
+{{- else }}
 - name: PRAVAH_ARTIFACT_ACCESS_KEY
   valueFrom:
     secretKeyRef:
@@ -409,6 +413,7 @@ Common environment variables for all services
     secretKeyRef:
       name: {{ include "pravah.artifact.secretName" $root }}
       key: {{ if $root.Values.externalArtifact.existingSecret }}{{ $root.Values.externalArtifact.existingSecretSecretKeyKey }}{{ else if $root.Values.minio.enabled }}minio-secret-key{{ else }}artifact-secret-key{{ end }}
+{{- end }}
 {{- end }}
 {{- if eq $svcKey "scheduler-service" }}
 - name: EXECUTION_SERVICE_BASE_URL

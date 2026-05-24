@@ -209,6 +209,20 @@ cd web && VITE_API_BASE_URL=http://localhost:8080 npm run dev
 
 Sign in: `dev@localhost.pravah` / `PravahDev1!`
 
+## Cloud infrastructure (Terraform, pathway #10)
+
+Provision AWS managed services (VPC, EKS, RDS, ElastiCache, S3, optional MSK) before Helm/Argo CD:
+
+```bash
+cd deploy/terraform/aws/reference
+cp terraform.tfvars.example terraform.tfvars   # set unique artifacts_bucket_name
+terraform init && terraform apply
+aws eks update-kubeconfig --name "$(terraform output -raw eks_cluster_name)"
+../../../../scripts/deploy/terraform-init-rds.sh
+```
+
+See [deploy/terraform/README.md](terraform/README.md) for Helm value mapping, cost estimates, operator scripts, and CI validation (`make validate-terraform`).
+
 ## Production Deployment
 
 Use GHCR images from CI (`ghcr.io/abhishekkumar2021/pravah-*`) and external managed services (RDS, MSK, ElastiCache):

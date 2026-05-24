@@ -94,6 +94,7 @@ pravah:
     region: ${PRAVAH_ARTIFACT_REGION:us-east-1}
     access-key: ${PRAVAH_ARTIFACT_ACCESS_KEY:pravah}
     secret-key: ${PRAVAH_ARTIFACT_SECRET_KEY:pravah123}
+    use-default-credentials: ${PRAVAH_ARTIFACT_IRSA_ENABLED:false}
     bucket: ${PRAVAH_ARTIFACT_BUCKET:pravah-artifacts}
     presigned-url-expiry: ${PRAVAH_ARTIFACT_PRESIGNED_URL_EXPIRY:15m}
     max-artifact-size-bytes: ${PRAVAH_ARTIFACT_MAX_SIZE_BYTES:5368709120}

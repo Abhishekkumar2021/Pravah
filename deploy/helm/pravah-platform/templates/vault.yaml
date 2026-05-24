@@ -28,6 +28,7 @@ metadata:
     app.kubernetes.io/component: vault
 spec:
   replicas: 1
+  progressDeadlineSeconds: {{ .Values.vault.progressDeadlineSeconds | default 600 }}
   selector:
     matchLabels:
       app.kubernetes.io/component: vault
@@ -63,26 +64,39 @@ spec:
             capabilities:
               add:
                 - IPC_LOCK
+          {{- $vp := .Values.vault.probes | default dict }}
+          {{- $startup := index $vp "startup" | default dict }}
+          {{- $readiness := index $vp "readiness" | default dict }}
+          {{- $liveness := index $vp "liveness" | default dict }}
+          startupProbe:
+            exec:
+              command:
+                - vault
+                - status
+                - -address=http://127.0.0.1:8200
+            periodSeconds: {{ index $startup "periodSeconds" | default 5 }}
+            timeoutSeconds: {{ index $startup "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $startup "failureThreshold" | default 24 }}
           readinessProbe:
             exec:
               command:
                 - vault
                 - status
                 - -address=http://127.0.0.1:8200
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 6
+            initialDelaySeconds: {{ index $readiness "initialDelaySeconds" | default 5 }}
+            periodSeconds: {{ index $readiness "periodSeconds" | default 5 }}
+            timeoutSeconds: {{ index $readiness "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $readiness "failureThreshold" | default 6 }}
           livenessProbe:
             exec:
               command:
                 - vault
                 - status
                 - -address=http://127.0.0.1:8200
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
+            initialDelaySeconds: {{ index $liveness "initialDelaySeconds" | default 15 }}
+            periodSeconds: {{ index $liveness "periodSeconds" | default 10 }}
+            timeoutSeconds: {{ index $liveness "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $liveness "failureThreshold" | default 6 }}
           resources:
             {{- toYaml .Values.vault.resources | nindent 12 }}
 {{- end }}

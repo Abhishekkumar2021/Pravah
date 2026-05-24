@@ -8,11 +8,13 @@
 #   ./scripts/ci-backend.sh
 #   ./scripts/ci-web.sh
 #   ./scripts/ci-cli.sh
+#   ./scripts/ci-terraform.sh
 #
 # Optional skips:
 #   SKIP_BACKEND=1      — skip backend
 #   SKIP_WEB=1          — skip web
 #   SKIP_CLI=1          — skip CLI
+#   SKIP_TERRAFORM=1    — skip Terraform validate
 #   SKIP_INTEGRATION=1  — skip backend integrationTest (Docker/Testcontainers)
 #   SKIP_E2E=1          — skip Playwright e2e
 #   SKIP_OWASP=1        — skip OWASP dependency check (default in ci-backend.sh)
@@ -37,10 +39,12 @@ collect_changed_files() {
 DO_BACKEND=0
 DO_WEB=0
 DO_CLI=0
+DO_TERRAFORM=0
 
 [[ "${SKIP_BACKEND:-}" == "1" ]] && DO_BACKEND=-1
 [[ "${SKIP_WEB:-}" == "1" ]] && DO_WEB=-1
 [[ "${SKIP_CLI:-}" == "1" ]] && DO_CLI=-1
+[[ "${SKIP_TERRAFORM:-}" == "1" ]] && DO_TERRAFORM=-1
 
 files="$(collect_changed_files)"
 
@@ -48,6 +52,7 @@ if [[ "${FORCE_ALL:-}" == "1" ]] || [[ -z "$files" ]]; then
   [[ "$DO_BACKEND" != "-1" ]] && DO_BACKEND=1
   [[ "$DO_WEB" != "-1" ]] && DO_WEB=1
   [[ "$DO_CLI" != "-1" ]] && DO_CLI=1
+  [[ "$DO_TERRAFORM" != "-1" ]] && DO_TERRAFORM=1
 else
   only_docs=1
   while IFS= read -r f; do
@@ -80,6 +85,10 @@ else
       cli/*|.github/workflows/cli-ci.yml)
         [[ "$DO_CLI" != "-1" ]] && DO_CLI=1
         ;;
+      deploy/terraform/*|.github/workflows/terraform-ci.yml|scripts/deploy/validate-terraform.sh|scripts/deploy/terraform-*.sh|scripts/ci-terraform.sh|deploy/helm/**)
+        [[ "$DO_BACKEND" != "-1" ]] && DO_BACKEND=1
+        DO_TERRAFORM=1
+        ;;
       scripts/pre-commit.sh|scripts/ci-*.sh|.github/workflows/pull-request.yml)
         [[ "$DO_BACKEND" != "-1" ]] && DO_BACKEND=1
         [[ "$DO_WEB" != "-1" ]] && DO_WEB=1
@@ -89,13 +98,13 @@ else
   done <<<"$files"
 fi
 
-if [[ "$DO_BACKEND" != "1" && "$DO_WEB" != "1" && "$DO_CLI" != "1" ]]; then
+if [[ "$DO_BACKEND" != "1" && "$DO_WEB" != "1" && "$DO_CLI" != "1" && "$DO_TERRAFORM" != "1" ]]; then
   echo "No component checks selected (nothing to run)."
-  echo "  Use FORCE_ALL=1 or change files under backend/, web/, or cli/."
+  echo "  Use FORCE_ALL=1 or change files under backend/, web/, cli/, or deploy/terraform/."
   exit 0
 fi
 
-echo "Pre-commit plan: backend=$([[ $DO_BACKEND == 1 ]] && echo yes || echo no) web=$([[ $DO_WEB == 1 ]] && echo yes || echo no) cli=$([[ $DO_CLI == 1 ]] && echo yes || echo no)"
+echo "Pre-commit plan: backend=$([[ $DO_BACKEND == 1 ]] && echo yes || echo no) web=$([[ $DO_WEB == 1 ]] && echo yes || echo no) cli=$([[ $DO_CLI == 1 ]] && echo yes || echo no) terraform=$([[ $DO_TERRAFORM == 1 ]] && echo yes || echo no)"
 echo ""
 
 if [[ "$DO_BACKEND" == "1" ]]; then
@@ -110,6 +119,10 @@ fi
 if [[ "$DO_CLI" == "1" ]]; then
   export SKIP_GORELEASER_CHECK="${SKIP_GORELEASER_CHECK:-1}"
   "$ROOT/scripts/ci-cli.sh"
+fi
+
+if [[ "$DO_TERRAFORM" == "1" ]]; then
+  "$ROOT/scripts/ci-terraform.sh"
 fi
 
 echo ""

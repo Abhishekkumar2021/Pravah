@@ -9,6 +9,32 @@ ingress:
 runnerPki:
   enabled: false
 
+# Bundled dev Vault is slow on shared GitHub Actions runners; relax probes and deadline.
+vault:
+  progressDeadlineSeconds: 1200
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    startup:
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 60
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 18
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 10
+
 probes:
   startup:
     failureThreshold: 90
