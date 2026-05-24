@@ -348,8 +348,8 @@ Integrate Prometheus, Jaeger, Loki.
 
 **Estimate:** 13 points
 
-### T-09.08: KEDA Integration
-Configure KEDA for auto-scaling.
+### T-09.09: Argo CD GitOps
+Argo CD Application manifests and local install script (ADR-010, pathway #9). **Partial (2026-05):** `deploy/argocd/`, `k8s-local-argocd.sh`, Helm CI manifest validation.
 
 **Estimate:** 8 points
 

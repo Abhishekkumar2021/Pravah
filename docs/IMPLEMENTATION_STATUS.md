@@ -319,7 +319,7 @@ All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
 | CLI | `cd cli && make build` or `make install` |
-| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-smoke.sh`, `k8s-ci-smoke.sh` (kind CI) |
+| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-argocd.sh`, `k8s-local-smoke.sh`, `k8s-ci-smoke.sh` (kind CI) |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
 See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md), and [cli/README.md](../cli/README.md).
@@ -335,7 +335,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 | HashiCorp Vault KV resolver (ADR-007) | Partial | `HttpVaultKvClient` + Spring wiring; pipeline-service `vault:path#key`; Testcontainers IT (`ConnectionCredentialResolverVaultIT`) |
 | Vault Transit tenant secrets (ADR-007) | Partial | `HttpVaultTransitClient`; pipeline-service `transit` provider stores ciphertext in Postgres; write-only `value` on create/update; decrypt at execution (`SecretTransitIT`); Helm `vault-transit-init` job + `k8s-local-vault-transit.sh` |
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
-| Argo CD GitOps | Planned | ADR-010; beta |
+| Argo CD GitOps | Partial (beta) | `deploy/argocd/` AppProject + Applications; `k8s-local-argocd.sh`; CI manifest validation (`validate-argocd-manifests.sh`) |
 | Terraform (cloud) | Planned | US-09.06+ |
 
 ---

@@ -1,0 +1,52 @@
+# Argo CD GitOps (ADR-010, production pathway #9)
+#
+# AppProject + Application manifests for reconciling deploy/helm/pravah-platform
+# from Git. Local/kind uses automated sync; production uses manual sync (example).
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pravah
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: pravah-platform
+spec:
+  description: Pravah control plane (Helm umbrella chart)
+  sourceRepos:
+    - https://github.com/Abhishekkumar2021/Pravah.git
+    - https://github.com/Abhishekkumar2021/Pravah
+  destinations:
+    - namespace: pravah
+      server: https://kubernetes.default.svc
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: batch
+      kind: Job
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+    - group: cert-manager.io
+      kind: Certificate
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

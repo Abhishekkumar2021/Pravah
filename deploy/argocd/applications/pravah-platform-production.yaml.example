@@ -1,0 +1,47 @@
+# Production Application template (ADR-010). Copy and customize for your cluster.
+#
+# - Set targetRevision to a release tag or protected branch (e.g. main).
+# - Pre-create external secrets (Postgres, Kafka, SMTP, internal-service, runner TLS).
+# - Set image.tag to a pinned digest or semver tag from CI (never `latest`).
+# - Manual sync by default; enable automated sync only after staging validation.
+#
+#   cp deploy/argocd/applications/pravah-platform-production.yaml.example \
+#      deploy/argocd/applications/pravah-platform-production.yaml
+#   kubectl apply -f deploy/argocd/applications/pravah-platform-production.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pravah-platform-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: pravah-platform
+    pravah.io/environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: pravah
+  source:
+    repoURL: https://github.com/Abhishekkumar2021/Pravah.git
+    targetRevision: main
+    path: deploy/helm/pravah-platform
+    helm:
+      releaseName: pravah
+      valueFiles:
+        - values.yaml
+        - values-prod.yaml
+      parameters:
+        - name: requireProductionSecrets
+          value: "true"
+        - name: image.tag
+          value: REPLACE_WITH_PINNED_TAG
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pravah
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # Manual sync: omit automated block until staging promotion is approved.
+    # automated:
+    #   selfHeal: true
+    #   prune: false

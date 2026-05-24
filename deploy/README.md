@@ -137,6 +137,30 @@ Alternatively:
 kubectl -n pravah wait --for=condition=ready pod --all --timeout=600s
 ```
 
+### 3b. GitOps with Argo CD (pathway #9, ADR-010)
+
+Install Argo CD and let it reconcile `deploy/helm/pravah-platform` from Git instead of direct `helm upgrade`:
+
+```bash
+./scripts/deploy/k8s-local-build.sh          # load :local images into kind first
+./scripts/deploy/k8s-local-argocd.sh pravah  # installs Argo CD + Application
+./scripts/deploy/k8s-local-smoke.sh pravah
+```
+
+Manifests live in `deploy/argocd/`:
+
+| File | Purpose |
+|------|---------|
+| `appproject-pravah.yaml` | AppProject RBAC (namespace `pravah`, Git repo allowlist) |
+| `applications/pravah-platform-local.yaml` | Auto-sync from `develop` with `values-local.yaml` |
+| `applications/pravah-platform-production.yaml.example` | Production template (manual sync, `values-prod.yaml`) |
+
+**Important:** Argo CD reads the chart from **Git** (`develop` branch), not your working tree. Push chart changes before expecting Argo CD to apply them.
+
+Production: copy the production Application example, set a pinned `image.tag`, pre-create external secrets, apply to your Argo CD instance. Rollback = Git revert or `argocd app rollback`.
+
+Validate manifests locally: `make validate-argocd`
+
 ### CI / nightly kind smoke
 
 GitHub Actions workflow **K8s · kind smoke** (`.github/workflows/k8s-smoke-nightly.yml`) runs daily at 03:00 UTC and on PRs that touch `deploy/`, `scripts/deploy/`, or `backend/`:
