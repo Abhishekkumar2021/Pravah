@@ -82,6 +82,7 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 - [x] HA configuration (PDB/HPA/replicas in `values-prod.yaml`; external managed deps)
 - [x] Clear installation docs (`deploy/README.md`)
 - [x] GitOps Application manifests (`deploy/argocd/`; local auto-sync + production manual sync; CI smoke)
+- [x] Terraform AWS reference stack (`deploy/terraform/`; outputs map to `values-prod.yaml` externals)
 
 **Story Points:** 13  
 **Priority:** P0
@@ -340,7 +341,7 @@ Build docker-compose for local dev.
 **Estimate:** 5 points
 
 ### T-09.06: Terraform Modules
-Build Terraform for cloud deployment.
+Build Terraform for cloud deployment. **Partial (2026-05):** AWS modules under `deploy/terraform/modules/`; reference stack `deploy/terraform/aws/reference`; Helm output mapping; `validate-terraform.sh` CI.
 
 **Estimate:** 21 points
 

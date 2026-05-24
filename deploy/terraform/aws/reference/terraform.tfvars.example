@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and customize before terraform apply.
+# Bucket names must be globally unique.
+
+aws_region            = "us-east-1"
+environment           = "staging"
+cluster_name          = "pravah"
+artifacts_bucket_name = "pravah-artifacts-CHANGE-ME-staging"
+
+# MSK adds ~$400+/month for 3x kafka.m5.large brokers; enable for production Kafka.
+enable_msk = false
+
+# Cost optimization for staging
+single_nat_gateway = true
+
+availability_zones = ["us-east-1a", "us-east-1b"]

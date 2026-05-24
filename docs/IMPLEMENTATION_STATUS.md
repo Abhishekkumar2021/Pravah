@@ -336,7 +336,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 | Vault Transit tenant secrets (ADR-007) | Partial | `HttpVaultTransitClient`; pipeline-service `transit` provider stores ciphertext in Postgres; write-only `value` on create/update; decrypt at execution (`SecretTransitIT`); Helm `vault-transit-init` job + `k8s-local-vault-transit.sh` |
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
 | Argo CD GitOps | Partial (beta) | `deploy/argocd/` AppProject + Applications (local + production); `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`; GitOps image tag bump on `main` (`deploy.yml`); gateway `/api/v1/secrets/**` route; prod `pipeline-service.needsVault` |
-| Terraform (cloud) | Planned | US-09.06+ |
+| Terraform (cloud) | Partial (beta) | `deploy/terraform/` AWS modules (VPC, EKS, RDS, ElastiCache, S3, optional MSK); reference stack + `terraform-init-rds.sh`; CI validate (`terraform-ci.yml`) |
 
 ---
 
