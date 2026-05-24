@@ -128,6 +128,7 @@ spec:
               value: {{ .Values.pravah.gatewayIpAllowlistEnabled | quote }}
             - name: PRAVAH_GATEWAY_IP_ALLOWLIST_CIDRS
               value: {{ .Values.pravah.gatewayIpAllowlistCidrs | quote }}
+{{- include "pravah.tracingEnv" (dict "root" . "serviceName" "gateway") | nindent 12 }}
             {{- range $k, $v := $gw.extraEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}

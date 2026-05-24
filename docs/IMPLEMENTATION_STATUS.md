@@ -2,7 +2,7 @@
 
 > **Source of truth** for what is built in this repository vs what is documented as the long-term target architecture.  
 > Update this file whenever you ship or stub a user-facing capability.  
-> **Last updated:** 2026-05-23
+> **Last updated:** 2026-05-24
 
 ---
 
@@ -160,7 +160,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 
 **APIs (via gateway → notification-service):** `GET/POST/PUT/DELETE /api/v1/alert-rules`, `GET /api/v1/audit-logs`, `GET/POST /api/v1/notifications`, `GET/PUT /api/v1/notification-preferences`.
 
-**Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards, metrics pipeline. Example Grafana alert rules for rate-limit fail-open and outbox dead-letter: `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
+**Not yet:** SLA/anomaly alerts, PagerDuty, routing rules, snooze, maintenance windows, custom dashboards. **Partial:** metrics pipeline via kube-prometheus-stack + Grafana dashboard (`deploy/observability/`); OTLP tracing to Jaeger; example alert rules in `deploy/observability/grafana/provisioning/alerting/pravah-platform.yml`.
 
 ---
 
@@ -319,7 +319,8 @@ All implemented services expose OpenAPI 3.0 specifications via SpringDoc:
 | Seed demo data | `make local-seed` |
 | Web dev server | `make local-web` or `cd web && npm run dev` |
 | CLI | `cd cli && make build` or `make install` |
-| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-argocd.sh`, `k8s-local-smoke.sh`, `k8s-ci-smoke.sh`, `k8s-ci-smoke-argocd.sh` (kind CI) |
+| Kubernetes (Helm, local) | [deploy/README.md](../deploy/README.md) — `k8s-local-build.sh`, `k8s-local-install.sh`, `k8s-local-argocd.sh`, `k8s-local-smoke.sh`, `k8s-local-observability.sh`, `k8s-ci-smoke.sh`, `k8s-ci-smoke-argocd.sh` (kind CI) |
+| Deployment guide | [docs/deployment/DEPLOYMENT_GUIDE.md](../docs/deployment/DEPLOYMENT_GUIDE.md) — local, free cloud, AWS |
 | Pre-commit (CI parity) | `./scripts/pre-commit.sh` |
 
 See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md), and [cli/README.md](../cli/README.md).
@@ -337,6 +338,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 | GHCR service images | Implemented | `.github/workflows/deploy.yml` on `main` |
 | Argo CD GitOps | Partial (beta) | `deploy/argocd/` AppProject + Applications (local + production); `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`; GitOps image tag bump on `main` (`deploy.yml`); gateway `/api/v1/secrets/**` route; prod `pipeline-service.needsVault` |
 | Terraform (cloud) | Partial (beta) | `deploy/terraform/` AWS modules (VPC, EKS, RDS, ElastiCache, S3, IRSA, optional MSK); reference stack; operator scripts; execution-service S3 IRSA; CI validate |
+| Observability stack (US-09.14) | Partial (beta) | `deploy/observability/` kube-prometheus-stack + Jaeger; Grafana dashboard; ServiceMonitors + OTLP tracing (`values-observability.yaml`); `k8s-local-observability.sh` |
 
 ---
 

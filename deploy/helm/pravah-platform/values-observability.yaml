@@ -1,0 +1,23 @@
+# Observability overlay (pathway #11). Use with local or production installs after
+# installing the monitoring stack (see deploy/observability/README.md).
+#
+#   helm upgrade --install pravah deploy/helm/pravah-platform \
+#     -f deploy/helm/pravah-platform/values.yaml \
+#     -f deploy/helm/pravah-platform/values-local.yaml \
+#     -f deploy/helm/pravah-platform/values-observability.yaml \
+#     --namespace pravah --create-namespace
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus
+
+observability:
+  tracing:
+    enabled: true
+    endpoint: http://jaeger-collector.monitoring.svc.cluster.local:4318/v1/traces
+    samplingProbability: "1.0"

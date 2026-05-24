@@ -34,6 +34,8 @@ class PravahSpringBootConventionsPlugin : Plugin<Project> {
             add("implementation", "org.springframework.boot:spring-boot-starter-actuator")
             add("implementation", catalog.library("logstash-logback-encoder"))
             add("implementation", "io.micrometer:micrometer-registry-prometheus")
+            add("implementation", catalog.library("micrometer-tracing-bridge-otel"))
+            add("implementation", catalog.library("opentelemetry-exporter-otlp"))
             add("testImplementation", "org.springframework.boot:spring-boot-starter-test")
         }
     }

@@ -273,7 +273,7 @@ topologySpreadConstraints:
   topologyKey: topology.kubernetes.io/zone
   whenUnsatisfiable: ScheduleAnyway
 
-# Enable Prometheus ServiceMonitor
+# Enable Prometheus ServiceMonitor + OTLP tracing (set endpoint to your collector)
 metrics:
   enabled: true
   serviceMonitor:
@@ -282,3 +282,9 @@ metrics:
     interval: 30s
     labels:
       release: prometheus
+
+observability:
+  tracing:
+    enabled: false   # enable with values-observability.yaml or set endpoint below
+    endpoint: ""     # e.g. http://jaeger-collector.monitoring:4318/v1/traces
+    samplingProbability: "0.1"

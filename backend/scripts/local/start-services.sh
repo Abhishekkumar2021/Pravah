@@ -75,26 +75,28 @@ echo "Pre-compiling service modules (single Gradle process)..."
   :services:gateway:classes \
   --no-daemon -q
 
-# Boot order: JWKS issuer first, then consumers, gateway last. Stagger bootRun to avoid Gradle lock timeouts.
+# Boot order: JWKS issuer first, then consumers, gateway last.
+# Wait for each port before the next bootRun so Gradle buildLogic.lock is not contended.
 start_one tenant-service :services:tenant-service
-wait_for_port 8082 tenant-service 90 || true
+wait_for_port 8082 tenant-service 120 || true
 start_one pipeline-service :services:pipeline-service
-sleep 8
+wait_for_port 8083 pipeline-service 120 || true
 start_one execution-service :services:execution-service
-sleep 8
+wait_for_port 8084 execution-service 120 || true
 start_one scheduler-service :services:scheduler-service
-sleep 8
+wait_for_port 8085 scheduler-service 120 || true
 start_one notification-service :services:notification-service
-sleep 8
+wait_for_port 8088 notification-service 120 || true
 start_one connect-service :services:connect-service
-sleep 8
+wait_for_port 8091 connect-service 120 || true
 start_one runner-service :services:runner-service
-sleep 8
+wait_for_port 8086 runner-service 120 || true
 start_one metadata-service :services:metadata-service
-sleep 8
+wait_for_port 8087 metadata-service 90 || true
 start_one agent-service :services:agent-service
-sleep 8
+wait_for_port 8089 agent-service 90 || true
 start_one gateway :services:gateway
+wait_for_port 8080 gateway 90 || true
 
 echo ""
 echo "Services starting in background. Logs: $PRAVAH_LOCAL_LOG_DIR"

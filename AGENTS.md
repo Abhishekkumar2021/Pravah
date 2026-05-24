@@ -17,6 +17,7 @@ This is not a hackathon project. This is a production-grade system being built w
 | Need | Location |
 |------|----------|
 | **What is built in this repo** | `docs/IMPLEMENTATION_STATUS.md` |
+| **Deploy locally or to cloud** | `docs/deployment/DEPLOYMENT_GUIDE.md` |
 | Architecture decisions | `docs/adr/` |
 | Design patterns | `docs/lld/01-design-patterns.md` |
 | Database schemas | `docs/lld/02-database-erd.md` |

@@ -242,7 +242,7 @@ Secure the platform with authentication, authorization, secrets management, and 
 - [x] Per-token rate limits (gateway: `ratelimit:apitoken:{id}`; lower RPS than tenant JWT)
 - [x] Configurable limits (`pravah.ratelimit.*` env vars; tenant tier via `TenantConfigCache`)
 - [x] 429 response with retry-after (gateway + webhook hooks)
-- [ ] Monitoring and alerting (Prometheus metric `pravah_ratelimit_requests_total`; Grafana/alert rules not wired)
+- [x] Monitoring and alerting _(Prometheus metrics + PrometheusRule alerts in `deploy/observability/prometheus-rules/`; Grafana dashboard)_
 
 **Story Points:** 5  
 **Priority:** P0
