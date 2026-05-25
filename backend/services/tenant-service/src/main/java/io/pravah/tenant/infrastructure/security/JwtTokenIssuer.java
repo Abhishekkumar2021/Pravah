@@ -56,22 +56,39 @@ public class JwtTokenIssuer {
   private static final int RSA_KEY_SIZE = 2048;
 
   private final String issuer;
+  private final String configuredSigningKeyPem;
+  private final boolean requireConfiguredSigningKey;
   private final CopyOnWriteArrayList<RSAKey> activeKeys = new CopyOnWriteArrayList<>();
   private volatile RSAKey currentSigningKey;
   private volatile JWSSigner currentSigner;
 
-  public JwtTokenIssuer(@Value("${pravah.security.jwt.issuer}") String issuer) {
+  public JwtTokenIssuer(
+      @Value("${pravah.security.jwt.issuer}") String issuer,
+      @Value("${pravah.security.jwt.signing-key-pem:}") String configuredSigningKeyPem,
+      @Value("${pravah.security.jwt.require-configured-signing-key:false}")
+          boolean requireConfiguredSigningKey) {
     this.issuer = issuer;
+    this.configuredSigningKeyPem = configuredSigningKeyPem;
+    this.requireConfiguredSigningKey = requireConfiguredSigningKey;
   }
 
   @PostConstruct
   public void initializeKey() {
     try {
-      RSAKey rsaKey = generateNewKey();
+      RSAKey rsaKey;
+      if (configuredSigningKeyPem != null && !configuredSigningKeyPem.isBlank()) {
+        rsaKey = parseConfiguredSigningKey(configuredSigningKeyPem);
+        log.info("Loaded configured JWT signing key", kv("kid", rsaKey.getKeyID()));
+      } else if (requireConfiguredSigningKey) {
+        throw new IllegalStateException(
+            "pravah.security.jwt.signing-key-pem is required in production");
+      } else {
+        rsaKey = generateNewKey();
+        log.info("Generated ephemeral JWT signing key", kv("kid", rsaKey.getKeyID()));
+      }
       currentSigningKey = rsaKey;
       currentSigner = new RSASSASigner(rsaKey);
       activeKeys.add(rsaKey);
-      log.info("Initialized JWT signing key", kv("kid", rsaKey.getKeyID()));
     } catch (JOSEException e) {
       throw new IllegalStateException("Failed to initialize JWT signing key", e);
     }
@@ -257,6 +274,25 @@ public class JwtTokenIssuer {
       return new RSAKeyGenerator(RSA_KEY_SIZE).keyID(kid).generate();
     } catch (JOSEException e) {
       throw new TokenGenerationException("Failed to generate RSA key", e);
+    }
+  }
+
+  private static RSAKey parseConfiguredSigningKey(String raw) {
+    String trimmed = raw.trim();
+    try {
+      if (trimmed.startsWith("{")) {
+        RSAKey key = RSAKey.parse(trimmed);
+        if (key.getKeyID() == null) {
+          key =
+              new RSAKey.Builder(key)
+                  .keyID("pravah-configured-" + UUID.randomUUID().toString().substring(0, 8))
+                  .build();
+        }
+        return key;
+      }
+      return (RSAKey) RSAKey.parseFromPEMEncodedObjects(trimmed);
+    } catch (ParseException | JOSEException e) {
+      throw new IllegalStateException("Invalid JWT signing key material", e);
     }
   }
 

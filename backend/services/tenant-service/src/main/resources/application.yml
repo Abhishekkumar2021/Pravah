@@ -63,6 +63,9 @@ pravah:
   security:
     jwt:
       issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
+      signing-key-pem: ${PRAVAH_JWT_SIGNING_KEY:}
+      require-configured-signing-key: ${PRAVAH_JWT_REQUIRE_CONFIGURED_SIGNING_KEY:false}
+      blocklist-required: ${PRAVAH_JWT_BLOCKLIST_REQUIRED:false}
       jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
   cache:
     enabled: ${PRAVAH_CACHE_ENABLED:true}

@@ -318,6 +318,8 @@ Common environment variables for all services
   value: {{ printf "http://%s-tenant-service:%v/.well-known/jwks.json" (include "pravah.fullname" $root) (index $root.Values.services "tenant-service").port | quote }}
 - name: PRAVAH_JWT_ISSUER
   value: {{ $root.Values.pravah.jwtIssuer | quote }}
+- name: PRAVAH_JWT_BLOCKLIST_REQUIRED
+  value: {{ $root.Values.pravah.jwtBlocklistRequired | quote }}
 {{- if $svc.needsPostgres }}
 {{- $dbName := $svc.database -}}
 {{- if not $root.Values.postgres.enabled -}}
@@ -393,6 +395,15 @@ Common environment variables for all services
 {{- if eq $svcKey "tenant-service" }}
 - name: PRAVAH_AUTH_REGISTRATION_TENANT_ID
   value: {{ $root.Values.pravah.registrationTenantId | quote }}
+{{- if or $root.Values.pravah.jwtSigningKey $root.Values.pravah.jwtSigningExistingSecret (eq $root.Values.pravah.jwtRequireConfiguredSigningKey "true") }}
+- name: PRAVAH_JWT_SIGNING_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ $root.Values.pravah.jwtSigningExistingSecret | default (include "pravah.secretName" $root) }}
+      key: {{ $root.Values.pravah.jwtSigningExistingSecretKey | default "jwt-signing-key" }}
+{{- end }}
+- name: PRAVAH_JWT_REQUIRE_CONFIGURED_SIGNING_KEY
+  value: {{ $root.Values.pravah.jwtRequireConfiguredSigningKey | quote }}
 - name: PRAVAH_FRONTEND_URL
   value: {{ $root.Values.pravah.frontendBaseUrl | quote }}
 - name: PRAVAH_AUTH_REFRESH_COOKIE_SECURE

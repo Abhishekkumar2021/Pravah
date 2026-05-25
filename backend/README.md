@@ -124,7 +124,19 @@ The gateway enforces per-tenant, per-API-token, and per-IP rate limits using a *
 | `pravah.ratelimit.default-burst-capacity` | `PRAVAH_RATE_LIMIT_BURST` | `200` | Tenant burst capacity |
 | `pravah.ratelimit.api-token-requests-per-second` | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | API token RPS |
 | `pravah.ratelimit.api-token-burst-capacity` | `PRAVAH_RATE_LIMIT_API_TOKEN_BURST` | `100` | API token burst |
-| `pravah.ratelimit.fail-open` | `PRAVAH_RATE_LIMIT_FAIL_OPEN` | `true` | Allow traffic when Redis/script errors (`outcome=fail_open` metric when true) |
+| `pravah.ratelimit.fail-open` | `PRAVAH_RATE_LIMIT_FAIL_OPEN` | `true` | Allow traffic when Redis/script errors (`outcome=fail_open` metric when true). Set `false` in production. |
+
+JWT blocklist checks **fail closed** when Redis errors (ADR-012). Revoked tokens are rejected on gateway, servlet APIs, and WebSocket upgrade.
+
+### JWT signing key (tenant-service, ADR-009)
+
+| Property | Env override | Default | Purpose |
+|----------|--------------|---------|---------|
+| `pravah.security.jwt.signing-key-pem` | `PRAVAH_JWT_SIGNING_KEY` | _(ephemeral key in dev)_ | RSA private key (PEM or JWK JSON); must be stable across tenant-service replicas in production |
+| `pravah.security.jwt.require-configured-signing-key` | `PRAVAH_JWT_REQUIRE_CONFIGURED_SIGNING_KEY` | `false` | Fail startup when signing key is missing |
+| `pravah.security.jwt.blocklist-required` | `PRAVAH_JWT_BLOCKLIST_REQUIRED` | `false` | Deny JWT auth when Redis blocklist is not configured |
+
+Helm: store key in Secret key `jwt-signing-key`; production overlay sets `jwtRequireConfiguredSigningKey` and `jwtBlocklistRequired`.
 
 Responses when limited: HTTP **429**, `Retry-After`, `X-RateLimit-Remaining`, `X-RateLimit-Limit`. Metrics: `pravah_ratelimit_requests_total` (outcomes: `allowed`, `denied`, `fail_open`) on `/actuator/prometheus`. Outbox dead letters: `pravah_outbox_dead_lettered_total{service,event_type,topic}`.
 

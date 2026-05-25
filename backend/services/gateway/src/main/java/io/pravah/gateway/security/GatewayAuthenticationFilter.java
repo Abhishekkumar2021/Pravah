@@ -87,10 +87,18 @@ public class GatewayAuthenticationFilter implements GlobalFilter, Ordered {
             })
         .onErrorResume(
             e -> {
-              log.debug("JWT validation failed: {}", e.getMessage());
+              if (looksLikeJwt(token)) {
+                log.debug("JWT validation failed: {}", e.getMessage());
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+              }
               return chain.filter(
                   exchange.mutate().principal(Mono.just(GatewayPrincipal.anonymous())).build());
             });
+  }
+
+  private static boolean looksLikeJwt(String token) {
+    return token != null && token.startsWith("eyJ");
   }
 
   private Mono<Void> continueWithJwt(
@@ -127,7 +135,9 @@ public class GatewayAuthenticationFilter implements GlobalFilter, Ordered {
   }
 
   private boolean isPublicPath(String path) {
-    return path.startsWith("/actuator/")
+    return path.startsWith("/actuator/health")
+        || path.startsWith("/actuator/info")
+        || path.startsWith("/actuator/prometheus")
         || path.equals("/.well-known/jwks.json")
         || path.startsWith("/api/v1/auth/")
         || path.startsWith("/api/v1/hooks/");

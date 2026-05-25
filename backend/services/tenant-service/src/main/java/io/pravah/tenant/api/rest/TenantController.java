@@ -23,6 +23,7 @@ public class TenantController {
   }
 
   @PostMapping
+  @PreAuthorize("@permissionChecker.hasAny('users:*')")
   public ResponseEntity<TenantResponse> createTenant(
       @Valid @RequestBody CreateTenantRequest request) {
     TenantResponse response = tenantService.createTenant(request);

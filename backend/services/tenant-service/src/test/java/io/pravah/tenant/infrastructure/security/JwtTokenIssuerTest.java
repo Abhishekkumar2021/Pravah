@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -23,7 +25,7 @@ class JwtTokenIssuerTest {
 
   @BeforeEach
   void setUp() {
-    jwtTokenIssuer = new JwtTokenIssuer(TEST_ISSUER);
+    jwtTokenIssuer = new JwtTokenIssuer(TEST_ISSUER, "", false);
     jwtTokenIssuer.initializeKey();
   }
 
@@ -181,11 +183,36 @@ class JwtTokenIssuerTest {
     assertThat(token1).isNotEqualTo(token2);
   }
 
+  @Test
+  void initializeKey_loadsConfiguredJwkJson() throws Exception {
+    RSAKey rsaKey = new RSAKeyGenerator(2048).keyID("test-configured-key").generate();
+    String privateJwk = rsaKey.toJSONString();
+
+    JwtTokenIssuer configured = new JwtTokenIssuer(TEST_ISSUER, privateJwk, true);
+    configured.initializeKey();
+
+    String token = configured.generateAccessToken(UUID.randomUUID(), UUID.randomUUID());
+    validateAndGetClaimsWithIssuer(token, configured);
+  }
+
+  @Test
+  void initializeKey_requiresConfiguredKeyWhenFlagSet() {
+    JwtTokenIssuer issuer = new JwtTokenIssuer(TEST_ISSUER, "", true);
+    org.assertj.core.api.Assertions.assertThatThrownBy(issuer::initializeKey)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("signing-key-pem");
+  }
+
   private JWTClaimsSet validateAndGetClaims(String token) throws Exception {
+    return validateAndGetClaimsWithIssuer(token, jwtTokenIssuer);
+  }
+
+  private JWTClaimsSet validateAndGetClaimsWithIssuer(String token, JwtTokenIssuer issuer)
+      throws Exception {
     var processor = new DefaultJWTProcessor<>();
     var keySelector =
         new JWSVerificationKeySelector<>(
-            JWSAlgorithm.RS256, new ImmutableJWKSet<>(jwtTokenIssuer.getJwks()));
+            JWSAlgorithm.RS256, new ImmutableJWKSet<>(issuer.getJwks()));
     processor.setJWSKeySelector(keySelector);
     return processor.process(token, null);
   }

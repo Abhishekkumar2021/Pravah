@@ -2,6 +2,7 @@ package io.pravah.execution.infrastructure.realtime;
 
 import io.pravah.spring.security.JwtTokenVerifier;
 import io.pravah.spring.security.JwtTokenVerifier.JwtVerificationException;
+import io.pravah.spring.security.OptionalJwtBlocklistChecker;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -35,9 +36,12 @@ public class JwtWebSocketHandshakeInterceptor implements HandshakeInterceptor {
   private static final String BEARER_PREFIX = "Bearer ";
 
   private final JwtTokenVerifier jwtTokenVerifier;
+  private final OptionalJwtBlocklistChecker blocklistChecker;
 
-  public JwtWebSocketHandshakeInterceptor(JwtTokenVerifier jwtTokenVerifier) {
+  public JwtWebSocketHandshakeInterceptor(
+      JwtTokenVerifier jwtTokenVerifier, OptionalJwtBlocklistChecker blocklistChecker) {
     this.jwtTokenVerifier = jwtTokenVerifier;
+    this.blocklistChecker = blocklistChecker;
   }
 
   @Override
@@ -53,6 +57,10 @@ public class JwtWebSocketHandshakeInterceptor implements HandshakeInterceptor {
     }
     try {
       var claims = jwtTokenVerifier.validateAndGetClaims(token);
+      if (claims.jwtId() != null && blocklistChecker.isBlocklisted(claims.jwtId())) {
+        log.debug("WebSocket handshake rejected: blocklisted JWT");
+        return false;
+      }
       UUID tenantId = claims.tenantId();
       UUID userId = claims.userId();
       attributes.put(ATTR_TENANT_ID, tenantId);

@@ -225,6 +225,10 @@ pravah:
   internalServiceExistingSecretKey: internal-service-secret
   runnerBootstrapExistingSecret: pravah-credentials
   runnerBootstrapExistingSecretKey: runner-bootstrap-secret
+  jwtSigningExistingSecret: pravah-credentials
+  jwtSigningExistingSecretKey: jwt-signing-key
+  jwtRequireConfiguredSigningKey: "true"
+  jwtBlocklistRequired: "true"
   rateLimitFailOpen: "false"
   rateLimitEnabled: "true"
   authRefreshCookieSecure: "true"
@@ -267,6 +271,7 @@ autoscaling:
 networkPolicy:
   enabled: true
   allowExternalEgress: true
+  monitoringNamespace: monitoring
   dnsPodLabels:
     k8s-app: kube-dns
 
