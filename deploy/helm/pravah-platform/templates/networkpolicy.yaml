@@ -252,4 +252,47 @@ spec:
         - port: 8200
           protocol: TCP
 {{- end }}
+{{- if and .Values.networkPolicy.enabled .Values.metrics.enabled .Values.networkPolicy.monitoringNamespace }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-monitoring-scrape
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace | quote }}
+{{- end }}
+{{- $runner := index .Values.services "runner-service" }}
+{{- if and $runner.enabled $runner.exposeGrpc.enabled .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "pravah.fullname" . }}-runner-grpc-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: runner-service
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: {{ $runner.grpcPort | default 9091 }}
+          protocol: TCP
+{{- end }}
 {{- end }}

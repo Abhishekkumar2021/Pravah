@@ -28,7 +28,7 @@ public class JwtBlocklistChecker {
    * Check if a JWT is blocklisted (revoked).
    *
    * @param jti the JWT ID (jti claim)
-   * @return true if blocklisted, false if valid
+   * @return true if blocklisted or if the check cannot be completed (fail closed per ADR-012)
    */
   public Mono<Boolean> isBlocklisted(String jti) {
     if (jti == null || jti.isBlank()) {
@@ -38,7 +38,7 @@ public class JwtBlocklistChecker {
     return redisTemplate
         .hasKey(BLOCKLIST_PREFIX + jti)
         .doOnError(e -> log.warn("JWT blocklist check failed for jti={}: {}", jti, e.getMessage()))
-        .onErrorReturn(false);
+        .onErrorReturn(true);
   }
 
   /**

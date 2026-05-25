@@ -502,6 +502,10 @@ pravah:
   internalServiceExistingSecret: ""
   internalServiceExistingSecretKey: internal-service-secret
   jwtSigningKey: ""
+  jwtSigningExistingSecret: ""
+  jwtSigningExistingSecretKey: jwt-signing-key
+  jwtRequireConfiguredSigningKey: "false"
+  jwtBlocklistRequired: "false"
   devTenantId: "11111111-1111-4111-8111-111111111111"
   registrationTenantId: "11111111-1111-4111-8111-111111111111"
   realtimeRedisEnabled: "true"
@@ -604,12 +608,16 @@ networkPolicy:
   enabled: false
   # Allow egress to external managed Postgres/Kafka/Redis/S3/SMTP (required in production)
   allowExternalEgress: false
+  # Allow Prometheus scrapes from the monitoring namespace when networkPolicy.enabled
+  monitoringNamespace: monitoring
   externalEgressPorts:
     - 5432
     - 9092
     - 6379
     - 443
     - 587
+    - 4317
+    - 4318
   # DNS pod labels vary by cluster (kube-dns vs coredns)
   dnsNamespaceSelector: {}
   dnsPodLabels:

@@ -22,12 +22,13 @@ import org.springframework.mock.web.MockHttpServletRequest;
 class JwtWebSocketHandshakeInterceptorTest {
 
   @Mock private JwtTokenVerifier jwtTokenVerifier;
+  @Mock private io.pravah.spring.security.OptionalJwtBlocklistChecker blocklistChecker;
 
   private JwtWebSocketHandshakeInterceptor interceptor;
 
   @BeforeEach
   void setUp() {
-    interceptor = new JwtWebSocketHandshakeInterceptor(jwtTokenVerifier);
+    interceptor = new JwtWebSocketHandshakeInterceptor(jwtTokenVerifier, blocklistChecker);
   }
 
   @Test
@@ -56,6 +57,27 @@ class JwtWebSocketHandshakeInterceptorTest {
     boolean allowed =
         interceptor.beforeHandshake(
             new ServletServerHttpRequest(new MockHttpServletRequest()), null, null, attributes);
+    assertThat(allowed).isFalse();
+    assertThat(attributes).isEmpty();
+  }
+
+  @Test
+  void beforeHandshake_blocklistedToken_rejects() {
+    UUID tenantId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
+    when(jwtTokenVerifier.validateAndGetClaims("revoked-token"))
+        .thenReturn(
+            new JwtClaims(
+                userId, tenantId, "jti-revoked", Instant.now(), Instant.now().plusSeconds(900)));
+    when(blocklistChecker.isBlocklisted("jti-revoked")).thenReturn(true);
+
+    MockHttpServletRequest servlet = new MockHttpServletRequest();
+    servlet.setParameter("access_token", "revoked-token");
+    Map<String, Object> attributes = new HashMap<>();
+
+    boolean allowed =
+        interceptor.beforeHandshake(new ServletServerHttpRequest(servlet), null, null, attributes);
+
     assertThat(allowed).isFalse();
     assertThat(attributes).isEmpty();
   }

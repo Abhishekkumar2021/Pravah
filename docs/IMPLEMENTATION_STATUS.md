@@ -171,7 +171,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | Gateway rate limiting | Implemented | Redis token bucket per-tenant/API-token/IP (ADR-012), HTTP 429 + Retry-After + `X-RateLimit-*` headers; `pravah.ratelimit.fail-open` (default true) with `fail_open` Prometheus outcome |
 | Webhook rate limiting | Implemented | Redis token bucket per trigger (`ratelimit:webhook:{id}`), shared Lua script in `libs/common` |
 | Rate limit metrics | Implemented | `pravah_ratelimit_requests_total{layer,gateway\|webhook,key_type,outcome}` on `/actuator/prometheus` |
-| JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012); optional `JwtBlocklistChecker` in servlet services when Redis is configured |
+| JWT token revocation | Implemented | Redis blocklist with TTL matching token expiry (ADR-012); **fail closed** on Redis errors (gateway + servlet); WebSocket upgrade checks blocklist; `pravah.security.jwt.blocklist-required` for production |
 | Service JWT + internal S2S | Partial | `ApiTenantJwtFilter` skips `/api/v1/internal/**`; `InternalServiceAuthFilter` on internal routes; `@PreAuthorize` on pipeline, execution, scheduler, connect, notification, tenant, runner public APIs; tenant-service refresh JWT in HttpOnly cookie + in-memory access token in web |
 | Gateway circuit breaker | Implemented | Resilience4j reactive circuit breaker for all backend routes (LLD-01) |
 | Request logging | Implemented | Structured JSON logs with tenant_id, user_id, request_id, duration, route |
@@ -188,6 +188,8 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | `PRAVAH_RATE_LIMIT_BURST` | `200` | Burst capacity for token bucket |
 | `PRAVAH_RATE_LIMIT_API_TOKEN_RPS` | `50` | RPS for API token access (lower) |
 | `PRAVAH_CACHE_ENABLED` | `true` | Enable/disable tenant config caching |
+| `PRAVAH_JWT_SIGNING_KEY` | _(unset locally)_ | RSA private key (PEM or JWK JSON) for tenant-service JWT signing; required in production (`PRAVAH_JWT_REQUIRE_CONFIGURED_SIGNING_KEY=true`) |
+| `PRAVAH_JWT_BLOCKLIST_REQUIRED` | `false` | When `true`, deny JWTs if Redis blocklist is unavailable (production Helm overlay) |
 
 **Tests:** `RateLimitGatewayFilterTest`, `RedisRateLimiterIT` (gateway); `WebhookRateLimiterTest`, `RedisTokenBucketRateLimiterIT` (spring-support).
 
@@ -205,7 +207,7 @@ The [High-Level Architecture](architecture/high-level-architecture.md) describes
 | US-10.05 Built-in roles | Implemented | Viewer/Editor/Admin/Owner seeded with permissions |
 | US-10.08 API tokens | Implemented | Expiration, scopes, hash-at-rest, revoke, `last_used_at` |
 | US-10.14 API rate limiting | Partial | Gateway: per-tenant/token/IP limits, 429, Retry-After, Prometheus metrics; tier limits via tenant cache; no dedicated alert rules yet |
-| Tenant bootstrap hardening | Partial | `POST /api/v1/tenants` requires authentication (no public tenant creation); self-service signup uses configured `registrationTenantId` |
+| Tenant bootstrap hardening | Implemented | `POST /api/v1/tenants` requires authentication + `@PreAuthorize('users:*')`; self-service signup uses configured `registrationTenantId` |
 | RLS maintenance jobs | Partial | `SystemMaintenanceRlsHelper` + Flyway policies for cross-tenant scheduled work (timeouts, stale runners, artifact cleanup) |
 | Scheduler catch-up | Partial | `skip`, `run_all`, and `coalesce` (combined interval in execution params); failed triggers retain `next_run_at` for retry |
 | Execution upstream failures | Partial | PENDING jobs blocked by failed upstream are failed so executions do not stay RUNNING indefinitely |

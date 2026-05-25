@@ -31,11 +31,9 @@ public class SecurityConfig {
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth
-                    // Health and metrics endpoints open
-                    .requestMatchers("/actuator/**")
+                auth.requestMatchers(
+                        "/actuator/health/**", "/actuator/info", "/actuator/prometheus")
                     .permitAll()
-                    // All API endpoints require authentication
                     .requestMatchers("/api/**")
                     .authenticated()
                     .anyRequest()

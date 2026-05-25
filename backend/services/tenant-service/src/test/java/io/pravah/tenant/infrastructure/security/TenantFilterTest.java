@@ -42,7 +42,7 @@ class TenantFilterTest {
         new TenantFilter(
             jwtTokenVerifier,
             apiTokenAuthenticator,
-            new io.pravah.spring.security.OptionalJwtBlocklistChecker(null));
+            new io.pravah.spring.security.OptionalJwtBlocklistChecker(null, false));
   }
 
   @AfterEach

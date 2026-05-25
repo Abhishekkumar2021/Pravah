@@ -38,7 +38,7 @@ public class JwtBlocklistChecker {
       return Boolean.TRUE.equals(exists);
     } catch (Exception e) {
       log.warn("JWT blocklist check failed for jti={}: {}", jti, e.getMessage());
-      return false;
+      return true;
     }
   }
 }
