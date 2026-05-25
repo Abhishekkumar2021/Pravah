@@ -1,21 +1,17 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { hasValidSession, refreshAccessToken } from "@/lib/api";
+import { ensureAccessToken, hasValidSession } from "@/lib/api";
 
 /** Redirects unauthenticated users to sign-in, preserving the intended destination. */
 export function RequireAuth() {
   const location = useLocation();
-  const [checking, setChecking] = useState(!hasValidSession());
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (hasValidSession()) {
-      setChecking(false);
-      return;
-    }
     let cancelled = false;
-    void refreshAccessToken()
-      .catch(() => null)
-      .then(() => {
+    void ensureAccessToken()
+      .catch(() => undefined)
+      .finally(() => {
         if (!cancelled) {
           setChecking(false);
         }

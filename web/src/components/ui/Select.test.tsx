@@ -38,4 +38,28 @@ describe("Select", () => {
 
     expect(onValueChange).toHaveBeenCalledWith("running");
   });
+
+  it("shows placeholder when value is empty and skips empty-string options", async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        aria-label="Connection"
+        value=""
+        onValueChange={vi.fn()}
+        placeholder="Select a connection"
+        options={[
+          { value: "", label: "Invalid placeholder option" },
+          { value: "conn-1", label: "Warehouse" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Connection" })).toHaveTextContent(
+      "Select a connection",
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Connection" }));
+    expect(screen.getByRole("option", { name: "Warehouse" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Invalid placeholder option" })).not.toBeInTheDocument();
+  });
 });

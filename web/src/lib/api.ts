@@ -66,6 +66,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
     if (res.status === 204) {
       return undefined as T;
     }
+    const contentType = res.headers?.get?.("content-type") ?? "";
+    if (contentType.includes("text/html")) {
+      await res.text();
+      throw new ApiError(
+        "API returned HTML instead of JSON. The service may be unavailable or the request was routed incorrectly.",
+        res.status,
+      );
+    }
     return (await res.json()) as T;
   }
   if (
@@ -87,6 +95,11 @@ async function handleResponse<T>(res: Response): Promise<T> {
     errorCode = body.errorCode;
   } catch {
     message = await res.text().catch(() => res.statusText);
+  }
+  if (res.status === 403 && (!message || message === "Forbidden")) {
+    message = getAccessToken()
+      ? "You don't have permission to perform this action."
+      : "Your session expired. Sign in again to continue.";
   }
   throw new ApiError(message, res.status, errorCode);
 }
@@ -269,6 +282,8 @@ export async function login(email: string, password: string): Promise<AuthTokenR
   return body;
 }
 
+let refreshInFlight: Promise<AuthTokenResponse | null> | null = null;
+
 /** Renew access token using HttpOnly refresh cookie (ADR-009). */
 export async function refreshAccessToken(): Promise<AuthTokenResponse | null> {
   const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
@@ -282,6 +297,24 @@ export async function refreshAccessToken(): Promise<AuthTokenResponse | null> {
   setAccessToken(body.accessToken);
   setStoredUser(body.user);
   return body;
+}
+
+/**
+ * Returns a bearer token for API calls, restoring the in-memory session from the
+ * refresh cookie when needed (page reload / new tab per ADR-009).
+ */
+export async function ensureAccessToken(): Promise<string | undefined> {
+  const existing = getAccessToken()?.trim();
+  if (existing) {
+    return existing;
+  }
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  await refreshInFlight;
+  return getAccessToken()?.trim();
 }
 
 /** Self-service signup (US-10.01). Sends verification email; does not sign in. */
@@ -1193,7 +1226,10 @@ export async function listAuditLogs(opts?: {
     page: opts?.page ?? 0,
     size: opts?.size ?? 50,
   });
-  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  const token = await ensureAccessToken();
+  const res = await fetch(apiUrl(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   return handleResponse<AuditLogPage>(res);
 }
 
@@ -1391,29 +1427,28 @@ export async function listConnectors(params?: { type?: ConnectorType; search?: s
   if (params?.type) searchParams.set("type", params.type);
   if (params?.search) searchParams.set("search", params.search);
   const query = searchParams.toString();
-  // Note: connect-service runs on port 8090, would need API gateway routing
-  const res = await fetch(apiUrl(`/connect/api/v1/connectors${query ? `?${query}` : ""}`), {
+  const res = await fetch(apiUrl(`/api/v1/connectors${query ? `?${query}` : ""}`), {
     headers: authHeaders(),
   });
   return handleResponse<ConnectorSpec[]>(res);
 }
 
 export async function listSourceConnectors(): Promise<ConnectorSpec[]> {
-  const res = await fetch(apiUrl("/connect/api/v1/connectors/sources"), {
+  const res = await fetch(apiUrl("/api/v1/connectors/sources"), {
     headers: authHeaders(),
   });
   return handleResponse<ConnectorSpec[]>(res);
 }
 
 export async function listSinkConnectors(): Promise<ConnectorSpec[]> {
-  const res = await fetch(apiUrl("/connect/api/v1/connectors/sinks"), {
+  const res = await fetch(apiUrl("/api/v1/connectors/sinks"), {
     headers: authHeaders(),
   });
   return handleResponse<ConnectorSpec[]>(res);
 }
 
 export async function getConnectorSpec(connectorId: string): Promise<ConnectorSpec> {
-  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}`), {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}`), {
     headers: authHeaders(),
   });
   return handleResponse<ConnectorSpec>(res);
@@ -1423,7 +1458,7 @@ export async function validateConnectorConfig(
   connectorId: string,
   config: Record<string, unknown>,
 ): Promise<ValidationResult> {
-  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/validate`), {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/validate`), {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -1435,7 +1470,7 @@ export async function testConnectorConfig(
   connectorId: string,
   config: Record<string, unknown>,
 ): Promise<TestResult> {
-  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/test`), {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/test`), {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -1447,7 +1482,7 @@ export async function discoverStreams(
   connectorId: string,
   config: Record<string, unknown>,
 ): Promise<StreamInfo[]> {
-  const res = await fetch(apiUrl(`/connect/api/v1/connectors/${connectorId}/discover`), {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/discover`), {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(config),

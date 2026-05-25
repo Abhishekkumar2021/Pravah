@@ -112,7 +112,7 @@ export type EditorActions = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const STAGE_TYPE_META: Record<StageType, { label: string; description: string; icon: string }> = {
-  sql: { label: "SQL", description: "Query a database connection", icon: "database" },
+  sql: { label: "SQL", description: "Run JDBC queries against a saved connection", icon: "database" },
   container: { label: "Container", description: "Run a Docker image", icon: "container" },
   python: { label: "Python", description: "Execute a Python script", icon: "code" },
   echo: { label: "Echo", description: "Debug / placeholder stage", icon: "message" },
@@ -125,7 +125,7 @@ export const STAGE_TYPES = Object.keys(STAGE_TYPE_META) as StageType[];
 function defaultConfigForType(type: StageType): Record<string, unknown> {
   switch (type) {
     case "sql":
-      return { query: "SELECT 1", connectionId: "" };
+      return { query: "SELECT 1", connection: "" };
     case "container":
       return { image: "alpine:3.19", command: ["echo", "hello"], env: [] };
     case "python":
@@ -137,6 +137,28 @@ function defaultConfigForType(type: StageType): Record<string, unknown> {
     default:
       return { message: "hello from echo" };
   }
+}
+
+/** Merge persisted stage config with type defaults (YAML may omit config or partial fields). */
+export function normalizeStageConfig(
+  type: StageType,
+  config?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const merged = { ...defaultConfigForType(type), ...(config ?? {}) };
+  if (type === "sql") {
+    delete merged.connectionId;
+  }
+  return merged;
+}
+
+function normalizeStage(stage: StageDefinition): StageDefinition {
+  const type = (stage.type as StageType) ?? "echo";
+  return {
+    ...stage,
+    type,
+    config: normalizeStageConfig(type, stage.config),
+    dependsOn: stage.dependsOn ?? stage.depends_on ?? [],
+  };
 }
 
 const STAGE_NAME_PREFIX: Record<StageType, string> = {
@@ -167,16 +189,19 @@ function createStageDefinition(type: StageType, index: number): StageDefinition 
 function stagesToNodes(stages: StageDefinition[]): Node<StageNodeData>[] {
   const colWidth = 220;
   const rowHeight = 120;
-  return stages.map((stage, index) => ({
-    id: stage.id,
-    type: "stageNode",
-    position: { x: (index % 3) * colWidth + 40, y: Math.floor(index / 3) * rowHeight + 40 },
-    data: {
-      stage,
-      label: stage.name ?? stage.id,
-      stageType: (stage.type as StageType) ?? "echo",
-    },
-  }));
+  return stages.map((rawStage, index) => {
+    const stage = normalizeStage(rawStage);
+    return {
+      id: stage.id,
+      type: "stageNode",
+      position: { x: (index % 3) * colWidth + 40, y: Math.floor(index / 3) * rowHeight + 40 },
+      data: {
+        stage,
+        label: stage.name ?? stage.id,
+        stageType: (stage.type as StageType) ?? "echo",
+      },
+    };
+  });
 }
 
 function stagesToEdges(stages: StageDefinition[]): Edge[] {

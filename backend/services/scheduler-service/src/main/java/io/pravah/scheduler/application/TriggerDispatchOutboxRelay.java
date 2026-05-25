@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.scheduler.domain.model.PipelineTrigger;
 import io.pravah.scheduler.domain.repository.PipelineTriggerRepository;
 import io.pravah.scheduler.infrastructure.leader.LeaderElectionService;
+import io.pravah.scheduler.infrastructure.persistence.SchedulerRlsHelper;
 import io.pravah.scheduler.infrastructure.persistence.entity.TriggerDispatchPendingEntity;
 import io.pravah.scheduler.infrastructure.persistence.repository.TriggerDispatchPendingRepository;
 import io.pravah.spring.multitenancy.TenantContext;
@@ -33,6 +34,7 @@ public class TriggerDispatchOutboxRelay {
   private final PipelineTriggerRepository triggerRepository;
   private final PipelineTriggerDispatchService dispatchService;
   private final TriggerDispatchRecorder recorder;
+  private final SchedulerRlsHelper schedulerRlsHelper;
   private final ObjectMapper objectMapper;
   private final Clock clock;
   private final int maxAttempts;
@@ -43,6 +45,7 @@ public class TriggerDispatchOutboxRelay {
       PipelineTriggerRepository triggerRepository,
       PipelineTriggerDispatchService dispatchService,
       TriggerDispatchRecorder recorder,
+      SchedulerRlsHelper schedulerRlsHelper,
       ObjectMapper objectMapper,
       Clock clock,
       @Value("${pravah.scheduler.trigger-retry.max-attempts:5}") int maxAttempts) {
@@ -51,6 +54,7 @@ public class TriggerDispatchOutboxRelay {
     this.triggerRepository = triggerRepository;
     this.dispatchService = dispatchService;
     this.recorder = recorder;
+    this.schedulerRlsHelper = schedulerRlsHelper;
     this.objectMapper = objectMapper;
     this.clock = clock;
     this.maxAttempts = maxAttempts;
@@ -62,7 +66,13 @@ public class TriggerDispatchOutboxRelay {
     if (!leaderElectionService.isLeader()) {
       return;
     }
-    List<TriggerDispatchPendingEntity> due = pendingRepository.findDueForRetry(clock.instant());
+    List<TriggerDispatchPendingEntity> due;
+    try {
+      schedulerRlsHelper.enableTriggerDispatchRelay();
+      due = pendingRepository.findDueForRetry(clock.instant());
+    } finally {
+      schedulerRlsHelper.disableTriggerDispatchRelay();
+    }
     for (TriggerDispatchPendingEntity pending : due) {
       if (pending.getAttempts() >= maxAttempts) {
         pending.markExhausted();

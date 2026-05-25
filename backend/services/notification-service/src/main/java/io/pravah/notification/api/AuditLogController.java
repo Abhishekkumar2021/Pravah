@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,8 @@ public class AuditLogController {
   }
 
   @GetMapping
-  @PreAuthorize("@permissionChecker.hasAny('settings:read', 'users:*')")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('settings:read', 'users:*', 'pipelines:read', 'pipelines:*', 'executions:read', 'executions:*', '*')")
   public Page<AuditLogResponse> list(
       @RequestParam(required = false) String action,
       @RequestParam(required = false) String resourceType,
@@ -45,7 +47,8 @@ public class AuditLogController {
       throw new IllegalStateException("No tenant context");
     }
 
-    Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+    Pageable pageable =
+        PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<AuditLogEntity> results =
         auditLogService.queryLogs(
             tenantId, action, resourceType, resourceId, actorId, from, to, pageable);
@@ -54,6 +57,8 @@ public class AuditLogController {
   }
 
   @GetMapping("/resource")
+  @PreAuthorize(
+      "@permissionChecker.hasAny('settings:read', 'users:*', 'pipelines:read', 'pipelines:*', 'executions:read', 'executions:*', '*')")
   public Page<AuditLogResponse> getResourceHistory(
       @RequestParam String resourceType,
       @RequestParam UUID resourceId,
@@ -65,7 +70,8 @@ public class AuditLogController {
       throw new IllegalStateException("No tenant context");
     }
 
-    Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+    Pageable pageable =
+        PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
     Page<AuditLogEntity> results =
         auditLogService.getResourceHistory(tenantId, resourceType, resourceId, pageable);
 

@@ -1,5 +1,6 @@
-import { Trash2 } from "lucide-react";
+import { Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
@@ -8,6 +9,7 @@ import {
   selectSelectedNode,
   STAGE_TYPES,
   STAGE_TYPE_META,
+  normalizeStageConfig,
   type StageType,
 } from "./editorStore";
 import { ContainerConfigForm } from "./config-forms/ContainerConfigForm";
@@ -23,23 +25,16 @@ const typeOptions = STAGE_TYPES.map((type) => ({
 }));
 
 function defaultConfigForType(type: StageType): Record<string, unknown> {
-  switch (type) {
-    case "sql":
-      return { query: "SELECT 1", connectionId: "" };
-    case "container":
-      return { image: "alpine:3.19", command: ["echo", "hello"], env: [] };
-    case "python":
-      return { script: "print('hello')", requirements: [], pythonVersion: "3.11" };
-    case "dbt":
-      return { select: "tag:daily", exclude: "", fullRefresh: false };
-    case "spark":
-      return { mainClass: "com.example.App", jarPath: "", args: [], sparkConf: {} };
-    default:
-      return { message: "hello from echo" };
-  }
+  return normalizeStageConfig(type);
 }
 
-export function StageConfigPanel() {
+export function StageConfigPanel({
+  expanded = false,
+  onToggleExpand,
+}: {
+  expanded?: boolean;
+  onToggleExpand?: () => void;
+}) {
   const selectedNode = useEditorStore(selectSelectedNode);
   const updateNode = useEditorStore((s) => s.updateNode);
   const deleteNode = useEditorStore((s) => s.deleteNode);
@@ -75,6 +70,7 @@ export function StageConfigPanel() {
 
   const { stage } = selectedNode.data;
   const stageType = (stage.type as StageType) ?? "echo";
+  const stageConfig = normalizeStageConfig(stageType, stage.config);
   const nodeErrors = validationErrors.filter((e) => e.nodeId === selectedNode.id);
 
   const handleIdChange = (newId: string) => {
@@ -104,10 +100,25 @@ export function StageConfigPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
           Stage Configuration
         </p>
+        {onToggleExpand && (
+          <IconButton
+            type="button"
+            size="sm"
+            aria-label={expanded ? "Collapse configuration panel" : "Expand configuration panel"}
+            aria-pressed={expanded}
+            onClick={onToggleExpand}
+          >
+            {expanded ? (
+              <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+          </IconButton>
+        )}
       </div>
 
       {/* Basic properties */}
@@ -164,42 +175,42 @@ export function StageConfigPanel() {
       {/* Type-specific config form */}
       {stageType === "sql" && (
         <SqlConfigForm
-          config={stage.config as Parameters<typeof SqlConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof SqlConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />
       )}
       {stageType === "container" && (
         <ContainerConfigForm
-          config={stage.config as Parameters<typeof ContainerConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof ContainerConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />
       )}
       {stageType === "python" && (
         <PythonConfigForm
-          config={stage.config as Parameters<typeof PythonConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof PythonConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />
       )}
       {stageType === "echo" && (
         <EchoConfigForm
-          config={stage.config as Parameters<typeof EchoConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof EchoConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />
       )}
       {stageType === "dbt" && (
         <DbtConfigForm
-          config={stage.config as Parameters<typeof DbtConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof DbtConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />
       )}
       {stageType === "spark" && (
         <SparkConfigForm
-          config={stage.config as Parameters<typeof SparkConfigForm>[0]["config"]}
+          config={stageConfig as Parameters<typeof SparkConfigForm>[0]["config"]}
           onChange={handleConfigChange}
           errors={nodeErrors}
         />

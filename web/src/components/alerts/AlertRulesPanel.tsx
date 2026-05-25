@@ -2,9 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { Bell, Plus, Trash2, ToggleLeft, ToggleRight, Settings } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageError } from "@/components/ui/PageError";
 import { useToast } from "@/components/ui/Toast";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   type AlertRuleResponse,
   listAlertRules,
@@ -43,25 +54,26 @@ function parseChannels(channelsJson: string): string {
 export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
   const [rules, setRules] = useState<AlertRuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<AlertRuleResponse | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AlertRuleResponse | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const { addToast } = useToast();
 
   const fetchRules = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await listAlertRules(pipelineId);
       setRules(data);
     } catch (err) {
-      addToast({
-        type: "error",
-        title: "Failed to load alert rules",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setRules([]);
     } finally {
       setLoading(false);
     }
-  }, [pipelineId, addToast]);
+  }, [pipelineId]);
 
   useEffect(() => {
     void fetchRules();
@@ -86,11 +98,13 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
     }
   }
 
-  async function handleDelete(rule: AlertRuleResponse) {
-    if (!window.confirm(`Delete alert rule "${rule.name}"?`)) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteAlertRule(rule.id);
-      addToast({ type: "success", title: `Rule "${rule.name}" deleted` });
+      await deleteAlertRule(deleteTarget.id);
+      addToast({ type: "success", title: `Rule "${deleteTarget.name}" deleted` });
+      setDeleteTarget(null);
       void fetchRules();
     } catch (err) {
       addToast({
@@ -98,40 +112,59 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
         title: "Failed to delete rule",
         description: err instanceof Error ? err.message : "Unknown error",
       });
+    } finally {
+      setDeleting(false);
     }
   }
 
   if (loading) {
     return (
-      <div className={embedded ? "space-y-4" : "p-6 space-y-6"}>
-        {!embedded && <h1 className="text-2xl font-semibold">Alert Rules</h1>}
+      <div className={embedded ? "space-y-4" : "space-y-6"}>
+        {!embedded ? (
+          <PageHeader
+            icon={Bell}
+            iconAccent="from-rose-500 to-pink-600 shadow-rose-500/20 ring-rose-400/20"
+            title="Alert Rules"
+            description="Configure notifications for workflow failures, completions, and other events."
+          />
+        ) : null}
         <TableSkeleton headers={["Name", "Triggers", "Channels", "Status", "Actions"]} />
       </div>
     );
   }
 
   return (
-    <div className={embedded ? "space-y-4" : "p-6 space-y-6"}>
-      <div className="flex items-center justify-between gap-4">
-        {!embedded ? (
-          <div>
-            <h1 className="text-2xl font-semibold">Alert Rules</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Configure notifications for workflow failures, completions, and other events
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
+    <div className={embedded ? "space-y-4" : "space-y-6"}>
+      {!embedded ? (
+        <PageHeader
+          icon={Bell}
+          iconAccent="from-rose-500 to-pink-600 shadow-rose-500/20 ring-rose-400/20"
+          title="Alert Rules"
+          description="Configure notifications for workflow failures, completions, and other events."
+          actions={
+            <Button onClick={() => setShowCreateDialog(true)} className="gap-2 shrink-0">
+              <Plus className="h-4 w-4" aria-hidden />
+              Create rule
+            </Button>
+          }
+        />
+      ) : (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-neutral-500">
             Email, Slack, or webhook notifications when this workflow fails or completes.
           </p>
-        )}
-        <Button onClick={() => setShowCreateDialog(true)} className="shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Rule
-        </Button>
-      </div>
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2 shrink-0">
+            <Plus className="h-4 w-4" aria-hidden />
+            Create rule
+          </Button>
+        </div>
+      )}
 
-      {rules.length === 0 ? (
+      {error ? (
+        <PageError title="Could not load alert rules" message={error} onRetry={() => void fetchRules()} />
+      ) : null}
+
+      {!error && rules.length === 0 ? (
         <EmptyState
           icon={<Bell className="w-12 h-12 text-muted-foreground" />}
           title={pipelineId ? "No alerts for this workflow" : "No alert rules"}
@@ -147,21 +180,21 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
             </Button>
           }
         />
-      ) : (
+      ) : !error ? (
         <DataTable>
-          <table className="w-full">
+          <table className="table-data">
             <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Triggers</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Channels</th>
-                <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                <th className="text-right py-3 px-4 font-medium text-muted-foreground">Actions</th>
+              <tr>
+                <th>Name</th>
+                <th>Triggers</th>
+                <th>Channels</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b border-border hover:bg-muted/50">
+                <tr key={rule.id}>
                   <td className="py-3 px-4">
                     <div className="font-medium">{rule.name}</div>
                     {rule.description && (
@@ -211,7 +244,7 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void handleDelete(rule)}
+                        onClick={() => setDeleteTarget(rule)}
                         title="Delete rule"
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
@@ -223,7 +256,7 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
             </tbody>
           </table>
         </DataTable>
-      )}
+      ) : null}
 
       {showCreateDialog && (
         <AlertRuleFormDialog
@@ -247,6 +280,28 @@ export function AlertRulesPanel({ pipelineId, embedded = false }: Props) {
           }}
         />
       )}
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete alert rule?</DialogTitle>
+            <DialogDescription>
+              <strong>{deleteTarget?.name}</strong> will stop sending notifications immediately. This
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary" disabled={deleting}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="button" variant="danger" loading={deleting} onClick={() => void confirmDelete()}>
+              Delete rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

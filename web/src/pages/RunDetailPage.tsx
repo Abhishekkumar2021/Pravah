@@ -4,6 +4,7 @@ import { Ban, ChevronRight, Clock, Folder, Hash, PlayCircle, RotateCcw, Settings
 import { IndicatorBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   Dialog,
   DialogContent,
@@ -241,7 +242,19 @@ export function RunDetailPage() {
         </div>
       </div>
 
-      {loading && <p className="text-sm text-neutral-500">Loading execution…</p>}
+      {loading && (
+        <div className="grid gap-6 lg:grid-cols-2" aria-busy="true" aria-label="Loading execution">
+          <Card className="space-y-4 p-6">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </Card>
+          <Card className="space-y-4 p-6">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-24 w-full" />
+          </Card>
+        </div>
+      )}
       {error && (
         <Card className="border-rose-200/80 bg-gradient-to-br from-rose-50 to-white dark:border-rose-900/50 dark:from-rose-950/40 dark:to-neutral-950">
           <div className="flex items-start gap-3">
@@ -428,7 +441,7 @@ export function RunDetailPage() {
                 <CardHeader>
                   <CardTitle>Stage timeline</CardTitle>
                   <CardDescription>
-                    Gantt overview by stage. Bar lengths are equal until start/end timestamps are available from the API.
+                    One row per stage with proportional bars from queued, start, and end timestamps. Parallel stages overlap in time on separate lanes.
                   </CardDescription>
                 </CardHeader>
                 <div className="px-6 pb-6">

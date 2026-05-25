@@ -1,5 +1,6 @@
 import { Plus, Trash2, FileCode2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ExpandableTextarea } from "@/components/ui/ExpandableTextarea";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
@@ -64,17 +65,17 @@ export function PythonConfigForm({ config, onChange, errors }: PythonConfigFormP
         <Label htmlFor="python-script">
           Script <span className="text-rose-500">*</span>
         </Label>
-        <textarea
+        <ExpandableTextarea
           id="python-script"
           value={config.script ?? ""}
           onChange={(e) => onChange({ ...config, script: e.target.value })}
           placeholder="# Your Python code here&#10;import json&#10;&#10;def main():&#10;    result = {'status': 'success'}&#10;    print(json.dumps(result))&#10;&#10;if __name__ == '__main__':&#10;    main()"
-          rows={12}
-          className={`mt-1.5 w-full rounded-lg border bg-white px-3 py-2 font-mono text-sm shadow-sm transition-colors placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-neutral-900 dark:text-neutral-100 ${
-            scriptError
-              ? "border-rose-500 focus:border-rose-500"
-              : "border-neutral-200 hover:border-neutral-300 focus:border-blue-500 dark:border-neutral-700 dark:hover:border-neutral-600"
-          }`}
+          rows={10}
+          mono
+          invalid={!!scriptError}
+          expandTitle="Python script"
+          expandDescription="Print JSON to stdout for structured stage outputs."
+          minHeightClass="min-h-[14rem]"
         />
         {scriptError && (
           <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{scriptError.message}</p>

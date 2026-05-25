@@ -1,28 +1,45 @@
 import { useState, useEffect, useCallback } from "react";
-import { FileText, ChevronLeft, ChevronRight, Download, Filter, X } from "lucide-react";
+import { FileText, ChevronLeft, ChevronRight, Download, Filter, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Pill } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageError } from "@/components/ui/PageError";
 import { useToast } from "@/components/ui/Toast";
-import { type AuditLogEntry, type AuditLogPage, listAuditLogs } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ApiError, type AuditLogEntry, type AuditLogPage, listAuditLogs } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import { formatShortDateTime } from "@/lib/format";
+
+type PillVariant = "default" | "blue" | "green" | "amber" | "rose";
+
+function actionPillVariant(action: string): PillVariant {
+  if (action.includes("created")) return "green";
+  if (action.includes("deleted") || action.includes("failed")) return "rose";
+  if (action.includes("updated") || action.includes("modified")) return "blue";
+  return "default";
+}
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const { addToast } = useToast();
 
-  // Filters
   const [actionFilter, setActionFilter] = useState("");
   const [resourceTypeFilter, setResourceTypeFilter] = useState("");
 
-  async function fetchLogs() {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data: AuditLogPage = await listAuditLogs({
         action: actionFilter || undefined,
@@ -34,33 +51,17 @@ export default function AuditLogPage() {
       setTotalPages(data.totalPages);
       setTotalElements(data.totalElements);
     } catch (err) {
-      addToast({
-        type: "error",
-        title: "Failed to load audit logs",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
+      const message = err instanceof ApiError ? err.message : "Unknown error";
+      setError(message);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [actionFilter, resourceTypeFilter, page]);
 
   useEffect(() => {
-    fetchLogs();
-  }, [page, actionFilter, resourceTypeFilter]);
-
-  function formatTimestamp(ts: string): string {
-    const date = new Date(ts);
-    return date.toLocaleString();
-  }
-
-  function getActionBadgeColor(action: string): string {
-    if (action.includes("created")) return "bg-green-100 text-green-800";
-    if (action.includes("deleted")) return "bg-red-100 text-red-800";
-    if (action.includes("updated") || action.includes("modified"))
-      return "bg-blue-100 text-blue-800";
-    if (action.includes("failed")) return "bg-red-100 text-red-800";
-    return "bg-gray-100 text-gray-800";
-  }
+    void fetchLogs();
+  }, [fetchLogs]);
 
   function clearFilters() {
     setActionFilter("");
@@ -71,7 +72,16 @@ export default function AuditLogPage() {
   const exportToCsv = useCallback(() => {
     if (logs.length === 0) return;
 
-    const headers = ["Timestamp", "Actor Type", "Actor Name", "Action", "Resource Type", "Resource ID", "Resource Name", "IP Address"];
+    const headers = [
+      "Timestamp",
+      "Actor Type",
+      "Actor Name",
+      "Action",
+      "Resource Type",
+      "Resource ID",
+      "Resource Name",
+      "IP Address",
+    ];
     const rows = logs.map((entry) => [
       entry.createdAt,
       entry.actorType,
@@ -95,7 +105,7 @@ export default function AuditLogPage() {
     link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    
+
     addToast({
       type: "success",
       title: "Export complete",
@@ -103,191 +113,195 @@ export default function AuditLogPage() {
     });
   }, [logs, addToast]);
 
-  if (loading && page === 0) {
+  const hasActiveFilters = Boolean(actionFilter || resourceTypeFilter);
+
+  const headerActions = (
+    <>
+      <Button variant="secondary" size="sm" className="gap-2" onClick={() => void fetchLogs()} disabled={loading}>
+        <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden />
+        Refresh
+      </Button>
+      <Button variant="secondary" size="sm" className="gap-2" onClick={exportToCsv} disabled={logs.length === 0}>
+        <Download className="h-4 w-4" aria-hidden />
+        Export CSV
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        className={cn("gap-2", showFilters && "ring-2 ring-blue-500/30")}
+        aria-pressed={showFilters}
+        onClick={() => setShowFilters((v) => !v)}
+      >
+        <Filter className="h-4 w-4" aria-hidden />
+        Filters
+        {hasActiveFilters ? (
+          <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+            on
+          </span>
+        ) : null}
+      </Button>
+    </>
+  );
+
+  if (loading && page === 0 && logs.length === 0 && !error) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Audit Log</h1>
-        </div>
-        <TableSkeleton
-          headers={["Timestamp", "Actor", "Action", "Resource", "Details"]}
+      <div className="space-y-6">
+        <PageHeader
+          icon={FileText}
+          iconAccent="from-slate-500 to-slate-600 shadow-slate-500/20 ring-slate-400/20"
+          title="Audit Log"
+          description="Track system activity — pipeline changes, executions, and account events."
+          actions={headerActions}
         />
+        <TableSkeleton headers={["Timestamp", "Actor", "Action", "Resource", "IP"]} />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Audit Log</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track all system activity and changes
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={exportToCsv}
-            disabled={logs.length === 0}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button variant="secondary" onClick={() => setShowFilters(!showFilters)}>
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={FileText}
+        iconAccent="from-slate-500 to-slate-600 shadow-slate-500/20 ring-slate-400/20"
+        title="Audit Log"
+        description="Track system activity — pipeline changes, executions, and account events."
+        actions={headerActions}
+      />
 
-      {showFilters && (
-        <div className="p-4 border border-border rounded-lg bg-muted/20 space-y-3">
+      {showFilters ? (
+        <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="font-medium">Filters</span>
-            {(actionFilter || resourceTypeFilter) && (
+            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Filters</span>
+            {hasActiveFilters ? (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="w-4 h-4 mr-1" />
+                <X className="h-4 w-4" aria-hidden />
                 Clear
               </Button>
-            )}
+            ) : null}
           </div>
-          <div className="flex gap-4 flex-wrap">
-            <div>
-              <label className="block text-sm mb-1">Action</label>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-action-filter">Action</Label>
               <Input
+                id="audit-action-filter"
                 value={actionFilter}
                 onChange={(e) => {
                   setActionFilter(e.target.value);
                   setPage(0);
                 }}
-                placeholder="e.g., execution.failed"
-                className="w-48"
+                placeholder="e.g. execution.failed"
               />
             </div>
-            <div>
-              <label className="block text-sm mb-1">Resource Type</label>
+            <div className="space-y-1.5">
+              <Label htmlFor="audit-resource-type-filter">Resource type</Label>
               <Input
+                id="audit-resource-type-filter"
                 value={resourceTypeFilter}
                 onChange={(e) => {
                   setResourceTypeFilter(e.target.value);
                   setPage(0);
                 }}
-                placeholder="e.g., pipeline, execution"
-                className="w-48"
+                placeholder="e.g. pipeline, execution"
               />
             </div>
           </div>
-        </div>
-      )}
+        </Card>
+      ) : null}
 
-      {logs.length === 0 && !loading ? (
+      {error ? (
+        <PageError title="Could not load audit log" message={error} onRetry={() => void fetchLogs()} />
+      ) : null}
+
+      {!error && logs.length === 0 && !loading ? (
         <EmptyState
-          icon={<FileText className="w-12 h-12 text-muted-foreground" />}
+          icon={<FileText className="h-12 w-12 text-neutral-300 dark:text-neutral-600" />}
           title="No audit entries"
           description={
-            actionFilter || resourceTypeFilter
-              ? "No entries match your filters. Try adjusting them."
-              : "Activity will appear here as you use the system."
+            hasActiveFilters
+              ? "No entries match your filters. Try adjusting or clearing them."
+              : "Activity will appear here as you use pipelines, runs, and settings."
           }
           action={
-            (actionFilter || resourceTypeFilter) && (
+            hasActiveFilters ? (
               <Button variant="secondary" onClick={clearFilters}>
-                Clear Filters
+                Clear filters
               </Button>
-            )
+            ) : undefined
           }
         />
-      ) : (
+      ) : null}
+
+      {!error && (logs.length > 0 || (loading && page > 0)) ? (
         <>
           <DataTable>
-            <table className="w-full">
+            <table className="table-data">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-44">
-                    Timestamp
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-36">
-                    Actor
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-40">
-                    Action
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Resource
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-32">
-                    IP
-                  </th>
+                <tr>
+                  <th className="w-44">Timestamp</th>
+                  <th className="w-40">Actor</th>
+                  <th className="w-44">Action</th>
+                  <th>Resource</th>
+                  <th className="w-32">IP</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="border-b border-border hover:bg-muted/50"
-                  >
-                    <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {formatTimestamp(entry.createdAt)}
+                  <tr key={entry.id}>
+                    <td className="tabular-nums text-neutral-600 dark:text-neutral-400">
+                      {formatShortDateTime(entry.createdAt)}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm">
+                    <td>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">
                         {entry.actorName || entry.actorType}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {entry.actorType}
-                      </div>
+                      </p>
+                      <p className="text-xs capitalize text-neutral-500">{entry.actorType}</p>
                     </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${getActionBadgeColor(entry.action)}`}
-                      >
-                        {entry.action}
-                      </span>
+                    <td>
+                      <Pill variant={actionPillVariant(entry.action)}>{entry.action}</Pill>
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="text-sm">{entry.resourceName || entry.resourceId}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {entry.resourceType}
-                      </div>
+                    <td>
+                      <p className="text-neutral-900 dark:text-neutral-100">
+                        {entry.resourceName || entry.resourceId || "—"}
+                      </p>
+                      <p className="text-xs text-neutral-500">{entry.resourceType}</p>
                     </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground font-mono">
-                      {entry.ipAddress || "-"}
-                    </td>
+                    <td className="font-mono text-xs text-neutral-500">{entry.ipAddress || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </DataTable>
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing {logs.length} of {totalElements} entries
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-neutral-500">
+              Showing {logs.length} of {totalElements} {totalElements === 1 ? "entry" : "entries"}
+            </p>
             <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={page === 0}
+                disabled={page === 0 || loading}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
+                aria-label="Previous page"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm">
-                Page {page + 1} of {totalPages || 1}
+              <span className="min-w-[7rem] text-center text-sm text-neutral-600 dark:text-neutral-400">
+                Page {page + 1} of {Math.max(totalPages, 1)}
               </span>
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={page >= totalPages - 1}
+                disabled={page >= totalPages - 1 || loading}
                 onClick={() => setPage((p) => p + 1)}
+                aria-label="Next page"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

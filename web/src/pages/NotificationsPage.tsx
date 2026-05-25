@@ -1,230 +1,193 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Check, ChevronLeft, ChevronRight, ExternalLink, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
-import { TableSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { useToast } from "@/components/ui/Toast";
+import { PageError } from "@/components/ui/PageError";
+import { Pill } from "@/components/ui/Badge";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ApiError } from "@/lib/api";
 import {
-  type UserNotificationResponse,
   type NotificationPage,
+  type UserNotificationResponse,
   listNotifications,
-  markNotificationAsRead,
   markAllNotificationsAsRead,
+  markNotificationAsRead,
 } from "@/lib/api";
+import { formatShortDateTime } from "@/lib/format";
+
+function typePillVariant(type: string): "rose" | "amber" | "green" | "blue" {
+  switch (type) {
+    case "alert":
+      return "rose";
+    case "warning":
+      return "amber";
+    case "success":
+      return "green";
+    default:
+      return "blue";
+  }
+}
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<UserNotificationResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const { addToast } = useToast();
   const navigate = useNavigate();
 
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const data: NotificationPage = await listNotifications(page, 20);
       setNotifications(data.content);
       setTotalPages(data.totalPages);
       setTotalElements(data.totalElements);
     } catch (err) {
-      addToast({
-        type: "error",
-        title: "Failed to load notifications",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
+      setError(err instanceof ApiError ? err.message : "Unknown error");
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    fetchNotifications();
   }, [page]);
 
+  useEffect(() => {
+    void fetchNotifications();
+  }, [fetchNotifications]);
+
   async function handleMarkAsRead(id: string) {
-    try {
-      await markNotificationAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)),
-      );
-      addToast({ type: "success", title: "Notification marked as read" });
-    } catch (err) {
-      addToast({
-        type: "error",
-        title: "Failed to mark as read",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
-    }
+    await markNotificationAsRead(id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)),
+    );
   }
 
   async function handleMarkAllAsRead() {
-    try {
-      await markAllNotificationsAsRead();
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, read: true, readAt: new Date().toISOString() })),
-      );
-      addToast({ type: "success", title: "All notifications marked as read" });
-    } catch (err) {
-      addToast({
-        type: "error",
-        title: "Failed to mark all as read",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
-    }
+    await markAllNotificationsAsRead();
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, read: true, readAt: new Date().toISOString() })),
+    );
   }
 
-  function formatTimestamp(ts: string): string {
-    return new Date(ts).toLocaleString();
-  }
+  const headerActions = (
+    <>
+      <Button variant="secondary" size="sm" className="gap-2" asChild>
+        <Link to="/app/notification-preferences">
+          <Settings className="h-4 w-4" aria-hidden />
+          Preferences
+        </Link>
+      </Button>
+      {notifications.some((n) => !n.read) ? (
+        <Button variant="secondary" size="sm" className="gap-2" onClick={() => void handleMarkAllAsRead()}>
+          <Check className="h-4 w-4" aria-hidden />
+          Mark all read
+        </Button>
+      ) : null}
+    </>
+  );
 
-  function getTypeStyles(type: string): string {
-    switch (type) {
-      case "alert":
-        return "bg-red-100 text-red-800";
-      case "warning":
-        return "bg-yellow-100 text-yellow-800";
-      case "success":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-blue-100 text-blue-800";
-    }
-  }
-
-  if (loading && page === 0) {
+  if (loading && page === 0 && notifications.length === 0 && !error) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Notifications</h1>
-        </div>
-        <TableSkeleton headers={["Time", "Type", "Title", "Message", "Actions"]} />
+      <div className="space-y-6">
+        <PageHeader
+          icon={Bell}
+          iconAccent="from-amber-500 to-orange-600 shadow-amber-500/20 ring-amber-400/20"
+          title="Notifications"
+          description="All your in-app alerts in one place."
+          actions={headerActions}
+        />
+        <TableSkeleton headers={["Time", "Type", "Notification", "Status", "Actions"]} />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            All your notifications in one place
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" asChild>
-            <Link to="/app/notification-preferences">
-              <Settings className="w-4 h-4 mr-2" />
-              Preferences
-            </Link>
-          </Button>
-          {notifications.some((n) => !n.read) && (
-            <Button variant="secondary" onClick={handleMarkAllAsRead}>
-              <Check className="w-4 h-4 mr-2" />
-              Mark All as Read
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={Bell}
+        iconAccent="from-amber-500 to-orange-600 shadow-amber-500/20 ring-amber-400/20"
+        title="Notifications"
+        description="All your in-app alerts in one place."
+        actions={headerActions}
+      />
 
-      {notifications.length === 0 ? (
+      {error ? (
+        <PageError title="Could not load notifications" message={error} onRetry={() => void fetchNotifications()} />
+      ) : null}
+
+      {!error && notifications.length === 0 && !loading ? (
         <EmptyState
-          icon={<Bell className="w-12 h-12 text-muted-foreground" />}
+          icon={<Bell className="h-12 w-12 text-neutral-300 dark:text-neutral-600" />}
           title="No notifications"
-          description="You don't have any notifications yet. Configure alert rules to receive notifications."
+          description="Configure alert rules to receive notifications when workflows fail or complete."
           action={
-            <Button onClick={() => navigate("/app/alert-rules")}>
-              Configure Alerts
-            </Button>
+            <Button onClick={() => navigate("/app/alert-rules")}>Configure alerts</Button>
           }
         />
-      ) : (
+      ) : null}
+
+      {!error && notifications.length > 0 ? (
         <>
           <DataTable>
-            <table className="w-full">
+            <table className="table-data">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-44">
-                    Time
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-24">
-                    Type
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">
-                    Notification
-                  </th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground w-24">
-                    Status
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground w-28">
-                    Actions
-                  </th>
+                <tr>
+                  <th className="w-44">Time</th>
+                  <th className="w-28">Type</th>
+                  <th>Notification</th>
+                  <th className="w-28">Status</th>
+                  <th className="w-28 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {notifications.map((notification) => (
-                  <tr
-                    key={notification.id}
-                    className={`border-b border-border hover:bg-muted/50 ${
-                      !notification.read ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {formatTimestamp(notification.createdAt)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded text-xs font-medium capitalize ${getTypeStyles(notification.type)}`}
-                      >
+                  <tr key={notification.id} className={!notification.read ? "bg-blue-50/40 dark:bg-blue-950/20" : undefined}>
+                    <td className="text-neutral-500">{formatShortDateTime(notification.createdAt)}</td>
+                    <td>
+                      <Pill variant={typePillVariant(notification.type)} className="capitalize">
                         {notification.type}
-                      </span>
+                      </Pill>
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium">{notification.title}</div>
-                      {notification.message && (
-                        <div className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-                          {notification.message}
-                        </div>
-                      )}
+                    <td>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{notification.title}</p>
+                      {notification.message ? (
+                        <p className="mt-0.5 line-clamp-2 text-neutral-500">{notification.message}</p>
+                      ) : null}
                     </td>
-                    <td className="py-3 px-4">
-                      {notification.read ? (
-                        <span className="text-sm text-muted-foreground">Read</span>
-                      ) : (
-                        <span className="text-sm font-medium text-primary">Unread</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        {notification.linkUrl && (
+                    <td>{notification.read ? "Read" : "Unread"}</td>
+                    <td>
+                      <div className="flex justify-end gap-1">
+                        {notification.linkUrl ? (
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label="Open linked resource"
                             onClick={() => {
                               if (notification.linkUrl!.startsWith("/")) {
                                 navigate(notification.linkUrl!);
                               } else {
-                                window.open(notification.linkUrl!, "_blank");
+                                window.open(notification.linkUrl!, "_blank", "noopener,noreferrer");
                               }
                             }}
-                            title="View details"
                           >
-                            <ExternalLink className="w-4 h-4" />
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
-                        )}
-                        {!notification.read && (
+                        ) : null}
+                        {!notification.read ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleMarkAsRead(notification.id)}
-                            title="Mark as read"
+                            aria-label="Mark as read"
+                            onClick={() => void handleMarkAsRead(notification.id)}
                           >
-                            <Check className="w-4 h-4" />
+                            <Check className="h-4 w-4" />
                           </Button>
-                        )}
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -233,20 +196,21 @@ export default function NotificationsPage() {
             </table>
           </DataTable>
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-neutral-500">
               Showing {notifications.length} of {totalElements} notifications
-            </div>
+            </p>
             <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
                 size="sm"
                 disabled={page === 0}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
+                aria-label="Previous page"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm">
+              <span className="min-w-[7rem] text-center text-sm text-neutral-600 dark:text-neutral-400">
                 Page {page + 1} of {totalPages || 1}
               </span>
               <Button
@@ -254,13 +218,14 @@ export default function NotificationsPage() {
                 size="sm"
                 disabled={page >= totalPages - 1}
                 onClick={() => setPage((p) => p + 1)}
+                aria-label="Next page"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,10 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  Maximize2,
+  Minimize2,
+  PanelLeft,
+  PanelRight,
   Redo2,
   Save,
   Undo2,
@@ -26,6 +30,12 @@ type EditorToolbarProps = {
   publishing: boolean;
   publishError: string | null;
   publishSuccess: string | null;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  paletteOpen?: boolean;
+  onTogglePalette?: () => void;
+  configOpen?: boolean;
+  onToggleConfig?: () => void;
 };
 
 export function EditorToolbar({
@@ -33,6 +43,12 @@ export function EditorToolbar({
   publishing,
   publishError,
   publishSuccess,
+  isFullscreen = false,
+  onToggleFullscreen,
+  paletteOpen = true,
+  onTogglePalette,
+  configOpen = true,
+  onToggleConfig,
 }: EditorToolbarProps) {
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
@@ -132,6 +148,66 @@ export function EditorToolbar({
           </TooltipTrigger>
           <TooltipContent>Paste stage (⌘V)</TooltipContent>
         </Tooltip>
+
+        <div className="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-700" />
+
+        {onTogglePalette && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 w-9 p-0"
+                aria-pressed={paletteOpen}
+                onClick={onTogglePalette}
+              >
+                <PanelLeft className="h-4 w-4" />
+                <span className="sr-only">Toggle stage palette</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{paletteOpen ? "Hide palette" : "Show palette"}</TooltipContent>
+          </Tooltip>
+        )}
+
+        {onToggleConfig && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 w-9 p-0"
+                aria-pressed={configOpen}
+                onClick={onToggleConfig}
+              >
+                <PanelRight className="h-4 w-4" />
+                <span className="sr-only">Toggle configuration panel</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{configOpen ? "Hide config panel" : "Show config panel"}</TooltipContent>
+          </Tooltip>
+        )}
+
+        {onToggleFullscreen && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 w-9 p-0"
+                aria-pressed={isFullscreen}
+                onClick={onToggleFullscreen}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+                <span className="sr-only">{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen editor"}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* Center: validation status */}

@@ -4,6 +4,7 @@ import { Bell, Calendar, LayoutDashboard, Pencil, Play, Settings, Workflow, Zap 
 import { AlertRulesPanel } from "@/components/alerts/AlertRulesPanel";
 import { WorkflowRunsTable } from "@/components/runs/WorkflowRunsTable";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { WorkflowSettings } from "@/components/workflow/WorkflowSettings";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
@@ -210,7 +211,19 @@ export function WorkflowDetailPage() {
       )}
 
       {loading && !pipeline && !loadError && (
-        <p className="text-sm text-neutral-500">Loading workflow…</p>
+        <div className="grid gap-6 lg:grid-cols-3" aria-busy="true" aria-label="Loading workflow">
+          <Card className="space-y-4 p-6 lg:col-span-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-32 w-full" />
+          </Card>
+          <Card className="space-y-4 p-6">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+          </Card>
+        </div>
       )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof tabs)[number]["id"])}>
@@ -276,7 +289,7 @@ export function WorkflowDetailPage() {
 
         <TabsContent value="Editor">
           {pipeline && workflowId ? (
-            <div className="h-[calc(100vh-280px)] min-h-[500px]">
+            <div className="h-[calc(100dvh-12rem)] min-h-[620px]">
               <PipelineEditor
                 pipelineId={workflowId}
                 pipelineName={pipeline.name}

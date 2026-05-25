@@ -8,6 +8,9 @@ export type ConnectionType =
   | "redshift"
   | "bigquery";
 
+/** Pipeline connection types that can be created today (matches pipeline-service ConnectionType). */
+export const SUPPORTED_CONNECTION_TYPES: ConnectionType[] = ["postgres"];
+
 export type ConnectionTypeMeta = {
   label: string;
   description: string;

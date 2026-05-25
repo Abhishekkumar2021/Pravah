@@ -17,7 +17,8 @@ import org.springframework.context.annotation.ComponentScan;
     basePackages = {
       "io.pravah.notification",
       "io.pravah.spring.multitenancy",
-      "io.pravah.spring.security"
+      "io.pravah.spring.security",
+      "io.pravah.spring.web"
     })
 public class NotificationServiceApplication {
 

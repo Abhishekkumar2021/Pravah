@@ -14,6 +14,16 @@
   --color-caret: oklch(0.5 0.2 264);
   --color-caret-dark: oklch(0.72 0.14 264);
 
+  /* Semantic aliases (legacy shadcn-style class names used in notification/alert UI) */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.21 0.02 264);
+  --color-muted: oklch(0.96 0.005 264);
+  --color-muted-foreground: oklch(0.52 0.02 264);
+  --color-border: oklch(0.91 0.01 264);
+  --color-input: oklch(0.91 0.01 264);
+  --color-primary: oklch(0.55 0.22 264);
+  --color-primary-foreground: oklch(0.99 0 0);
+
   /* Animations for Radix UI */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -66,6 +76,34 @@
     from { transform: translateX(0.5rem); }
     to { transform: translateX(0); }
   }
+  @keyframes toast-enter {
+    from {
+      opacity: 0;
+      transform: translateX(calc(100% + 1rem)) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+  @keyframes toast-exit {
+    from {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(calc(100% + 0.5rem)) scale(0.96);
+    }
+  }
+  @keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+  }
+
+  --animate-toast-enter: toast-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-exit: toast-exit 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-toast-progress: toast-progress linear forwards;
 }
 
 @layer base {
@@ -81,6 +119,17 @@
 
   .dark body {
     caret-color: var(--color-caret-dark);
+  }
+
+  .dark {
+    --color-background: oklch(0.14 0.015 264);
+    --color-foreground: oklch(0.97 0.01 264);
+    --color-muted: oklch(0.22 0.015 264);
+    --color-muted-foreground: oklch(0.65 0.02 264);
+    --color-border: oklch(0.28 0.015 264);
+    --color-input: oklch(0.28 0.015 264);
+    --color-primary: oklch(0.62 0.18 264);
+    --color-primary-foreground: oklch(0.99 0 0);
   }
 
   ::selection {

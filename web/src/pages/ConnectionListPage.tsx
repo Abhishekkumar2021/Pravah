@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Cable, Loader2, Pencil, PlugZap, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { ConnectionFormDialog } from "@/components/connections/ConnectionFormDialog";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import { TableSkeleton } from "@/components/ui/Skeleton";
+import { PageError } from "@/components/ui/PageError";
 import { useToast } from "@/components/ui/Toast";
 import {
   ApiError,
@@ -29,11 +31,14 @@ import {
   connectionHostSummary,
   getPasswordRef,
   maskCredentialRef,
+  type ConnectionType,
 } from "@/lib/connectionConfig";
+import { pipelineConnectionTypeForConnector } from "@/lib/connectorCatalog";
 import { formatShortDateTime } from "@/lib/format";
 
 export function ConnectionListPage() {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<ConnectionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +48,8 @@ export function ConnectionListPage() {
   const [editTarget, setEditTarget] = useState<ConnectionResponse | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ConnectionResponse | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [createInitialType, setCreateInitialType] = useState<ConnectionType | undefined>();
+  const [createFromConnector, setCreateFromConnector] = useState<string | undefined>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,6 +68,24 @@ export function ConnectionListPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const create = searchParams.get("create");
+    const from = searchParams.get("from");
+    if (!create) return;
+
+    const mapped = from ? pipelineConnectionTypeForConnector(from) : null;
+    const type = (mapped ?? create) as ConnectionType;
+    setEditTarget(null);
+    setCreateInitialType(type);
+    setCreateFromConnector(from ?? undefined);
+    setFormOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("create");
+    next.delete("from");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -122,7 +147,11 @@ export function ConnectionListPage() {
             </span>
           </h1>
           <p className="page-desc mt-2">
-            Named data sources for SQL stages — credentials stay as references, never plain text.
+            Named JDBC credentials for <strong>SQL stages</strong> in workflows. Browse the{" "}
+            <Link to="/app/connectors" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+              connector catalog
+            </Link>{" "}
+            to see all supported data sources — only PostgreSQL connections can be saved here today.
           </p>
         </div>
 
@@ -153,18 +182,16 @@ export function ConnectionListPage() {
         />
       </Card>
 
-      {error && (
-        <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
-          {error}
-        </p>
-      )}
+      {error ? (
+        <PageError title="Could not load connections" message={error} onRetry={() => void load()} />
+      ) : null}
 
-      {loading ? (
+      {!error && loading ? (
         <TableSkeleton
           headers={["Name", "Type", "Target", "Password", "Created", "Actions"]}
           rows={4}
         />
-      ) : filtered.length === 0 ? (
+      ) : !error && filtered.length === 0 ? (
         <EmptyState
           icon={<Cable className="h-7 w-7" />}
           title={rows.length === 0 ? "No connections yet" : "No matches"}
@@ -188,7 +215,7 @@ export function ConnectionListPage() {
             ) : undefined
           }
         />
-      ) : (
+      ) : !error ? (
         <DataTable aria-label="Connections">
           <table className="table-data">
             <thead>
@@ -253,12 +280,20 @@ export function ConnectionListPage() {
             </tbody>
           </table>
         </DataTable>
-      )}
+      ) : null}
 
       <ConnectionFormDialog
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) {
+            setCreateInitialType(undefined);
+            setCreateFromConnector(undefined);
+          }
+        }}
         connection={editTarget}
+        initialType={createInitialType}
+        fromConnectorId={createFromConnector}
         onSaved={() => void load()}
       />
 

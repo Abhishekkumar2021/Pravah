@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { useEditorStore, selectCanUndo, selectCanRedo } from "./editorStore";
 
-export function useKeyboardShortcuts() {
+export function useKeyboardShortcuts(options: { suppressEscape?: boolean } = {}) {
+  const { suppressEscape = false } = options;
   const canUndo = useEditorStore(selectCanUndo);
   const canRedo = useEditorStore(selectCanRedo);
   const selectedNodeId = useEditorStore((s) => s.selectedNodeId);
@@ -23,8 +24,11 @@ export function useKeyboardShortcuts() {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
 
-      // Escape clears selection regardless of focus
+      // Escape clears selection unless a parent overlay handles it
       if (event.key === "Escape") {
+        if (suppressEscape) {
+          return;
+        }
         event.preventDefault();
         clearSelection();
         return;
@@ -94,7 +98,8 @@ export function useKeyboardShortcuts() {
       copySelectedNode,
       pasteNode,
       clearSelection,
-    ]
+      suppressEscape,
+    ],
   );
 
   useEffect(() => {

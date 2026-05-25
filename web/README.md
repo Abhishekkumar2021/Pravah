@@ -33,7 +33,7 @@ Copy `env.example` to `.env.local` for local overrides (gitignored).
 3. Sign in at `/login` (seeded user after `make local-seed`: `dev@localhost.pravah` / `PravahDev1!`). The access token is held in memory (ADR-009) with `sessionStorage`/`localStorage` fallback for page reload.
 4. Open **Workflows** or **Dashboard** — set **Project scope** (or `VITE_PRAVAH_PROJECT_ID`) so pipeline lists resolve.
 5. Open a workflow detail page — use the **Triggers** tab to manage webhook/Kafka triggers, view dispatch history, and send test payloads (`GET/POST /api/v1/triggers/{id}/history`, `POST …/test`).
-6. Open **Connections** (`/app/connections`) to create named JDBC sources for SQL stages (`connection: name` in stage config).
+6. Open **Connections** (`/app/connections`) to create named JDBC sources for SQL stages (`connection: name` in stage config). Start from the **Connector catalog** (`/app/connectors`) for supported database types.
 7. Open **Alert rules** (`/app/alert-rules`) or a workflow **Alerts** tab to configure failure/completion notifications (email, Slack, webhook). Requires **notification-service** on port 8088.
 8. Open **Notifications** (`/app/notifications`) and **Preferences** (`/app/notification-preferences`) for the in-app center and delivery settings.
 9. Open **Runs** and pick a row, or navigate to `/app/runs/{executionId}`.

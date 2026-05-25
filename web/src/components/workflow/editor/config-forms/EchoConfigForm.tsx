@@ -1,4 +1,5 @@
 import { Circle } from "lucide-react";
+import { ExpandableTextarea } from "@/components/ui/ExpandableTextarea";
 import { Label } from "@/components/ui/Label";
 
 type EchoConfig = {
@@ -21,13 +22,14 @@ export function EchoConfigForm({ config, onChange }: EchoConfigFormProps) {
 
       <div>
         <Label htmlFor="echo-message">Message</Label>
-        <textarea
+        <ExpandableTextarea
           id="echo-message"
           value={config.message ?? ""}
           onChange={(e) => onChange({ ...config, message: e.target.value })}
           placeholder="Hello from echo stage!"
           rows={4}
-          className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-neutral-400 hover:border-neutral-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-600"
+          expandTitle="Echo message"
+          minHeightClass="min-h-[6rem]"
         />
         <p className="mt-1 text-[10px] text-neutral-500">
           Message to echo. Use for debugging or as a placeholder stage.

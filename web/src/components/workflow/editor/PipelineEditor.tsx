@@ -11,6 +11,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import type { StageDefinition } from "@/lib/api";
+import { cn } from "@/lib/cn";
+import { useFullscreen } from "@/hooks/useFullscreen";
 import { useEditorStore, type StageType } from "./editorStore";
 import { StageNode } from "./StageNode";
 import { StagePalette } from "./StagePalette";
@@ -43,6 +45,10 @@ function PipelineEditorContent({
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [configOpen, setConfigOpen] = useState(true);
+  const [configExpanded, setConfigExpanded] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   const initialize = useEditorStore((s) => s.initialize);
   const onNodesChange = useEditorStore((s) => s.onNodesChange);
@@ -55,7 +61,28 @@ function PipelineEditorContent({
   const nodes = useEditorStore((s) => s.nodes);
   const edges = useEditorStore((s) => s.edges);
 
-  useKeyboardShortcuts();
+  useKeyboardShortcuts({ suppressEscape: isFullscreen || configExpanded });
+
+  useEffect(() => {
+    if (!configOpen) {
+      setConfigExpanded(false);
+    }
+  }, [configOpen]);
+
+  useEffect(() => {
+    if (!configExpanded) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setConfigExpanded(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [configExpanded]);
 
   // Initialize store
   useEffect(() => {
@@ -142,24 +169,46 @@ function PipelineEditorContent({
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div
+      className={cn(
+        "flex h-full flex-col gap-4",
+        isFullscreen &&
+          "fixed inset-0 z-[100] gap-3 bg-neutral-50 p-3 dark:bg-neutral-950 sm:p-4",
+      )}
+    >
+      {isFullscreen && (
+        <div className="flex shrink-0 items-center justify-between gap-3 px-1">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Pipeline editor</p>
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{pipelineName}</p>
+          </div>
+          <p className="hidden text-xs text-neutral-500 sm:block">Press Esc to exit fullscreen</p>
+        </div>
+      )}
+
       <EditorToolbar
         onPublish={handlePublish}
         publishing={publishing}
         publishError={publishError}
         publishSuccess={publishSuccess}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        paletteOpen={paletteOpen}
+        onTogglePalette={() => setPaletteOpen((open) => !open)}
+        configOpen={configOpen}
+        onToggleConfig={() => setConfigOpen((open) => !open)}
       />
 
-      <div className="flex flex-1 gap-4 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-        {/* Left sidebar: Palette */}
-        <div className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 p-4 dark:border-neutral-800">
-          <StagePalette />
-        </div>
+      <div className="relative flex flex-1 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        {paletteOpen && (
+          <div className="w-64 shrink-0 overflow-y-auto border-r border-neutral-200 p-4 dark:border-neutral-800">
+            <StagePalette />
+          </div>
+        )}
 
-        {/* Center: Canvas */}
         <div
           ref={containerRef}
-          className="flex-1"
+          className="relative min-w-0 flex-1 h-full min-h-[420px]"
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
@@ -174,7 +223,7 @@ function PipelineEditorContent({
             fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
             deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
-            className="bg-neutral-50 dark:bg-neutral-950"
+            className="h-full bg-neutral-50 dark:bg-neutral-950"
           >
             <Background color="#e5e7eb" gap={16} />
             <Controls
@@ -208,10 +257,30 @@ function PipelineEditorContent({
           </ReactFlow>
         </div>
 
-        {/* Right sidebar: Config */}
-        <div className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 p-4 dark:border-neutral-800">
-          <StageConfigPanel />
-        </div>
+        {configExpanded && (
+          <button
+            type="button"
+            aria-label="Close expanded configuration panel"
+            className="absolute inset-0 z-10 bg-neutral-950/20 dark:bg-neutral-950/40"
+            onClick={() => setConfigExpanded(false)}
+          />
+        )}
+
+        {configOpen && (
+          <aside
+            className={cn(
+              "shrink-0 overflow-y-auto border-l border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900",
+              configExpanded
+                ? "absolute inset-y-0 right-0 z-20 w-[min(36rem,55vw)] shadow-2xl ring-1 ring-neutral-200/80 dark:ring-neutral-700/80"
+                : "w-96",
+            )}
+          >
+            <StageConfigPanel
+              expanded={configExpanded}
+              onToggleExpand={() => setConfigExpanded((value) => !value)}
+            />
+          </aside>
+        )}
       </div>
     </div>
   );

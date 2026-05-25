@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -47,7 +48,16 @@ import org.springframework.stereotype.Component;
  *
  * @see <a href="../../../../../../docs/adr/ADR-009-jwt-oauth2-authentication.md">ADR-009</a>
  */
+/**
+ * HTTP JWKS verifier for non-issuer services. Disabled on tenant-service when {@link
+ * io.pravah.tenant.infrastructure.security.LocalJwtTokenVerifier} is registered ({@code
+ * pravah.security.jwt.use-remote-jwks=false}).
+ */
 @Component
+@ConditionalOnProperty(
+    name = "pravah.security.jwt.use-remote-jwks",
+    havingValue = "true",
+    matchIfMissing = true)
 public class JwtTokenVerifier {
 
   private static final Logger log = LoggerFactory.getLogger(JwtTokenVerifier.class);

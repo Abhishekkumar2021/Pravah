@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.pravah.notification.domain.ActorType;
 import io.pravah.notification.infrastructure.persistence.entity.AuditLogEntity;
 import io.pravah.notification.infrastructure.persistence.repository.AuditLogRepository;
+import io.pravah.notification.infrastructure.persistence.repository.AuditLogSpecifications;
 import io.pravah.spring.multitenancy.TenantContext;
 import java.time.Instant;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,8 +119,10 @@ public class AuditLogService {
 
     TenantContext.setCurrentTenantId(tenantId);
     try {
-      return auditLogRepository.findFiltered(
-          tenantId, action, resourceType, resourceId, actorId, from, to, pageable);
+      Specification<AuditLogEntity> spec =
+          AuditLogSpecifications.filtered(
+              tenantId, action, resourceType, resourceId, actorId, from, to);
+      return auditLogRepository.findAll(spec, pageable);
     } finally {
       TenantContext.clear();
     }

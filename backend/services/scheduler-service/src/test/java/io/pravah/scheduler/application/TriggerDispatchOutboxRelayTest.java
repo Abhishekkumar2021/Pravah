@@ -10,6 +10,7 @@ import io.pravah.scheduler.domain.model.PipelineTrigger;
 import io.pravah.scheduler.domain.model.TriggerType;
 import io.pravah.scheduler.domain.repository.PipelineTriggerRepository;
 import io.pravah.scheduler.infrastructure.leader.LeaderElectionService;
+import io.pravah.scheduler.infrastructure.persistence.SchedulerRlsHelper;
 import io.pravah.scheduler.infrastructure.persistence.entity.TriggerDispatchPendingEntity;
 import io.pravah.scheduler.infrastructure.persistence.repository.TriggerDispatchPendingRepository;
 import java.time.Clock;
@@ -35,6 +36,7 @@ class TriggerDispatchOutboxRelayTest {
   @Mock private PipelineTriggerRepository triggerRepository;
   @Mock private PipelineTriggerDispatchService dispatchService;
   @Mock private TriggerDispatchRecorder recorder;
+  @Mock private SchedulerRlsHelper schedulerRlsHelper;
 
   private TriggerDispatchOutboxRelay relay;
 
@@ -47,6 +49,7 @@ class TriggerDispatchOutboxRelayTest {
             triggerRepository,
             dispatchService,
             recorder,
+            schedulerRlsHelper,
             new ObjectMapper(),
             Clock.fixed(NOW, ZoneOffset.UTC),
             5);

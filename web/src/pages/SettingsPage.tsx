@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Bell, Key, Moon, Palette, Settings as SettingsIcon, Shield, Sun, User, Monitor } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, Key, Moon, Palette, Settings as SettingsIcon, Shield, Sun, User, Monitor, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
-import { Switch } from "@/components/ui/Switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useTheme, type ThemePreference } from "@/lib/theme";
 import { getStoredUser, updateProfileName } from "@/lib/api";
@@ -27,14 +27,6 @@ export function SettingsPage() {
   const [email] = useState(user?.email ?? "");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-
-  const [emailOnFailure, setEmailOnFailure] = useState(true);
-  const [emailOnSuccess, setEmailOnSuccess] = useState(false);
-  const [slackEnabled, setSlackEnabled] = useState(false);
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleSaveProfile = async () => {
     if (!user?.id) {
@@ -204,42 +196,20 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Notifications</CardTitle>
-              <CardDescription>Configure when and how you receive alerts</CardDescription>
+              <CardDescription>
+                Delivery preferences and quiet hours are managed on a dedicated page wired to the API.
+              </CardDescription>
             </CardHeader>
-            <div className="space-y-4 p-4 pt-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="notify-failure">Email on failure</Label>
-                  <p className="text-xs text-neutral-500">Get notified when a workflow fails</p>
-                </div>
-                <Switch
-                  id="notify-failure"
-                  checked={emailOnFailure}
-                  onCheckedChange={setEmailOnFailure}
-                />
-              </div>
-              <div className="flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-800">
-                <div>
-                  <Label htmlFor="notify-success">Email on success</Label>
-                  <p className="text-xs text-neutral-500">Get notified when a workflow completes</p>
-                </div>
-                <Switch
-                  id="notify-success"
-                  checked={emailOnSuccess}
-                  onCheckedChange={setEmailOnSuccess}
-                />
-              </div>
-              <div className="flex items-center justify-between border-t border-neutral-200 pt-4 dark:border-neutral-800">
-                <div>
-                  <Label htmlFor="slack-enabled">Slack integration</Label>
-                  <p className="text-xs text-neutral-500">Send notifications to Slack</p>
-                </div>
-                <Switch
-                  id="slack-enabled"
-                  checked={slackEnabled}
-                  onCheckedChange={setSlackEnabled}
-                />
-              </div>
+            <div className="flex flex-col gap-4 p-4 pt-0 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                Configure email and in-app delivery, plus optional quiet hours.
+              </p>
+              <Button variant="primary" asChild>
+                <Link to="/app/notification-preferences">
+                  Open notification preferences
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+              </Button>
             </div>
           </Card>
         </TabsContent>
@@ -251,46 +221,13 @@ export function SettingsPage() {
               <CardDescription>Manage your password and security settings</CardDescription>
             </CardHeader>
             <div className="space-y-4 p-4 pt-0">
-              <div>
-                <Label htmlFor="current-password">Current password</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="new-password">New password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="confirm-password">Confirm new password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1.5"
-                />
-                {confirmPassword && newPassword !== confirmPassword && (
-                  <p className="mt-1 text-xs text-rose-600">Passwords do not match</p>
-                )}
-              </div>
-              <div className="flex justify-end border-t border-neutral-200 pt-4 dark:border-neutral-800">
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={!currentPassword || !newPassword || newPassword !== confirmPassword}
-                >
-                  Update password
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                In-app password change is not available yet. Use the secure reset flow to set a new password
+                via email.
+              </p>
+              <div className="flex flex-wrap gap-2 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+                <Button type="button" variant="primary" asChild>
+                  <Link to="/forgot-password">Reset password via email</Link>
                 </Button>
               </div>
             </div>

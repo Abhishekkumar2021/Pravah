@@ -20,6 +20,14 @@ public class SchedulerRlsHelper {
     setConfig("pravah.scheduler_evaluation_enabled", "false");
   }
 
+  public void enableTriggerDispatchRelay() {
+    setConfig("pravah.trigger_dispatch_relay_enabled", "true");
+  }
+
+  public void disableTriggerDispatchRelay() {
+    setConfig("pravah.trigger_dispatch_relay_enabled", "false");
+  }
+
   private void setConfig(String key, String value) {
     Session session = entityManager.unwrap(Session.class);
     session.doWork(

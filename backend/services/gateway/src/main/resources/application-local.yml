@@ -15,3 +15,9 @@ spring:
               - uri: http://127.0.0.1:8081
             scheduler-service:
               - uri: http://127.0.0.1:8085
+            notification-service:
+              - uri: http://127.0.0.1:8088
+            runner-service:
+              - uri: http://127.0.0.1:8086
+            connect-service:
+              - uri: http://127.0.0.1:8091

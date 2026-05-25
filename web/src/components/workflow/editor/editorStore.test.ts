@@ -45,6 +45,26 @@ describe("editorStore", () => {
       expect(state.edges[0].source).toBe("stage-1");
       expect(state.edges[0].target).toBe("stage-2");
     });
+
+    it("fills missing sql config fields when loading stages", () => {
+      act(() => {
+        useEditorStore.getState().initialize("p1", "Pipeline", null, [
+          {
+            id: "stage-1",
+            name: "Extract",
+            type: "sql",
+            config: { query: "SELECT * FROM users" },
+            dependsOn: [],
+          },
+        ]);
+      });
+
+      const sqlStage = useEditorStore.getState().nodes[0]?.data.stage;
+      expect(sqlStage?.config).toMatchObject({
+        query: "SELECT * FROM users",
+        connection: "",
+      });
+    });
   });
 
   describe("addNode", () => {

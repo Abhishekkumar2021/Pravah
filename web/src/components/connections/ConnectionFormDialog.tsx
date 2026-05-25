@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
+import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import {
   ApiError,
@@ -24,6 +25,7 @@ import {
   buildConfig,
   CONNECTION_TYPES,
   formFromConfig,
+  SUPPORTED_CONNECTION_TYPES,
   type ConnectionForm,
   type ConnectionType,
 } from "@/lib/connectionConfig";
@@ -33,11 +35,18 @@ type ConnectionFormDialogProps = {
   onOpenChange: (open: boolean) => void;
   connection?: ConnectionResponse | null;
   onSaved: () => void;
+  /** Pre-select type when creating from connector catalog or deep link. */
+  initialType?: ConnectionType;
+  initialName?: string;
+  fromConnectorId?: string;
 };
 
 const TYPE_OPTIONS = (Object.keys(CONNECTION_TYPES) as ConnectionType[]).map((type) => ({
   value: type,
-  label: CONNECTION_TYPES[type].label,
+  label: SUPPORTED_CONNECTION_TYPES.includes(type)
+    ? CONNECTION_TYPES[type].label
+    : `${CONNECTION_TYPES[type].label} (coming soon)`,
+  disabled: !SUPPORTED_CONNECTION_TYPES.includes(type),
 }));
 
 function getEmptyForm(type: ConnectionType): ConnectionForm {
@@ -61,6 +70,9 @@ export function ConnectionFormDialog({
   onOpenChange,
   connection,
   onSaved,
+  initialType,
+  initialName,
+  fromConnectorId,
 }: ConnectionFormDialogProps) {
   const { addToast } = useToast();
   const isEdit = connection != null;
@@ -83,12 +95,14 @@ export function ConnectionFormDialog({
       setForm(parsed);
       setUseJdbcUrl(Boolean(parsed.jdbcUrl));
     } else {
-      setName("");
-      setType("postgres");
-      setForm(getEmptyForm("postgres"));
+      const createType =
+        initialType && SUPPORTED_CONNECTION_TYPES.includes(initialType) ? initialType : "postgres";
+      setName(initialName ?? "");
+      setType(createType);
+      setForm(getEmptyForm(createType));
       setUseJdbcUrl(false);
     }
-  }, [open, connection]);
+  }, [open, connection, initialType, initialName]);
 
   const handleTypeChange = (newType: ConnectionType) => {
     setType(newType);
@@ -140,11 +154,24 @@ export function ConnectionFormDialog({
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit connection" : "New connection"}</DialogTitle>
             <DialogDescription>
-              Store JDBC settings for SQL stages. Use{" "}
-              <code className="rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">
-                env:VAR_NAME
-              </code>{" "}
-              for passwords — values are never stored in plain text.
+              {fromConnectorId ? (
+                <>
+                  Creating a workflow connection from the <strong>{fromConnectorId}</strong> connector.
+                  Reference it in SQL stages as{" "}
+                  <code className="rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">
+                    connection: name
+                  </code>
+                  .
+                </>
+              ) : (
+                <>
+                  Store JDBC settings for SQL stages. Use{" "}
+                  <code className="rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">
+                    env:VAR_NAME
+                  </code>{" "}
+                  for passwords — values are never stored in plain text.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -226,15 +253,20 @@ export function ConnectionFormDialog({
             ) : (
               <>
                 {!isBigQuery && (
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-900/60">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="conn-jdbc-url-mode">Use full JDBC URL</Label>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Enter a complete connection string instead of host, port, and database fields.
+                      </p>
+                    </div>
+                    <Switch
+                      id="conn-jdbc-url-mode"
                       checked={useJdbcUrl}
-                      onChange={(e) => setUseJdbcUrl(e.target.checked)}
-                      className="rounded border-neutral-300"
+                      onCheckedChange={setUseJdbcUrl}
+                      aria-label="Use full JDBC URL"
                     />
-                    Use full JDBC URL
-                  </label>
+                  </div>
                 )}
 
                 {useJdbcUrl ? (

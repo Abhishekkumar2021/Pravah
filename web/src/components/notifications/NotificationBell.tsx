@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell, Check, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   type UserNotificationResponse,
   getUnreadNotifications,
@@ -153,8 +154,14 @@ export function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center text-muted-foreground text-sm">
-                Loading...
+              <div className="space-y-3 p-3" aria-busy="true" aria-label="Loading notifications">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <div key={i} className="space-y-2 border-l-4 border-l-neutral-200 pl-3 dark:border-l-neutral-700">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
               </div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Database,
   File,
   Globe,
-  Loader2,
+  Plus,
   Radio,
   RefreshCw,
   Search,
@@ -14,12 +15,19 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Pill } from "@/components/ui/Badge";
+import { PageError } from "@/components/ui/PageError";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import {
   listConnectors,
   type ConnectorSpec,
   type ConnectorType,
 } from "@/lib/api";
+import {
+  connectorSupportsSqlConnection,
+  connectorWorkflowHint,
+  pipelineConnectionTypeForConnector,
+} from "@/lib/connectorCatalog";
 
 function getConnectorIcon(type: ConnectorType) {
   switch (type) {
@@ -54,8 +62,15 @@ function getModeVariant(mode: string): "blue" | "green" | "amber" {
 }
 
 function ConnectorCard({ connector }: { connector: ConnectorSpec }) {
+  const sqlReady = connectorSupportsSqlConnection(connector);
+  const pipelineType = pipelineConnectionTypeForConnector(connector.id);
+  const createHref =
+    sqlReady && pipelineType
+      ? `/app/connections?create=${pipelineType}&from=${encodeURIComponent(connector.id)}`
+      : null;
+
   return (
-    <Card className="group relative overflow-hidden p-4 transition-all hover:shadow-md dark:hover:shadow-neutral-800/50">
+    <Card className="group relative flex h-full flex-col overflow-hidden p-4 transition-all hover:shadow-md dark:hover:shadow-neutral-800/50">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600 transition-colors group-hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:group-hover:bg-neutral-700">
           {getConnectorIcon(connector.type)}
@@ -74,25 +89,33 @@ function ConnectorCard({ connector }: { connector: ConnectorSpec }) {
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {connector.tags.slice(0, 4).map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
-              >
+              <Pill key={tag} variant="default" className="text-[11px]">
                 {tag}
-              </span>
+              </Pill>
             ))}
             {connector.tags.length > 4 && (
-              <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-500">
+              <Pill variant="default" className="text-[11px] text-neutral-500">
                 +{connector.tags.length - 4}
-              </span>
+              </Pill>
             )}
           </div>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-3 dark:border-neutral-800">
+      <div className="mt-4 flex flex-col gap-3 border-t border-neutral-100 pt-3 dark:border-neutral-800 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-xs text-neutral-500">{connector.category}</span>
-        <span className="text-xs text-neutral-400">v{connector.version}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {createHref ? (
+            <Button variant="secondary" size="sm" asChild>
+              <Link to={createHref}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                Create connection
+              </Link>
+            </Button>
+          ) : null}
+          <span className="text-xs text-neutral-400">v{connector.version}</span>
+        </div>
       </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">{connectorWorkflowHint(connector)}</p>
     </Card>
   );
 }
@@ -164,7 +187,11 @@ export function ConnectorCatalogPage() {
             </span>
           </h1>
           <p className="page-desc mt-2">
-            Browse available data connectors for sources and destinations.
+            Available data source and destination <strong>types</strong>. Create a{" "}
+            <Link to="/app/connections" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+              connection
+            </Link>{" "}
+            to store credentials, then use it in SQL stages or build custom stages for other connectors.
           </p>
         </div>
 
@@ -173,6 +200,26 @@ export function ConnectorCatalogPage() {
           Refresh
         </Button>
       </div>
+
+      <Card className="border-violet-200/80 bg-violet-50/50 p-4 dark:border-violet-900/40 dark:bg-violet-950/30">
+        <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          Connectors vs connections
+        </h2>
+        <ul className="mt-2 space-y-1.5 text-sm text-neutral-600 dark:text-neutral-400">
+          <li>
+            <strong>Connector</strong> — a plugin type (Postgres, Kafka, Stripe…) with a schema for config and
+            test/discover APIs.
+          </li>
+          <li>
+            <strong>Connection</strong> — your tenant&apos;s saved instance (host, database, credential refs) referenced
+            in pipelines as <code className="font-mono text-xs">connection: warehouse</code>.
+          </li>
+          <li>
+            <strong>SQL stage</strong> — runs JDBC queries against a saved connection. Other connectors use Python or
+            Container stages until native stage types ship.
+          </li>
+        </ul>
+      </Card>
 
       <Card className="p-4">
         <div className="relative">
@@ -187,11 +234,9 @@ export function ConnectorCatalogPage() {
         </div>
       </Card>
 
-      {error && (
-        <p className="text-sm text-rose-600 dark:text-rose-400" role="alert">
-          {error}
-        </p>
-      )}
+      {error ? (
+        <PageError title="Could not load connectors" message={error} onRetry={() => void load()} />
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList aria-label="Connector types">
@@ -226,8 +271,15 @@ export function ConnectorCatalogPage() {
 
         <TabsContent value={activeTab} className="mt-6">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading connectors">
+              {Array.from({ length: 6 }, (_, i) => (
+                <Card key={i} className="space-y-3 p-4">
+                  <Skeleton className="h-6 w-2/5" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="mt-2 h-9 w-28" />
+                </Card>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <Card className="p-12 text-center">
@@ -256,11 +308,12 @@ export function ConnectorCatalogPage() {
           </div>
           <div>
             <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
-              Need a custom connector?
+              Need Stripe, S3, or Kafka in a workflow?
             </h4>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Use Python or Container stages to connect to any data source. For production workloads,
-              consider building a custom connector plugin.
+              Use a <strong>Python</strong> or <strong>Container</strong> stage with the vendor SDK, or a{" "}
+              <strong>Kafka trigger</strong> for streaming. JDBC databases: create a connection from a database
+              connector card above, then add an SQL stage in the workflow editor.
             </p>
           </div>
         </div>

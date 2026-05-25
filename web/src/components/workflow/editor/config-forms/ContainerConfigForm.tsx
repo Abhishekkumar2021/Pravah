@@ -2,7 +2,7 @@ import { Plus, Trash2, Container } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Select } from "@/components/ui/Select";
+import { Select, SELECT_UNSET_VALUE } from "@/components/ui/Select";
 
 type EnvVar = { name: string; value: string };
 
@@ -24,7 +24,7 @@ type ContainerConfigFormProps = {
 };
 
 const RESOURCE_PROFILES = [
-  { value: "", label: "Default" },
+  { value: SELECT_UNSET_VALUE, label: "Default" },
   { value: "small", label: "Small (256MB, 0.25 CPU)" },
   { value: "medium", label: "Medium (512MB, 0.5 CPU)" },
   { value: "large", label: "Large (1GB, 1 CPU)" },
@@ -176,9 +176,15 @@ export function ContainerConfigForm({ config, onChange, errors }: ContainerConfi
         <Select
           id="container-resources"
           aria-label="Resource profile"
-          value={resources.profile ?? ""}
+          value={resources.profile ?? SELECT_UNSET_VALUE}
           onValueChange={(value) =>
-            onChange({ ...config, resources: { ...resources, profile: value || undefined } })
+            onChange({
+              ...config,
+              resources: {
+                ...resources,
+                profile: value === SELECT_UNSET_VALUE ? undefined : value,
+              },
+            })
           }
           options={RESOURCE_PROFILES}
           className="mt-1.5 w-full"

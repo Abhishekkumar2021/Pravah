@@ -3,6 +3,9 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { inputBaseClass } from "./Input";
 
+/** Sentinel for optional Select fields (Radix forbids empty-string item values). */
+export const SELECT_UNSET_VALUE = "__pravah_unset__";
+
 export type SelectOption = {
   value: string;
   label: string;
@@ -76,8 +79,16 @@ export function Select({
   name,
   "aria-label": ariaLabel,
 }: SelectProps) {
+  const selectableOptions = options.filter((option) => option.value !== "");
+  const rootValue = value === "" ? undefined : value;
+
   return (
-    <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled} name={name}>
+    <SelectPrimitive.Root
+      value={rootValue}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      name={name}
+    >
       <SelectPrimitive.Trigger
         id={id}
         aria-label={ariaLabel}
@@ -99,7 +110,7 @@ export function Select({
         >
           <SelectScrollUpButton />
           <SelectPrimitive.Viewport className={viewportClass}>
-            {options.map((option) => (
+            {selectableOptions.map((option) => (
               <SelectPrimitive.Item
                 key={option.value}
                 value={option.value}

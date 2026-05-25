@@ -3,6 +3,7 @@ import { AlertTriangle, Archive, Copy, Info, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
+import { ExpandableTextarea } from "@/components/ui/ExpandableTextarea";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Switch } from "@/components/ui/Switch";
@@ -128,13 +129,14 @@ export function WorkflowSettings({
 
           <div>
             <Label htmlFor="settings-description">Description</Label>
-            <textarea
+            <ExpandableTextarea
               id="settings-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description for this workflow"
-              rows={3}
-              className="mt-1.5 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-neutral-400 hover:border-neutral-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-600"
+              rows={4}
+              expandTitle="Workflow description"
+              minHeightClass="min-h-[6rem]"
             />
           </div>
 

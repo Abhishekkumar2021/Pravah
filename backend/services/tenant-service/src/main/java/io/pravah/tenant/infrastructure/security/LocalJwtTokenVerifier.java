@@ -39,8 +39,15 @@ public class LocalJwtTokenVerifier extends JwtTokenVerifier {
       JwtTokenIssuer jwtTokenIssuer,
       @org.springframework.beans.factory.annotation.Value("${pravah.security.jwt.issuer:}")
           String issuer) {
-    super("http://localhost/.well-known/jwks.json", issuer);
+    super("local://in-process-jwks", issuer);
     this.jwtTokenIssuer = jwtTokenIssuer;
+  }
+
+  /** Tenant-service is the issuer; keys are in-process — no HTTP JWKS polling. */
+  @Override
+  public void scheduledJwksRefresh() {
+    // Intentionally empty — avoids erroneous refresh to http://localhost/ from legacy placeholder
+    // URL.
   }
 
   @Override
