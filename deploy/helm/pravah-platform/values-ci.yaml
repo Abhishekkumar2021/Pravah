@@ -9,6 +9,19 @@ ingress:
 runnerPki:
   enabled: false
 
+# Bundled PgBouncer: use published image tag; skip exporter sidecar on constrained runners.
+pgbouncer:
+  progressDeadlineSeconds: 900
+  metrics:
+    enabled: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 # Bundled dev Vault is slow on shared GitHub Actions runners; relax probes and deadline.
 vault:
   progressDeadlineSeconds: 1200

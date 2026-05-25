@@ -53,8 +53,10 @@ postgres:
 # (transaction mode) instead of directly to PostgreSQL/RDS.
 pgbouncer:
   enabled: false
-  image: pgbouncer/pgbouncer:1.23.1
+  # Tag must include patch suffix (-p0); see playground/03-postgres-advanced/docker-compose.yml
+  image: edoburu/pgbouncer:1.23.1-p3
   port: 6432
+  progressDeadlineSeconds: 600
   poolMode: transaction
   maxClientConn: 500
   defaultPoolSize: 25

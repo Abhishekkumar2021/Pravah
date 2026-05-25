@@ -40,6 +40,7 @@ metadata:
     app.kubernetes.io/component: pgbouncer
 spec:
   replicas: 1
+  progressDeadlineSeconds: {{ .Values.pgbouncer.progressDeadlineSeconds | default 600 }}
   selector:
     matchLabels:
       app.kubernetes.io/component: pgbouncer
@@ -183,7 +184,7 @@ spec:
             - sh
             - -c
             - |
-              export PGBOUNCER_EXPORTER_CONNECTION_STRING="postgres://${PGUSER}:${PGPASS}@127.0.0.1:{{ .Values.pgbouncer.port | default 6432 }}/pgbouncer?sslmode=disable"
+              export DATA_SOURCE_NAME="postgresql://${PGUSER}:${PGPASS}@127.0.0.1:{{ .Values.pgbouncer.port | default 6432 }}/pgbouncer?sslmode=disable"
               exec /bin/pgbouncer_exporter
           resources:
             requests:
