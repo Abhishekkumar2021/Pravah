@@ -51,10 +51,8 @@ spec:
         app.kubernetes.io/component: pgbouncer
         {{- include "pravah.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.podSecurityContext }}
       securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- toYaml .Values.pgbouncer.podSecurityContext | nindent 8 }}
       initContainers:
         {{- if .Values.postgres.enabled }}
         - name: wait-postgres
@@ -78,7 +76,7 @@ spec:
         - name: render-pgbouncer-etc
           image: {{ .Values.postgres.image }}
           securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            {{- toYaml .Values.pgbouncer.securityContext | nindent 12 }}
           env:
             - name: PGUSER
               valueFrom:
@@ -114,7 +112,7 @@ spec:
         - name: pgbouncer
           image: {{ .Values.pgbouncer.image }}
           securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            {{- toYaml .Values.pgbouncer.securityContext | nindent 12 }}
           env:
             - name: AUTH_TYPE
               value: {{ .Values.pgbouncer.authType | default "plain" | quote }}
@@ -145,7 +143,7 @@ spec:
         - name: pgbouncer-exporter
           image: {{ .Values.pgbouncer.metrics.image }}
           securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            {{- toYaml .Values.pgbouncer.metrics.securityContext | nindent 12 }}
           ports:
             - containerPort: {{ .Values.pgbouncer.metrics.port }}
               name: metrics

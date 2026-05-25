@@ -49,7 +49,7 @@ vaultTransit:
 runnerPki:
   enabled: false
 
-# Relax security context for local dev (some images don't support non-root)
+# Relax security context for local dev (Pravah JVM images). PgBouncer keeps uid 70 (see values.yaml).
 podSecurityContext:
   runAsNonRoot: false
   runAsUser: 0
