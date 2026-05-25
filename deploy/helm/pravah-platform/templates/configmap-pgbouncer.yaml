@@ -1,0 +1,56 @@
+{{- if .Values.pgbouncer.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pravah.fullname" . }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+data:
+  pgbouncer.ini: |
+    [databases]
+    {{- $backendHost := include "pravah.postgres.hostname" . }}
+    {{- $backendPort := include "pravah.postgres.port" . }}
+    {{- $seen := dict }}
+    {{- range $svcKey, $svc := .Values.services }}
+    {{- if $svc.needsPostgres }}
+    {{- $dbName := $svc.database }}
+    {{- if not $.Values.postgres.enabled }}
+    {{- $dbName = index $.Values.externalPostgres.databases $svcKey | default $svc.database }}
+    {{- end }}
+    {{- if not (hasKey $seen $dbName) }}
+    {{- $_ := set $seen $dbName true }}
+    {{ $dbName }} = host={{ $backendHost }} port={{ $backendPort }} dbname={{ $dbName }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+    [pgbouncer]
+    listen_addr = 0.0.0.0
+    listen_port = {{ .Values.pgbouncer.port | default 6432 }}
+    auth_type = {{ .Values.pgbouncer.authType | default "plain" }}
+    auth_file = /etc/pgbouncer/userlist.txt
+    {{- $adminUser := .Values.postgres.auth.username }}
+    {{- if not .Values.postgres.enabled }}
+    {{- $adminUser = .Values.externalPostgres.username | default "postgres" }}
+    {{- end }}
+    admin_users = {{ $adminUser }}
+    pool_mode = {{ .Values.pgbouncer.poolMode | default "transaction" }}
+    max_client_conn = {{ .Values.pgbouncer.maxClientConn | default 500 }}
+    default_pool_size = {{ .Values.pgbouncer.defaultPoolSize | default 25 }}
+    min_pool_size = {{ .Values.pgbouncer.minPoolSize | default 5 }}
+    reserve_pool_size = {{ .Values.pgbouncer.reservePoolSize | default 5 }}
+    reserve_pool_timeout = {{ .Values.pgbouncer.reservePoolTimeout | default 3 }}
+    max_prepared_statements = {{ .Values.pgbouncer.maxPreparedStatements | default 0 }}
+    server_reset_query = DISCARD ALL
+    server_check_delay = 30
+    server_check_query = SELECT 1
+    client_login_timeout = 60
+    query_wait_timeout = 30
+    ignore_startup_parameters = extra_float_digits
+    log_connections = 0
+    log_disconnections = 0
+    log_pooler_errors = 1
+    stats_period = 60
+{{- end }}

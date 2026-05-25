@@ -304,12 +304,12 @@ Run `./scripts/deploy/terraform-init-rds.sh` equivalent manually on Neon (run `b
 
 Full managed infrastructure path (pathway #10). **Paid** — staging estimate ~$820–850/month without MSK.
 
-> **Status:** Terraform modules ship in PR #90 (`feat/terraform-aws-pathway-10`). Merge to `develop` before using.
+> **Status:** Terraform modules are on `develop` (`deploy/terraform/aws/`).
 
 ### Flow
 
 ```
-terraform apply → EKS kubeconfig → RDS init → K8s secrets → Helm/Argo CD → smoke test
+terraform apply → EKS kubeconfig → RDS init → K8s secrets → Helm/Argo CD (PgBouncer → RDS) → smoke test
 ```
 
 ### Step 1 — Terraform
@@ -427,10 +427,15 @@ Common causes: insufficient cluster memory (need 8 GB+ for kind), images not loa
 
 ### Database connection errors
 
+With PgBouncer enabled (`values-local.yaml` / `values-prod.yaml`), services use port **6432**, not Postgres/RDS port directly:
+
 ```bash
-kubectl -n pravah logs pravah-postgres-0
+kubectl -n pravah logs deploy/pravah-pgbouncer
+kubectl -n pravah logs pravah-postgres-0   # bundled Postgres only
 kubectl -n pravah exec -it deploy/pravah-tenant-service -- sh -c 'wget -qO- http://localhost:8082/actuator/health'
 ```
+
+Validate Helm wiring: `./scripts/deploy/validate-pgbouncer.sh`.
 
 ### Port already in use
 

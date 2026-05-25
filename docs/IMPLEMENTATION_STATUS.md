@@ -339,6 +339,7 @@ See [backend/README.md](../backend/README.md), [web/README.md](../web/README.md)
 | Argo CD GitOps | Partial (beta) | `deploy/argocd/` AppProject + Applications (local + production); `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`; GitOps image tag bump on `main` (`deploy.yml`); gateway `/api/v1/secrets/**` route; prod `pipeline-service.needsVault` |
 | Terraform (cloud) | Partial (beta) | `deploy/terraform/` AWS modules (VPC, EKS, RDS, ElastiCache, S3, IRSA, optional MSK); reference stack; operator scripts; execution-service S3 IRSA; CI validate |
 | Observability stack (US-09.14) | Partial (beta) | `deploy/observability/` kube-prometheus-stack + Jaeger; Grafana dashboard; ServiceMonitors + OTLP tracing (`values-observability.yaml`); `k8s-local-observability.sh` |
+| PgBouncer connection pooling (US-09.16) | Implemented (beta) | Helm `pgbouncer` subchart wiring in `deploy/helm/pravah-platform` — transaction mode, `prepareThreshold=0` JDBC URLs, prometheus exporter + ServiceMonitor, pool exhaustion alerts; enabled in `values-local.yaml` and `values-prod.yaml` |
 
 ---
 

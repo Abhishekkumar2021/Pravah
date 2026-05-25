@@ -56,7 +56,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Postgres hostname - bundled or external
+Postgres hostname - bundled or external (backend; use pravah.db.* when PgBouncer is enabled)
 */}}
 {{- define "pravah.postgres.hostname" -}}
 {{- if .Values.postgres.enabled }}
@@ -71,6 +71,35 @@ Postgres hostname - bundled or external
 {{- 5432 }}
 {{- else }}
 {{- .Values.externalPostgres.port | default 5432 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Application database endpoint (PgBouncer when enabled, else PostgreSQL/RDS).
+*/}}
+{{- define "pravah.db.hostname" -}}
+{{- if .Values.pgbouncer.enabled }}
+{{- printf "%s-pgbouncer" (include "pravah.fullname" .) }}
+{{- else }}
+{{- include "pravah.postgres.hostname" . }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.db.port" -}}
+{{- if .Values.pgbouncer.enabled }}
+{{- .Values.pgbouncer.port | default 6432 }}
+{{- else }}
+{{- include "pravah.postgres.port" . }}
+{{- end }}
+{{- end }}
+
+{{- define "pravah.pgbouncer.datasourceUrl" -}}
+{{- $root := index . 0 -}}
+{{- $dbName := index . 1 -}}
+{{- if $root.Values.pgbouncer.enabled -}}
+{{- printf "jdbc:postgresql://%s:%v/%s?prepareThreshold=0" (include "pravah.db.hostname" $root) (include "pravah.db.port" $root) $dbName -}}
+{{- else -}}
+{{- printf "jdbc:postgresql://%s:%v/%s" (include "pravah.db.hostname" $root) (include "pravah.db.port" $root) $dbName -}}
 {{- end }}
 {{- end }}
 
@@ -295,7 +324,7 @@ Common environment variables for all services
 {{- $dbName = index $root.Values.externalPostgres.databases $svcKey | default $svc.database -}}
 {{- end }}
 - name: SPRING_DATASOURCE_URL
-  value: {{ printf "jdbc:postgresql://%s:%v/%s" (include "pravah.postgres.hostname" $root) (include "pravah.postgres.port" $root) $dbName | quote }}
+  value: {{ include "pravah.pgbouncer.datasourceUrl" (list $root $dbName) | quote }}
 {{- end }}
 {{- if $svc.needsKafka }}
 - name: KAFKA_BOOTSTRAP_SERVERS
@@ -518,8 +547,35 @@ Init containers: wait for bundled dependencies before service start.
     - sh
     - -c
     - |
-      until pg_isready -h {{ include "pravah.postgres.hostname" $root }} -p 5432 -U {{ $root.Values.postgres.auth.username }}; do
+      until pg_isready -h {{ include "pravah.postgres.hostname" $root }} -p {{ include "pravah.postgres.port" $root }} -U {{ $root.Values.postgres.auth.username }}; do
         echo "waiting for postgres..."
+        sleep 2
+      done
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 32Mi
+{{- end }}
+{{- if and $svc.needsPostgres $root.Values.pgbouncer.enabled }}
+- name: wait-pgbouncer
+  image: {{ $root.Values.postgres.image }}
+  securityContext:
+    {{- toYaml $root.Values.containerSecurityContext | nindent 4 }}
+  env:
+    - name: PGUSER
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "pravah.postgres.secretName" $root }}
+          key: {{ if and (not $root.Values.postgres.enabled) $root.Values.externalPostgres.existingSecret }}{{ $root.Values.externalPostgres.existingSecretUsernameKey }}{{ else }}postgres-username{{ end }}
+  command:
+    - sh
+    - -c
+    - |
+      until pg_isready -h {{ include "pravah.db.hostname" $root }} -p {{ include "pravah.db.port" $root }} -U "$PGUSER"; do
+        echo "waiting for pgbouncer..."
         sleep 2
       done
   resources:

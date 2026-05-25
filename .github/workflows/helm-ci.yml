@@ -7,6 +7,7 @@ on:
       - "deploy/argocd/**"
       - "deploy/observability/**"
       - "scripts/deploy/validate-observability.sh"
+      - "scripts/deploy/validate-pgbouncer.sh"
       - ".github/workflows/helm-ci.yml"
   push:
     branches: [main, develop]
@@ -15,6 +16,7 @@ on:
       - "deploy/argocd/**"
       - "deploy/observability/**"
       - "scripts/deploy/validate-observability.sh"
+      - "scripts/deploy/validate-pgbouncer.sh"
       - ".github/workflows/helm-ci.yml"
 
 jobs:
@@ -29,6 +31,9 @@ jobs:
 
       - name: Validate observability configs
         run: ./scripts/deploy/validate-observability.sh
+
+      - name: Validate PgBouncer Helm wiring
+        run: ./scripts/deploy/validate-pgbouncer.sh
 
       - name: Install Helm
         uses: azure/setup-helm@v4

@@ -49,6 +49,73 @@ postgres:
     runAsGroup: 70
     fsGroup: 70
 
+# PgBouncer connection pooling (US-09.16). When enabled, services connect via PgBouncer
+# (transaction mode) instead of directly to PostgreSQL/RDS.
+pgbouncer:
+  enabled: false
+  # Published tag on Docker Hub (patch suffix required); see playground/03-postgres-advanced/
+  image: edoburu/pgbouncer:v1.25.1-p0
+  port: 6432
+  progressDeadlineSeconds: 600
+  # plain for bundled Postgres dev; use scram-sha-256 for RDS (values-prod.yaml)
+  authType: plain
+  poolMode: transaction
+  maxClientConn: 500
+  defaultPoolSize: 25
+  minPoolSize: 5
+  reservePoolSize: 5
+  reservePoolTimeout: 3
+  maxPreparedStatements: 0
+  # edoburu/pgbouncer refuses root; do not inherit values-local runAsUser: 0
+  podSecurityContext:
+    fsGroup: 70
+  securityContext:
+    runAsUser: 70
+    runAsGroup: 70
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+  probes:
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 6
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 6
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  metrics:
+    enabled: true
+    port: 9127
+    image: prometheuscommunity/pgbouncer-exporter:v0.10.2
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
 # External PostgreSQL (when postgres.enabled=false)
 externalPostgres:
   host: ""

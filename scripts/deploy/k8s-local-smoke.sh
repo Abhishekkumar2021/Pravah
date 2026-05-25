@@ -24,6 +24,7 @@ PLATFORM_COMPONENTS=(
 
 BUNDLED_COMPONENTS=(
   postgres
+  pgbouncer
   kafka
   redis
   minio

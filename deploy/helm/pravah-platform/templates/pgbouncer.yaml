@@ -1,0 +1,192 @@
+{{- if .Values.pgbouncer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pravah.fullname" . }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+  {{- if and .Values.metrics.enabled .Values.pgbouncer.metrics.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.pgbouncer.metrics.port | quote }}
+    prometheus.io/path: "/metrics"
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.pgbouncer.port | default 6432 }}
+      targetPort: pgbouncer
+      protocol: TCP
+      name: pgbouncer
+    {{- if .Values.pgbouncer.metrics.enabled }}
+    - port: {{ .Values.pgbouncer.metrics.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    app.kubernetes.io/component: pgbouncer
+    {{- include "pravah.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pravah.fullname" . }}-pgbouncer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  replicas: 1
+  progressDeadlineSeconds: {{ .Values.pgbouncer.progressDeadlineSeconds | default 600 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: pgbouncer
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: pgbouncer
+        {{- include "pravah.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.pgbouncer.podSecurityContext | nindent 8 }}
+      initContainers:
+        {{- if .Values.postgres.enabled }}
+        - name: wait-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -ec
+            - |
+              until pg_isready -h {{ include "pravah.postgres.hostname" . }} -p {{ include "pravah.postgres.port" . }} -U {{ .Values.postgres.auth.username }}; do
+                echo "waiting for postgres..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+        {{- end }}
+        - name: render-pgbouncer-etc
+          image: {{ .Values.postgres.image }}
+          securityContext:
+            {{- toYaml .Values.pgbouncer.securityContext | nindent 12 }}
+          env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pravah.postgres.secretName" . }}
+                  key: {{ if and (not .Values.postgres.enabled) .Values.externalPostgres.existingSecret }}{{ .Values.externalPostgres.existingSecretUsernameKey }}{{ else }}postgres-username{{ end }}
+            - name: PGPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pravah.postgres.secretName" . }}
+                  key: {{ if and (not .Values.postgres.enabled) .Values.externalPostgres.existingSecret }}{{ .Values.externalPostgres.existingSecretPasswordKey }}{{ else }}postgres-password{{ end }}
+          command:
+            - sh
+            - -ec
+            - |
+              set -euo pipefail
+              cp /config-ro/pgbouncer.ini /etc/pgbouncer/pgbouncer.ini
+              printf '"%s" "%s"\n' "$PGUSER" "$PGPASS" > /etc/pgbouncer/userlist.txt
+              chmod 600 /etc/pgbouncer/userlist.txt
+          volumeMounts:
+            - name: pgbouncer-config-ro
+              mountPath: /config-ro
+            - name: pgbouncer-etc
+              mountPath: /etc/pgbouncer
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      containers:
+        - name: pgbouncer
+          image: {{ .Values.pgbouncer.image }}
+          securityContext:
+            {{- toYaml .Values.pgbouncer.securityContext | nindent 12 }}
+          env:
+            - name: AUTH_TYPE
+              value: {{ .Values.pgbouncer.authType | default "plain" | quote }}
+          ports:
+            - containerPort: {{ .Values.pgbouncer.port | default 6432 }}
+              name: pgbouncer
+              protocol: TCP
+          volumeMounts:
+            - name: pgbouncer-etc
+              mountPath: /etc/pgbouncer
+          readinessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: {{ .Values.pgbouncer.probes.readiness.initialDelaySeconds | default 5 }}
+            periodSeconds: {{ .Values.pgbouncer.probes.readiness.periodSeconds | default 5 }}
+            timeoutSeconds: {{ .Values.pgbouncer.probes.readiness.timeoutSeconds | default 3 }}
+            failureThreshold: {{ .Values.pgbouncer.probes.readiness.failureThreshold | default 6 }}
+          livenessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: {{ .Values.pgbouncer.probes.liveness.initialDelaySeconds | default 15 }}
+            periodSeconds: {{ .Values.pgbouncer.probes.liveness.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.pgbouncer.probes.liveness.timeoutSeconds | default 3 }}
+            failureThreshold: {{ .Values.pgbouncer.probes.liveness.failureThreshold | default 6 }}
+          resources:
+            {{- toYaml .Values.pgbouncer.resources | nindent 12 }}
+        {{- if .Values.pgbouncer.metrics.enabled }}
+        - name: pgbouncer-exporter
+          image: {{ .Values.pgbouncer.metrics.image }}
+          securityContext:
+            {{- toYaml .Values.pgbouncer.metrics.securityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.pgbouncer.metrics.port }}
+              name: metrics
+              protocol: TCP
+          env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pravah.postgres.secretName" . }}
+                  key: {{ if and (not .Values.postgres.enabled) .Values.externalPostgres.existingSecret }}{{ .Values.externalPostgres.existingSecretUsernameKey }}{{ else }}postgres-username{{ end }}
+            - name: PGPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pravah.postgres.secretName" . }}
+                  key: {{ if and (not .Values.postgres.enabled) .Values.externalPostgres.existingSecret }}{{ .Values.externalPostgres.existingSecretPasswordKey }}{{ else }}postgres-password{{ end }}
+          command:
+            - sh
+            - -c
+            - |
+              export PGBOUNCER_EXPORTER_CONNECTION_STRING="postgres://${PGUSER}:${PGPASS}@127.0.0.1:{{ .Values.pgbouncer.port | default 6432 }}/pgbouncer?sslmode=disable"
+              exec /bin/pgbouncer_exporter
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.pgbouncer.metrics.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: pgbouncer-config-ro
+          configMap:
+            name: {{ include "pravah.fullname" . }}-pgbouncer
+        - name: pgbouncer-etc
+          emptyDir: {}
+{{- end }}

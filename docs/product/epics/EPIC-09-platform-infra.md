@@ -271,10 +271,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** we don't exhaust connections
 
 **Acceptance Criteria:**
-- [ ] PgBouncer configuration
-- [ ] Transaction pooling
-- [ ] Monitoring pool usage
-- [ ] Alert on exhaustion
+- [x] PgBouncer configuration
+- [x] Transaction pooling
+- [x] Monitoring pool usage
+- [x] Alert on exhaustion
 
 **Story Points:** 5  
 **Priority:** P0
