@@ -56,6 +56,7 @@ externalPostgres:
 
 pgbouncer:
   enabled: true
+  authType: scram-sha-256
 
 # External S3-compatible artifact store (AWS S3 via Terraform IRSA or static keys)
 externalArtifact:

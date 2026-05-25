@@ -29,9 +29,13 @@ data:
     [pgbouncer]
     listen_addr = 0.0.0.0
     listen_port = {{ .Values.pgbouncer.port | default 6432 }}
-    auth_type = plain
+    auth_type = {{ .Values.pgbouncer.authType | default "plain" }}
     auth_file = /etc/pgbouncer/userlist.txt
-    admin_users = {{ .Values.postgres.auth.username }}
+    {{- $adminUser := .Values.postgres.auth.username }}
+    {{- if not .Values.postgres.enabled }}
+    {{- $adminUser = .Values.externalPostgres.username | default "postgres" }}
+    {{- end }}
+    admin_users = {{ $adminUser }}
     pool_mode = {{ .Values.pgbouncer.poolMode | default "transaction" }}
     max_client_conn = {{ .Values.pgbouncer.maxClientConn | default 500 }}
     default_pool_size = {{ .Values.pgbouncer.defaultPoolSize | default 25 }}
@@ -40,8 +44,13 @@ data:
     reserve_pool_timeout = {{ .Values.pgbouncer.reservePoolTimeout | default 3 }}
     max_prepared_statements = {{ .Values.pgbouncer.maxPreparedStatements | default 0 }}
     server_reset_query = DISCARD ALL
+    server_check_delay = 30
+    server_check_query = SELECT 1
+    client_login_timeout = 60
+    query_wait_timeout = 30
     ignore_startup_parameters = extra_float_digits
     log_connections = 0
     log_disconnections = 0
+    log_pooler_errors = 1
     stats_period = 60
 {{- end }}

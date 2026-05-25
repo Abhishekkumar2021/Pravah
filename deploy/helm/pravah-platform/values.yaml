@@ -53,10 +53,12 @@ postgres:
 # (transaction mode) instead of directly to PostgreSQL/RDS.
 pgbouncer:
   enabled: false
-  # Tag must include patch suffix (-p0); see playground/03-postgres-advanced/docker-compose.yml
-  image: edoburu/pgbouncer:1.23.1-p3
+  # Published tag on Docker Hub (patch suffix required); see playground/03-postgres-advanced/
+  image: edoburu/pgbouncer:v1.25.1-p0
   port: 6432
   progressDeadlineSeconds: 600
+  # plain for bundled Postgres dev; use scram-sha-256 for RDS (values-prod.yaml)
+  authType: plain
   poolMode: transaction
   maxClientConn: 500
   defaultPoolSize: 25
@@ -64,6 +66,17 @@ pgbouncer:
   reservePoolSize: 5
   reservePoolTimeout: 3
   maxPreparedStatements: 0
+  probes:
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 6
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 6
   resources:
     requests:
       cpu: 50m
@@ -75,6 +88,13 @@ pgbouncer:
     enabled: true
     port: 9127
     image: prometheuscommunity/pgbouncer-exporter:v0.10.2
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
 
 # External PostgreSQL (when postgres.enabled=false)
 externalPostgres:

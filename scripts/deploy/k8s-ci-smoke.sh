@@ -36,6 +36,10 @@ collect_debug_logs() {
     >"$ROOT/build/k8s-ci-smoke/events.txt" 2>&1 || true
   kubectl -n "$NAMESPACE" describe pods \
     >"$ROOT/build/k8s-ci-smoke/describe-pods.txt" 2>&1 || true
+  if kubectl -n "$NAMESPACE" get deploy -l app.kubernetes.io/component=pgbouncer --no-headers 2>/dev/null | grep -q .; then
+    kubectl -n "$NAMESPACE" logs deploy/"${HELM_RELEASE:-pravah}"-pgbouncer --all-containers \
+      >"$ROOT/build/k8s-ci-smoke/pgbouncer-logs.txt" 2>&1 || true
+  fi
 }
 
 delete_cluster() {

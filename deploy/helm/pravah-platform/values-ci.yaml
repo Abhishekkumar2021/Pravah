@@ -9,18 +9,18 @@ ingress:
 runnerPki:
   enabled: false
 
-# Bundled PgBouncer: use published image tag; skip exporter sidecar on constrained runners.
+# PgBouncer: same stack as local/prod (metrics enabled); relax timing on shared runners.
 pgbouncer:
   progressDeadlineSeconds: 900
-  metrics:
-    enabled: false
-  resources:
-    requests:
-      cpu: 25m
-      memory: 32Mi
-    limits:
-      cpu: 200m
-      memory: 128Mi
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 12
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 12
 
 # Bundled dev Vault is slow on shared GitHub Actions runners; relax probes and deadline.
 vault:

@@ -31,6 +31,9 @@ LOCAL_OUT="$(helm template pravah "$CHART" \
   --namespace pravah)"
 
 contains "$LOCAL_OUT" "name: pravah-pgbouncer" || fail "missing pgbouncer Service/Deployment"
+contains "$LOCAL_OUT" "image: edoburu/pgbouncer:v1.25.1-p0" || fail "expected published edoburu/pgbouncer image tag"
+contains "$LOCAL_OUT" "render-pgbouncer-etc" || fail "missing render-pgbouncer-etc init container"
+contains "$LOCAL_OUT" "server_check_query = SELECT 1" || fail "missing server_check_query in pgbouncer.ini"
 contains "$LOCAL_OUT" "kind: Deployment" || fail "missing Deployment manifests"
 contains "$LOCAL_OUT" "prepareThreshold=0" || fail "expected prepareThreshold=0 in JDBC URLs when PgBouncer enabled"
 contains "$LOCAL_OUT" "pool_mode = transaction" || fail "expected transaction poolMode"

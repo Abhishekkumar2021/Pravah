@@ -306,7 +306,7 @@ helm upgrade --install pravah deploy/helm/pravah-platform \
   --set ingress.host=api.pravah.io
 ```
 
-**PgBouncer (US-09.16):** `values-prod.yaml` sets `pgbouncer.enabled: true`. Image: `edoburu/pgbouncer` with a `-pN` patch tag (bare `1.23.1` is not published). Services connect to `<release>-pgbouncer:6432` with `prepareThreshold=0` (required for transaction pooling). PgBouncer pools to RDS on port 5432. Metrics: `pgbouncer-exporter` on port 9127 + ServiceMonitor when `metrics.serviceMonitor.enabled`. Alerts: `deploy/observability/prometheus-rules/pravah-platform.yaml` (`PravahPgBouncerClientWaiting`, `PravahPgBouncerPoolSaturated`, `PravahPgBouncerMaxWait`). Validate: `./scripts/deploy/validate-pgbouncer.sh`.
+**PgBouncer (US-09.16):** `values-prod.yaml` sets `pgbouncer.enabled: true` and `authType: scram-sha-256` for RDS. Image: `edoburu/pgbouncer:v1.25.1-p0` (patch suffix required on Docker Hub). Services connect to `<release>-pgbouncer:6432` with `prepareThreshold=0` (transaction pooling). PgBouncer pools to PostgreSQL/RDS on port 5432. Metrics: `pgbouncer-exporter` on port 9127 + ServiceMonitor when `metrics.serviceMonitor.enabled`. Alerts: `deploy/observability/prometheus-rules/pravah-platform.yaml`. Validate: `./scripts/deploy/validate-pgbouncer.sh`.
 
 Local kind/minikube enables PgBouncer via `values-local.yaml` (bundled Postgres backend).
 
@@ -337,6 +337,7 @@ kubectl -n pravah describe ingress pravah
 | `postgres.enabled` | Deploy bundled PostgreSQL | `true` |
 | `pgbouncer.enabled` | Route JDBC via PgBouncer (transaction pool) | `false` (`true` in values-local/prod) |
 | `pgbouncer.poolMode` | PgBouncer pool mode | `transaction` |
+| `pgbouncer.authType` | Client auth (`plain` bundled, `scram-sha-256` prod/RDS) | `plain` |
 | `pgbouncer.defaultPoolSize` | Server connections per database/user | `25` |
 | `kafka.enabled` | Deploy bundled Kafka | `true` |
 | `redis.enabled` | Deploy bundled Redis | `true` |
