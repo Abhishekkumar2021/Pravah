@@ -1,0 +1,166 @@
+# Local development values (kind / minikube).
+# Build images locally and load into the cluster:
+#   ./scripts/deploy/k8s-local-build.sh
+#   helm upgrade --install pravah deploy/helm/pravah-platform \
+#     -f deploy/helm/pravah-platform/values.yaml \
+#     -f deploy/helm/pravah-platform/values-local.yaml \
+#     --namespace pravah --create-namespace
+
+fullnameOverride: pravah
+
+# Local images (built and loaded via k8s-local-build.sh)
+image:
+  registry: ""
+  repositoryPrefix: pravah
+  tag: local
+  pullPolicy: Never
+
+# Disable persistence for local dev (faster, no PVC issues)
+postgres:
+  persistence:
+    enabled: false
+
+pgbouncer:
+  enabled: true
+
+kafka:
+  persistence:
+    enabled: false
+
+redis:
+  persistence:
+    enabled: false
+
+minio:
+  persistence:
+    enabled: false
+
+mailhog:
+  enabled: true
+
+vault:
+  enabled: true
+
+# Pipeline-service needsVault enables KV + Transit for stored tenant secrets.
+vaultTransit:
+  enabled: true
+
+# Enable with runnerGrpcTls + pravah-runner-grpc-tls Secret (see deploy/README.md).
+runnerPki:
+  enabled: false
+
+# Relax security context for local dev (Pravah JVM images). PgBouncer keeps uid 70 (see values.yaml).
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 0
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# Enable ingress for local access
+ingress:
+  enabled: true
+  host: localhost
+
+# Local Pravah settings
+pravah:
+  internalServiceSecret: pravah-local-internal-secret
+  wsAllowedOrigins: "http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://pravah.local"
+  frontendBaseUrl: "http://localhost:5173"
+
+# Faster probes for local dev
+probes:
+  startup:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 3
+    failureThreshold: 60
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 15
+    periodSeconds: 5
+
+# Lower resources for local dev
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+services:
+  tenant-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  pipeline-service:
+    needsVault: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  execution-service:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+  scheduler-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 192Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi
+  notification-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  connect-service:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  runner-service:
+    needsVault: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+  gateway:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 192Mi
+      limits:
+        cpu: 500m
+        memory: 384Mi

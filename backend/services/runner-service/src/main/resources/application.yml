@@ -1,0 +1,87 @@
+spring:
+  application:
+    name: runner-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_runner
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: runner-service
+      auto-offset-reset: earliest
+
+grpc:
+  server:
+    port: 9091
+
+server:
+  port: 8086
+
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+  execution-service:
+    base-url: ${EXECUTION_SERVICE_BASE_URL:http://localhost:8084}
+  runner:
+    bootstrap-secret: ${PRAVAH_RUNNER_BOOTSTRAP_SECRET:${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}}
+    heartbeat-timeout-seconds: 30
+    job-assignment-lock-ttl-seconds: 60
+    grpc:
+      tls:
+        enabled: ${PRAVAH_RUNNER_GRPC_TLS_ENABLED:false}
+        cert-chain: ${PRAVAH_RUNNER_GRPC_TLS_CERT_CHAIN:}
+        private-key: ${PRAVAH_RUNNER_GRPC_TLS_PRIVATE_KEY:}
+        client-ca: ${PRAVAH_RUNNER_GRPC_TLS_CLIENT_CA:}
+    pki:
+      enabled: ${PRAVAH_RUNNER_PKI_ENABLED:false}
+      issue-path: ${PRAVAH_RUNNER_PKI_ISSUE_PATH:pki/issue/runner}
+      ttl: ${PRAVAH_RUNNER_PKI_TTL:168h}
+      spiffe-trust-domain: ${PRAVAH_RUNNER_PKI_SPIFFE_TRUST_DOMAIN:pravah.local}
+  vault:
+    enabled: ${PRAVAH_VAULT_ENABLED:false}
+    address: ${PRAVAH_VAULT_ADDRESS:http://localhost:8200}
+    auth:
+      method: ${PRAVAH_VAULT_AUTH_METHOD:token}
+      token: ${VAULT_TOKEN:}
+      kubernetes:
+        mount-path: ${PRAVAH_VAULT_K8S_MOUNT_PATH:kubernetes}
+        role: ${PRAVAH_VAULT_K8S_ROLE:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

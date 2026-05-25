@@ -1,0 +1,1575 @@
+/**
+ * REST client for Pravah gateway (mutations + reads).
+ * In dev, use Vite proxy: requests to `/api/...` forward to the gateway (see `vite.config.ts`).
+ * Override base URL with `VITE_PRAVAH_API_BASE` when serving the UI from another origin.
+ */
+
+const apiBase = import.meta.env.VITE_PRAVAH_API_BASE?.replace(/\/$/, "") ?? "";
+
+function apiUrl(path: string): string {
+  if (!path.startsWith("/")) {
+    throw new Error(`API path must start with /, got: ${path}`);
+  }
+  return apiBase ? `${apiBase}${path}` : path;
+}
+
+/**
+ * Job summary with timing fields for Gantt chart visualization (US-02.09).
+ *
+ * Timing fields:
+ * - queuedAt: when the job was queued (dependencies satisfied, waiting for worker)
+ * - startedAt: when execution began (worker picked up the job)
+ * - completedAt: when execution finished (success, failure, or cancellation)
+ */
+export type JobSummary = {
+  id: string;
+  stageId: string;
+  stageName: string;
+  status: string;
+  attempt: number;
+  maxAttempts: number;
+  queuedAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  output?: Record<string, unknown> | null;
+};
+
+export type ExecutionResponse = {
+  id: string;
+  status: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  triggerType: string;
+  triggeredBy: string | null;
+  retryOf: string | null;
+  retryCount: number;
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  parameters?: Record<string, string | number | boolean> | null;
+  jobs: JobSummary[];
+};
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly errorCode?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.ok) {
+    if (res.status === 204) {
+      return undefined as T;
+    }
+    const contentType = res.headers?.get?.("content-type") ?? "";
+    if (contentType.includes("text/html")) {
+      await res.text();
+      throw new ApiError(
+        "API returned HTML instead of JSON. The service may be unavailable or the request was routed incorrectly.",
+        res.status,
+      );
+    }
+    return (await res.json()) as T;
+  }
+  if (
+    res.status === 401 &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
+    void signOut();
+    const redirect = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
+    window.location.assign(`/login?redirect=${redirect}`);
+  }
+  let message = res.statusText;
+  let errorCode: string | undefined;
+  try {
+    const body = await res.json();
+    message = body.detail ?? body.message ?? body.error ?? res.statusText;
+    errorCode = body.errorCode;
+  } catch {
+    message = await res.text().catch(() => res.statusText);
+  }
+  if (res.status === 403 && (!message || message === "Forbidden")) {
+    message = getAccessToken()
+      ? "You don't have permission to perform this action."
+      : "Your session expired. Sign in again to continue.";
+  }
+  throw new ApiError(message, res.status, errorCode);
+}
+
+const ACCESS_TOKEN_STORAGE_KEY = "pravah.accessToken";
+const AUTH_USER_STORAGE_KEY = "pravah.authUser";
+const SESSION_CHANGED_EVENT = "pravah:session-changed";
+
+/** In-memory access token (ADR-009); not persisted to localStorage/sessionStorage. */
+let memoryAccessToken: string | undefined;
+
+function authStorage(): Storage {
+  if (typeof window === "undefined") {
+    return localStorage;
+  }
+  try {
+    return window.sessionStorage;
+  } catch {
+    return localStorage;
+  }
+}
+
+export function getAccessToken(): string | undefined {
+  if (memoryAccessToken?.trim()) {
+    return memoryAccessToken;
+  }
+  return (
+    authStorage().getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+    localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ??
+    undefined
+  );
+}
+
+/** True when a signed-in session exists and the access token is not expired. */
+export function hasValidSession(): boolean {
+  const token = getAccessToken()?.trim();
+  if (!token) return false;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return false;
+    const payload = parts[1]!.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
+    const claims = JSON.parse(atob(padded)) as { exp?: unknown };
+    if (typeof claims.exp === "number") {
+      return claims.exp * 1000 > Date.now() + 10_000;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getStoredUser(): AuthUserResponse | undefined {
+  const raw =
+    authStorage().getItem(AUTH_USER_STORAGE_KEY) ??
+    localStorage.getItem(AUTH_USER_STORAGE_KEY);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as AuthUserResponse;
+  } catch {
+    return undefined;
+  }
+}
+
+function setStoredUser(user: AuthUserResponse | null) {
+  if (user) {
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  }
+}
+
+/** Subscribe to session changes (sign-in, sign-out, token refresh; cross-tab via `storage`). */
+export function subscribeSession(listener: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+  const onStorage = (e: StorageEvent) => {
+    if (
+      e.key === ACCESS_TOKEN_STORAGE_KEY ||
+      e.key === AUTH_USER_STORAGE_KEY ||
+      e.key === null
+    ) {
+      listener();
+    }
+  };
+  const onLocal = () => listener();
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(SESSION_CHANGED_EVENT, onLocal);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(SESSION_CHANGED_EVENT, onLocal);
+  };
+}
+
+export function setAccessToken(token: string | null) {
+  memoryAccessToken = token?.trim() ? token : undefined;
+  authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+  }
+}
+
+/** Clear session and sign out (revokes token server-side when possible). */
+export async function signOut() {
+  const token = getAccessToken();
+  if (token) {
+    try {
+      await fetch(apiUrl("/api/v1/auth/logout"), {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // Best-effort revocation; still clear local session.
+    }
+  }
+  authStorage().removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  authStorage().removeItem(AUTH_USER_STORAGE_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  memoryAccessToken = undefined;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+  }
+}
+
+/** Update the signed-in user's display name. */
+export async function updateProfileName(userId: string, name: string): Promise<AuthUserResponse> {
+  const res = await fetch(apiUrl(`/api/v1/users/${userId}/name`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name }),
+  });
+  const updated = await handleResponse<AuthUserResponse>(res);
+  setStoredUser(updated);
+  return updated;
+}
+
+function authHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export type AuthUserResponse = {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+};
+
+export type AuthTokenResponse = {
+  accessToken: string;
+  userId: string;
+  tenantId: string;
+  expiresAt: string;
+  user: AuthUserResponse;
+};
+
+export type RegisterResponse = {
+  email: string;
+  message: string;
+};
+
+/** Email/password login (US-10.01). Access token in memory; refresh token in HttpOnly cookie. */
+export async function login(email: string, password: string): Promise<AuthTokenResponse> {
+  const res = await fetch(apiUrl("/api/v1/auth/login"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await handleResponse<AuthTokenResponse>(res);
+  setAccessToken(body.accessToken);
+  setStoredUser(body.user);
+  return body;
+}
+
+let refreshInFlight: Promise<AuthTokenResponse | null> | null = null;
+
+/** Renew access token using HttpOnly refresh cookie (ADR-009). */
+export async function refreshAccessToken(): Promise<AuthTokenResponse | null> {
+  const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+  });
+  if (res.status === 401) {
+    return null;
+  }
+  const body = await handleResponse<AuthTokenResponse>(res);
+  setAccessToken(body.accessToken);
+  setStoredUser(body.user);
+  return body;
+}
+
+/**
+ * Returns a bearer token for API calls, restoring the in-memory session from the
+ * refresh cookie when needed (page reload / new tab per ADR-009).
+ */
+export async function ensureAccessToken(): Promise<string | undefined> {
+  const existing = getAccessToken()?.trim();
+  if (existing) {
+    return existing;
+  }
+  if (!refreshInFlight) {
+    refreshInFlight = refreshAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  await refreshInFlight;
+  return getAccessToken()?.trim();
+}
+
+/** Self-service signup (US-10.01). Sends verification email; does not sign in. */
+export async function register(
+  email: string,
+  password: string,
+  name: string,
+): Promise<RegisterResponse> {
+  const res = await fetch(apiUrl("/api/v1/auth/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name }),
+  });
+  return handleResponse<RegisterResponse>(res);
+}
+
+export async function verifyEmail(token: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/verify-email"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export async function resendVerificationEmail(email: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/verify-email/resend"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/password-reset/request"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/v1/auth/password-reset/confirm"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    await handleResponse<void>(res);
+  }
+}
+
+export type ValidatePipelineResponse = { valid: boolean };
+
+export async function validatePipelineDefinition(definitionYaml: string): Promise<ValidatePipelineResponse> {
+  const res = await fetch(apiUrl("/api/v1/pipelines/validate"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ definitionYaml }),
+  });
+  return handleResponse<ValidatePipelineResponse>(res);
+}
+
+export async function publishPipeline(
+  pipelineId: string,
+  definitionYaml: string,
+): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/publish`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ definitionYaml }),
+  });
+  return handleResponse<PipelineResponse>(res);
+}
+
+const EXECUTIONS_WS_PATH = "/ws/v1/executions";
+
+/**
+ * WebSocket URL for execution-service realtime stream (tenant-scoped JWT on connect).
+ *
+ * Uses the `access_token` query parameter because browser `WebSocket` cannot set `Authorization`
+ * reliably. Treat tokens as sensitive: they can appear in proxy access logs if the log format
+ * includes the request URI query string—disable or redact at INFO in production.
+ *
+ * In local dev, same host as the SPA with Vite proxying `/ws` to the gateway (see `vite.config.ts`).
+ */
+export function executionsWebSocketUrl(accessToken: string): string {
+  const path = `${EXECUTIONS_WS_PATH}?access_token=${encodeURIComponent(accessToken)}`;
+  const base = import.meta.env.VITE_PRAVAH_API_BASE?.replace(/\/$/, "") ?? "";
+  if (base) {
+    const u = new URL(base);
+    const wsProto = u.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProto}//${u.host}${path}`;
+  }
+  if (typeof window === "undefined") {
+    return `ws://127.0.0.1${path}`;
+  }
+  const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${wsProto}//${window.location.host}${path}`;
+}
+
+export async function getExecution(executionId: string): Promise<ExecutionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/executions/${executionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ExecutionResponse>(res);
+}
+
+export type JobLogLine = {
+  id: string;
+  logTime: string;
+  level: string;
+  message: string;
+};
+
+export type JobLogsResponse = {
+  jobId: string;
+  executionId: string;
+  lines: JobLogLine[];
+};
+
+/** Per-job logs for run detail (US-02.03 / US-12.09). */
+export async function getJobLogs(
+  executionId: string,
+  jobId: string,
+  opts?: { level?: string },
+): Promise<JobLogsResponse> {
+  const path = withQuery(`/api/v1/executions/${executionId}/jobs/${jobId}/logs`, {
+    level: opts?.level,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<JobLogsResponse>(res);
+}
+
+export async function cancelExecution(executionId: string): Promise<ExecutionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/executions/${executionId}/cancel`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+  });
+  return handleResponse<ExecutionResponse>(res);
+}
+
+/** Retry from a failed stage (US-02.05). Creates a new execution linked via retryOf. */
+export async function retryExecution(
+  executionId: string,
+  fromStageId: string,
+): Promise<CreateExecutionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/executions/${executionId}/retry`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ fromStageId }),
+  });
+  return handleResponse<CreateExecutionResponse>(res);
+}
+
+export type PipelineResponse = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  currentVersion: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PipelineListResponse = {
+  content: PipelineResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+};
+
+export type PipelineDetailResponse = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  currentVersion: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  draftDefinitionYaml: string | null;
+  versions: { version: number; publishedAt: string | null; publishedBy: string | null }[];
+};
+
+export type ExecutionListItem = {
+  id: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: string;
+  triggerType: string;
+  triggeredBy: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
+export type ListExecutionsResponse = {
+  content: ExecutionListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+};
+
+const PIPELINE_ID_UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+function withQuery(path: string, params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === "") continue;
+    search.set(k, String(v));
+  }
+  const q = search.toString();
+  return q ? `${path}?${q}` : path;
+}
+
+export async function listPipelines(
+  projectId: string,
+  opts?: { status?: string; page?: number; size?: number },
+): Promise<PipelineListResponse> {
+  const path = withQuery("/api/v1/pipelines", {
+    projectId,
+    status: opts?.status,
+    page: opts?.page ?? 0,
+    size: opts?.size ?? 50,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<PipelineListResponse>(res);
+}
+
+export async function getPipeline(pipelineId: string): Promise<PipelineDetailResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineDetailResponse>(res);
+}
+
+export async function updatePipeline(
+  pipelineId: string,
+  body: { name?: string; description?: string; definitionYaml?: string },
+): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}`), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PipelineResponse>(res);
+}
+
+export async function archivePipeline(pipelineId: string): Promise<PipelineResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/archive`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineResponse>(res);
+}
+
+export type PipelineVersionDefinitionResponse = {
+  pipelineId: string;
+  version: number;
+  definition: PipelineDefinition;
+  publishedAt: string | null;
+  publishedBy: string | null;
+};
+
+export type PipelineDefinition = {
+  name?: string;
+  description?: string;
+  stages?: StageDefinition[];
+  variables?: Record<string, unknown>;
+  environments?: Record<string, unknown>;
+  retry?: Record<string, unknown>;
+  timeout?: Record<string, unknown>;
+};
+
+export type StageDefinition = {
+  id: string;
+  name?: string;
+  type?: string;
+  dependsOn?: string[];
+  depends_on?: string[];
+  config?: Record<string, unknown>;
+  retry?: Record<string, unknown>;
+  timeout?: Record<string, unknown>;
+};
+
+export async function getPipelineVersionDefinition(
+  pipelineId: string,
+  version: number,
+): Promise<PipelineVersionDefinitionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${pipelineId}/versions/${version}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineVersionDefinitionResponse>(res);
+}
+
+export type CreateExecutionRequest = {
+  pipelineId: string;
+  pipelineVersion?: number | null;
+  parameters?: Record<string, unknown> | null;
+};
+
+export type TriggerPipelineRunRequest = {
+  pipelineVersion?: number | null;
+  parameters?: Record<string, unknown> | null;
+  async?: boolean | null;
+};
+
+export type TriggerPipelineRunResponse = {
+  id: string;
+};
+
+export type CreateExecutionJobResponse = {
+  id: string;
+  stageId: string;
+  stageName: string;
+  status: string;
+};
+
+export type CreateExecutionResponse = {
+  id: string;
+  pipelineId: string;
+  pipelineVersion: number;
+  status: string;
+  jobs: CreateExecutionJobResponse[];
+};
+
+/** Start a manual execution (POST /api/v1/executions). */
+export async function createExecution(
+  pipelineId: string,
+  pipelineVersion?: number | null,
+): Promise<CreateExecutionResponse> {
+  const id = pipelineId.trim();
+  if (!PIPELINE_ID_UUID_RE.test(id)) {
+    throw new ApiError("Pipeline id must be a UUID", 400, "INVALID_INPUT");
+  }
+  const body: CreateExecutionRequest = {
+    pipelineId: id,
+    pipelineVersion: pipelineVersion ?? null,
+    parameters: null,
+  };
+  const res = await fetch(apiUrl("/api/v1/executions"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<CreateExecutionResponse>(res);
+}
+
+/** Trigger a pipeline run via API (POST /api/v1/pipelines/{id}/runs, US-03.08). */
+export async function triggerPipelineRun(
+  pipelineId: string,
+  options?: {
+    pipelineVersion?: number | null;
+    parameters?: Record<string, unknown> | null;
+    async?: boolean;
+  },
+): Promise<CreateExecutionResponse | TriggerPipelineRunResponse> {
+  const id = pipelineId.trim();
+  if (!PIPELINE_ID_UUID_RE.test(id)) {
+    throw new ApiError("Pipeline id must be a UUID", 400, "INVALID_INPUT");
+  }
+  const body: TriggerPipelineRunRequest = {
+    pipelineVersion: options?.pipelineVersion ?? null,
+    parameters: options?.parameters ?? null,
+    async: options?.async ?? false,
+  };
+  const res = await fetch(apiUrl(`/api/v1/pipelines/${encodeURIComponent(id)}/runs`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  if (options?.async) {
+    return handleResponse<TriggerPipelineRunResponse>(res);
+  }
+  return handleResponse<CreateExecutionResponse>(res);
+}
+
+export type ScheduleResponse = {
+  id: string;
+  pipelineId: string;
+  name: string;
+  cronExpression: string;
+  timezone: string;
+  active: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
+};
+
+export type CreateScheduleRequest = {
+  pipelineId: string;
+  name: string;
+  cronExpression: string;
+  timezone: string;
+};
+
+export type CronPreviewRequest = {
+  cronExpression: string;
+  timezone: string;
+  after?: string | null;
+  count?: number;
+};
+
+export type CronPreviewResponse = {
+  description: string;
+  nextRuns: string[];
+};
+
+export async function listSchedules(pipelineId: string): Promise<ScheduleResponse[]> {
+  const path = withQuery("/api/v1/schedules", { pipelineId });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<ScheduleResponse[]>(res);
+}
+
+export async function createSchedule(body: CreateScheduleRequest): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl("/api/v1/schedules"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function previewCron(body: CronPreviewRequest): Promise<CronPreviewResponse> {
+  const res = await fetch(apiUrl("/api/v1/schedules/preview"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      cronExpression: body.cronExpression,
+      timezone: body.timezone,
+      after: body.after ?? null,
+      count: body.count ?? 10,
+    }),
+  });
+  return handleResponse<CronPreviewResponse>(res);
+}
+
+export async function pauseSchedule(scheduleId: string): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}/pause`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function resumeSchedule(scheduleId: string): Promise<ScheduleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}/resume`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<ScheduleResponse>(res);
+}
+
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/schedules/${scheduleId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export type PipelineTriggerResponse = {
+  id: string;
+  pipelineId: string;
+  name: string;
+  triggerType: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+  webhookUrl: string | null;
+  webhookSecret: string | null;
+};
+
+export type TriggerDispatchHistoryResponse = {
+  id: string;
+  triggerId: string;
+  triggerType: string;
+  status: string;
+  executionId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+export type CreatePipelineTriggerRequest = {
+  pipelineId: string;
+  name: string;
+  triggerType: "webhook" | "kafka";
+  config?: Record<string, unknown>;
+};
+
+export async function listPipelineTriggers(pipelineId: string): Promise<PipelineTriggerResponse[]> {
+  const path = withQuery("/api/v1/triggers", { pipelineId });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<PipelineTriggerResponse[]>(res);
+}
+
+export async function createPipelineTrigger(
+  body: CreatePipelineTriggerRequest,
+): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl("/api/v1/triggers"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function enablePipelineTrigger(triggerId: string): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/enable`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function disablePipelineTrigger(triggerId: string): Promise<PipelineTriggerResponse> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/disable`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<PipelineTriggerResponse>(res);
+}
+
+export async function listPipelineTriggerHistory(
+  triggerId: string,
+): Promise<TriggerDispatchHistoryResponse[]> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/history`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<TriggerDispatchHistoryResponse[]>(res);
+}
+
+export async function testPipelineTrigger(
+  triggerId: string,
+  payload?: Record<string, unknown>,
+): Promise<{ executionId: string }> {
+  const res = await fetch(apiUrl(`/api/v1/triggers/${triggerId}/test`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return handleResponse<{ executionId: string }>(res);
+}
+
+export async function listExecutions(opts?: {
+  status?: string;
+  pipelineId?: string;
+  page?: number;
+  size?: number;
+}): Promise<ListExecutionsResponse> {
+  const path = withQuery("/api/v1/executions", {
+    status: opts?.status,
+    pipelineId: opts?.pipelineId,
+    page: opts?.page ?? 0,
+    size: opts?.size ?? 50,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<ListExecutionsResponse>(res);
+}
+
+/** Named JDBC connection (US-12.16). Passwords are never returned resolved — only references. */
+export type ConnectionResponse = {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type CreateConnectionRequest = {
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+};
+
+export type UpdateConnectionRequest = {
+  config: Record<string, unknown>;
+};
+
+export type TestConnectionResponse = {
+  success: boolean;
+  message: string;
+};
+
+export async function listConnections(): Promise<ConnectionResponse[]> {
+  const res = await fetch(apiUrl("/api/v1/connections"), { headers: authHeaders() });
+  return handleResponse<ConnectionResponse[]>(res);
+}
+
+export async function getConnection(connectionId: string): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function createConnection(
+  body: CreateConnectionRequest,
+): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl("/api/v1/connections"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function updateConnection(
+  connectionId: string,
+  body: UpdateConnectionRequest,
+): Promise<ConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<ConnectionResponse>(res);
+}
+
+export async function deleteConnection(connectionId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function testConnection(connectionId: string): Promise<TestConnectionResponse> {
+  const res = await fetch(apiUrl(`/api/v1/connections/${connectionId}/test`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<TestConnectionResponse>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Alert Rules API (US-04.04, US-04.07, US-04.08)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AlertRuleConditions = {
+  events?: string[];
+  environments?: string[];
+};
+
+export type AlertRuleChannelConfig = {
+  type: "email" | "slack" | "webhook";
+  recipients?: string[];
+  from?: string;
+  webhookUrl?: string;
+  url?: string;
+  headers?: Record<string, string>;
+};
+
+export type AlertRuleResponse = {
+  id: string;
+  pipelineId: string | null;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  conditions: string;
+  channels: string;
+  dedupWindowSeconds: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateAlertRuleRequest = {
+  pipelineId?: string;
+  name: string;
+  description?: string;
+  conditions: string;
+  channels: string;
+  dedupWindowSeconds?: number;
+};
+
+export type UpdateAlertRuleRequest = {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  conditions?: string;
+  channels?: string;
+  dedupWindowSeconds?: number;
+};
+
+export async function listAlertRules(pipelineId?: string): Promise<AlertRuleResponse[]> {
+  const path = pipelineId
+    ? withQuery("/api/v1/alert-rules", { pipelineId })
+    : "/api/v1/alert-rules";
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<AlertRuleResponse[]>(res);
+}
+
+export async function getAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function createAlertRule(
+  body: CreateAlertRuleRequest,
+): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl("/api/v1/alert-rules"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function updateAlertRule(
+  ruleId: string,
+  body: UpdateAlertRuleRequest,
+): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function deleteAlertRule(ruleId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function enableAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}/enable`), {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+export async function disableAlertRule(ruleId: string): Promise<AlertRuleResponse> {
+  const res = await fetch(apiUrl(`/api/v1/alert-rules/${ruleId}/disable`), {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
+  return handleResponse<AlertRuleResponse>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Notifications API (US-04.19)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type UserNotificationResponse = {
+  id: string;
+  title: string;
+  message: string | null;
+  type: "alert" | "info" | "success" | "warning";
+  resourceType: string | null;
+  resourceId: string | null;
+  linkUrl: string | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationPage = {
+  content: UserNotificationResponse[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export async function listNotifications(
+  page = 0,
+  size = 20,
+): Promise<NotificationPage> {
+  const path = withQuery("/api/v1/notifications", { page, size });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<NotificationPage>(res);
+}
+
+export async function getUnreadNotifications(): Promise<UserNotificationResponse[]> {
+  const res = await fetch(apiUrl("/api/v1/notifications/unread"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<UserNotificationResponse[]>(res);
+}
+
+export async function getUnreadNotificationCount(): Promise<{ count: number }> {
+  const res = await fetch(apiUrl("/api/v1/notifications/unread/count"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<{ count: number }>(res);
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/v1/notifications/${notificationId}/read`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponse<unknown>(res);
+  }
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ marked: number }> {
+  const res = await fetch(apiUrl("/api/v1/notifications/read-all"), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<{ marked: number }>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit Log API (US-04.19)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AuditLogEntry = {
+  id: string;
+  actorId: string | null;
+  actorType: string;
+  actorName: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  resourceName: string | null;
+  details: string | null;
+  ipAddress: string | null;
+  requestId: string | null;
+  createdAt: string;
+};
+
+export type AuditLogPage = {
+  content: AuditLogEntry[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+};
+
+export async function listAuditLogs(opts?: {
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  actorId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+}): Promise<AuditLogPage> {
+  const path = withQuery("/api/v1/audit-logs", {
+    action: opts?.action,
+    resourceType: opts?.resourceType,
+    resourceId: opts?.resourceId,
+    actorId: opts?.actorId,
+    from: opts?.from,
+    to: opts?.to,
+    page: opts?.page ?? 0,
+    size: opts?.size ?? 50,
+  });
+  const token = await ensureAccessToken();
+  const res = await fetch(apiUrl(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return handleResponse<AuditLogPage>(res);
+}
+
+export async function getResourceAuditHistory(
+  resourceType: string,
+  resourceId: string,
+  page = 0,
+  size = 20,
+): Promise<AuditLogPage> {
+  const path = withQuery("/api/v1/audit-logs/resource", {
+    resourceType,
+    resourceId,
+    page,
+    size,
+  });
+  const res = await fetch(apiUrl(path), { headers: authHeaders() });
+  return handleResponse<AuditLogPage>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notification preferences API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type NotificationPreferenceResponse = {
+  emailEnabled: boolean;
+  inAppEnabled: boolean;
+  eventPreferences: string;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  quietHoursTz: string | null;
+  updatedAt: string;
+};
+
+export type UpdateNotificationPreferenceRequest = {
+  emailEnabled?: boolean;
+  inAppEnabled?: boolean;
+  eventPreferences?: string;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  quietHoursTz?: string | null;
+};
+
+export async function getNotificationPreferences(): Promise<NotificationPreferenceResponse> {
+  const res = await fetch(apiUrl("/api/v1/notification-preferences"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<NotificationPreferenceResponse>(res);
+}
+
+export async function updateNotificationPreferences(
+  body: UpdateNotificationPreferenceRequest,
+): Promise<NotificationPreferenceResponse> {
+  const res = await fetch(apiUrl("/api/v1/notification-preferences"), {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<NotificationPreferenceResponse>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Artifact API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ArtifactType = "OUTPUT" | "LOG" | "PROFILE" | "CHECKPOINT" | "OTHER";
+
+export type ArtifactMetadata = {
+  key: string;
+  filename: string;
+  type: ArtifactType;
+  sizeBytes: number;
+  contentType: string | null;
+  createdAt: string;
+};
+
+export type PresignedUrlResponse = {
+  url: string;
+  key: string;
+  expiresAt: string;
+  maxSizeBytes: number;
+};
+
+export async function listExecutionArtifacts(executionId: string): Promise<ArtifactMetadata[]> {
+  const res = await fetch(apiUrl(`/api/v1/artifacts/executions/${executionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ArtifactMetadata[]>(res);
+}
+
+export async function listJobArtifacts(
+  executionId: string,
+  jobId: string,
+): Promise<ArtifactMetadata[]> {
+  const res = await fetch(
+    apiUrl(`/api/v1/artifacts/executions/${executionId}/jobs/${jobId}`),
+    { headers: authHeaders() },
+  );
+  return handleResponse<ArtifactMetadata[]>(res);
+}
+
+export async function generateArtifactDownloadUrl(
+  executionId: string,
+  jobId: string,
+  type: ArtifactType,
+  filename: string,
+): Promise<PresignedUrlResponse> {
+  const res = await fetch(apiUrl("/api/v1/artifacts/download-url"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ executionId, jobId, type, filename }),
+  });
+  return handleResponse<PresignedUrlResponse>(res);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connector API (Connect Service)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ConnectorType = "DATABASE" | "FILE" | "PROTOCOL" | "STREAMING" | "SAAS" | "CDC";
+export type ConnectorMode = "SOURCE" | "SINK" | "BIDIRECTIONAL";
+
+export type ConfigField = {
+  name: string;
+  label: string;
+  description: string;
+  type: "STRING" | "PASSWORD" | "NUMBER" | "BOOLEAN" | "SELECT" | "MULTI_SELECT" | "TEXTAREA" | "FILE" | "JSON" | "KEY_VALUE" | "CRON" | "URL";
+  required: boolean;
+  defaultValue: unknown;
+  options: string[] | null;
+  placeholder: string | null;
+  group: string;
+  order: number;
+  dependsOn: string | null;
+  condition: string | null;
+};
+
+export type ConnectorSpec = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  type: ConnectorType;
+  mode: ConnectorMode;
+  version: string;
+  configFields: ConfigField[];
+  capabilities: Record<string, unknown>;
+  tags: string[];
+};
+
+export type ConnectionStatus = "ACTIVE" | "INACTIVE" | "FAILED" | "TESTING";
+
+export type Connection = {
+  id: string;
+  name: string;
+  description: string | null;
+  connectorId: string;
+  status: ConnectionStatus;
+  lastTestedAt: string | null;
+  lastTestSuccess: boolean | null;
+  lastTestMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ValidationResult = {
+  valid: boolean;
+  errors: Record<string, string>;
+};
+
+export type TestResult = {
+  success: boolean;
+  message: string;
+  latencyMs: number;
+  metadata: Record<string, unknown>;
+};
+
+export type StreamInfo = {
+  name: string;
+  namespace: string | null;
+  fields: Array<{
+    name: string;
+    type: string;
+    nullable: boolean;
+    description: string | null;
+  }>;
+  primaryKeys: string[];
+  metadata: Record<string, unknown>;
+};
+
+// Connector catalog API (connect-service)
+
+export async function listConnectors(params?: { type?: ConnectorType; search?: string }): Promise<ConnectorSpec[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  const res = await fetch(apiUrl(`/api/v1/connectors${query ? `?${query}` : ""}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function listSourceConnectors(): Promise<ConnectorSpec[]> {
+  const res = await fetch(apiUrl("/api/v1/connectors/sources"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function listSinkConnectors(): Promise<ConnectorSpec[]> {
+  const res = await fetch(apiUrl("/api/v1/connectors/sinks"), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec[]>(res);
+}
+
+export async function getConnectorSpec(connectorId: string): Promise<ConnectorSpec> {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<ConnectorSpec>(res);
+}
+
+export async function validateConnectorConfig(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<ValidationResult> {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/validate`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<ValidationResult>(res);
+}
+
+export async function testConnectorConfig(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<TestResult> {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/test`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<TestResult>(res);
+}
+
+export async function discoverStreams(
+  connectorId: string,
+  config: Record<string, unknown>,
+): Promise<StreamInfo[]> {
+  const res = await fetch(apiUrl(`/api/v1/connectors/${connectorId}/discover`), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return handleResponse<StreamInfo[]>(res);
+}
+
+// Data Connection management API (connect-service)
+// Note: These are different from pipeline-service connections (for SQL stages).
+// These are for the connect-service's data connector framework.
+
+export async function listDataConnections(params?: { connectorId?: string; search?: string }): Promise<Connection[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.connectorId) searchParams.set("connectorId", params.connectorId);
+  if (params?.search) searchParams.set("search", params.search);
+  const query = searchParams.toString();
+  // Note: connect-service runs on port 8090, would need API gateway routing
+  const res = await fetch(apiUrl(`/connect/api/v1/connections${query ? `?${query}` : ""}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<Connection[]>(res);
+}
+
+export async function getDataConnection(connectionId: string): Promise<Connection> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    headers: authHeaders(),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function createDataConnection(body: {
+  name: string;
+  description?: string;
+  connectorId: string;
+  config: Record<string, unknown>;
+}): Promise<Connection> {
+  const res = await fetch(apiUrl("/connect/api/v1/connections"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function updateDataConnection(
+  connectionId: string,
+  body: {
+    name?: string;
+    description?: string;
+    config?: Record<string, unknown>;
+  },
+): Promise<Connection> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<Connection>(res);
+}
+
+export async function deleteDataConnection(connectionId: string): Promise<void> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}`), {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(error || `Failed to delete connection: ${res.status}`);
+  }
+}
+
+export async function testDataConnection(connectionId: string): Promise<TestResult> {
+  const res = await fetch(apiUrl(`/connect/api/v1/connections/${connectionId}/test`), {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<TestResult>(res);
+}
+
+export async function testDataConnectionConfig(body: {
+  connectorId: string;
+  config: Record<string, unknown>;
+}): Promise<TestResult> {
+  const res = await fetch(apiUrl("/connect/api/v1/connections/test"), {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<TestResult>(res);
+}

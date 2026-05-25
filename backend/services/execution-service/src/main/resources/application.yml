@@ -1,0 +1,170 @@
+spring:
+  application:
+    name: execution-service
+
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_execution
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: public
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: public
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: execution-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "java.util,java.lang,io.pravah"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.LinkedHashMap
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: 8084
+
+# Realtime (US-12.10): WebSocket + optional Redis pub/sub for multi-instance fan-out.
+pravah:
+  realtime:
+    # When true (default), Redis must be reachable. Integration tests and single-node local runs
+    # often set PRAVAH_REALTIME_REDIS_ENABLED=false to use in-process fan-out only.
+    redis-enabled: ${PRAVAH_REALTIME_REDIS_ENABLED:true}
+    websocket:
+      # Comma-separated browser origins allowed for the WebSocket handshake (SockJS-free API).
+      # Production: set PRAVAH_WS_ALLOWED_ORIGINS to every SPA origin (scheme + host + port) or
+      # handshakes will fail with no JSON error body.
+      allowed-origins: ${PRAVAH_WS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  execution:
+    max-parallel-stages: ${PRAVAH_EXECUTION_MAX_PARALLEL_STAGES:4}
+  job:
+    max-attempts: ${PRAVAH_JOB_MAX_ATTEMPTS:3}
+    timeout:
+      check-interval-ms: ${PRAVAH_JOB_TIMEOUT_CHECK_INTERVAL_MS:5000}
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  pipeline-service:
+    base-url: ${PIPELINE_SERVICE_BASE_URL:http://localhost:8083}
+  runner-service:
+    enabled: ${PRAVAH_RUNNER_SERVICE_ENABLED:true}
+    base-url: ${RUNNER_SERVICE_BASE_URL:http://localhost:8086}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+  container:
+    enabled: ${PRAVAH_CONTAINER_ENABLED:true}
+    docker-binary: ${PRAVAH_CONTAINER_DOCKER_BINARY:docker}
+    max-log-bytes-per-job: ${PRAVAH_CONTAINER_MAX_LOG_BYTES:10485760}
+  python:
+    enabled: ${PRAVAH_PYTHON_ENABLED:true}
+    binary: ${PRAVAH_PYTHON_BINARY:python3}
+  stage:
+    max-output-bytes: ${PRAVAH_STAGE_MAX_OUTPUT_BYTES:1048576}
+    output-warn-bytes: ${PRAVAH_STAGE_OUTPUT_WARN_BYTES:102400}
+  artifact:
+    enabled: ${PRAVAH_ARTIFACT_ENABLED:true}
+    endpoint: ${PRAVAH_ARTIFACT_ENDPOINT:http://localhost:9000}
+    region: ${PRAVAH_ARTIFACT_REGION:us-east-1}
+    access-key: ${PRAVAH_ARTIFACT_ACCESS_KEY:pravah}
+    secret-key: ${PRAVAH_ARTIFACT_SECRET_KEY:pravah123}
+    use-default-credentials: ${PRAVAH_ARTIFACT_IRSA_ENABLED:false}
+    bucket: ${PRAVAH_ARTIFACT_BUCKET:pravah-artifacts}
+    presigned-url-expiry: ${PRAVAH_ARTIFACT_PRESIGNED_URL_EXPIRY:15m}
+    max-artifact-size-bytes: ${PRAVAH_ARTIFACT_MAX_SIZE_BYTES:5368709120}
+    retention-days: ${PRAVAH_ARTIFACT_RETENTION_DAYS:30}
+  outbox:
+    relay:
+      enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
+      fixed-delay-ms: ${PRAVAH_OUTBOX_RELAY_FIXED_DELAY_MS:2000}
+      batch-size: ${PRAVAH_OUTBOX_RELAY_BATCH_SIZE:50}
+    topic:
+      execution-events: pravah.execution.execution.events
+      job-created: pravah.job.created
+  kafka:
+    execution-created-listener-enabled: ${PRAVAH_EXECUTION_CREATED_LISTENER_ENABLED:true}
+    job-worker-listener-enabled: ${PRAVAH_JOB_WORKER_LISTENER_ENABLED:true}
+    execution-events:
+      dlt-topic: ${PRAVAH_EXECUTION_EVENTS_DLT_TOPIC:pravah.execution.events.dlt}
+    job-worker:
+      consumer-group-id: ${PRAVAH_JOB_WORKER_KAFKA_GROUP:execution-service-job-worker}
+      concurrency: ${PRAVAH_JOB_WORKER_CONCURRENCY:4}
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 5s
+        recordExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - io.pravah.common.exception.EntityNotFoundException
+    instances:
+      pipeline-service:
+        baseConfig: default
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - java.net.SocketTimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - io.pravah.common.exception.EntityNotFoundException
+    instances:
+      pipeline-service:
+        baseConfig: default
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    circuitbreakers:
+      enabled: true
+
+logging:
+  level:
+    io.pravah: INFO
+    io.github.resilience4j: INFO

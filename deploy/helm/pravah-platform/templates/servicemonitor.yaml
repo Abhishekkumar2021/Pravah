@@ -1,0 +1,58 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+{{- range $svcKey, $svc := .Values.services }}
+{{- if $svc.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "pravah.fullname" $ }}-{{ $svcKey }}
+  namespace: {{ $.Values.metrics.serviceMonitor.namespace | default $.Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcKey }}
+    {{- with $.Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ $svcKey }}
+      {{- include "pravah.selectorLabels" $ | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: {{ $.Values.metrics.serviceMonitor.interval }}
+      scrapeTimeout: 10s
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if and .Values.pgbouncer.enabled .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled .Values.pgbouncer.metrics.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "pravah.fullname" . }}-pgbouncer
+  namespace: {{ .Values.metrics.serviceMonitor.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: pgbouncer
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      scrapeTimeout: 10s
+{{- end }}

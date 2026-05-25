@@ -8,10 +8,12 @@ alwaysApply: true
 ## Before Writing ANY Code
 
 1. **Reference Documentation First**
+   - Check `docs/IMPLEMENTATION_STATUS.md` for what is actually built vs planned
    - Check `docs/lld/` for design patterns, state machines, sequences
    - Check `docs/adr/` for architectural decisions
    - Check `docs/product/epics/` for user story acceptance criteria
    - If no documentation exists for what you're building, STOP and ask
+   - After shipping behavior, update docs in the same PR — see `.cursor/rules/14-documentation-parity.mdc`
 
 2. **Verify Against Architecture**
    - Does this align with the High-Level Architecture?

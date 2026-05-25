@@ -1,0 +1,147 @@
+name: Helm
+
+on:
+  pull_request:
+    paths:
+      - "deploy/helm/**"
+      - "deploy/argocd/**"
+      - "deploy/observability/**"
+      - "scripts/deploy/validate-observability.sh"
+      - "scripts/deploy/validate-pgbouncer.sh"
+      - ".github/workflows/helm-ci.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "deploy/helm/**"
+      - "deploy/argocd/**"
+      - "deploy/observability/**"
+      - "scripts/deploy/validate-observability.sh"
+      - "scripts/deploy/validate-pgbouncer.sh"
+      - ".github/workflows/helm-ci.yml"
+
+jobs:
+  template:
+    name: Helm · Template validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate Argo CD manifests
+        run: ./scripts/deploy/validate-argocd-manifests.sh
+
+      - name: Validate observability configs
+        run: ./scripts/deploy/validate-observability.sh
+
+      - name: Validate PgBouncer Helm wiring
+        run: ./scripts/deploy/validate-pgbouncer.sh
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Template local values
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            --namespace pravah >/dev/null
+
+      - name: Template CI values (kind smoke)
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            -f deploy/helm/pravah-platform/values-ci.yaml \
+            --namespace pravah-ci >/dev/null
+
+      - name: Template observability overlay
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-local.yaml \
+            -f deploy/helm/pravah-platform/values-observability.yaml \
+            --namespace pravah >/dev/null
+
+      - name: Template production values (required secrets)
+        run: |
+          helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set image.tag=ci-test-sha \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com >/dev/null
+
+      - name: Fail when production secrets missing
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set image.tag=ci-test-sha \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com \
+            --set pravah.internalServiceExistingSecret="" \
+            --set pravah.internalServiceSecret="" 2>&1; then
+            echo "Expected helm template to fail without internal service credentials"
+            exit 1
+          fi
+
+      - name: Fail when production image tag unpinned
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set image.tag=latest \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com 2>&1; then
+            echo "Expected helm template to fail with image.tag=latest"
+            exit 1
+          fi
+
+      - name: Fail when runner gRPC exposed without TLS
+        run: |
+          if helm template pravah deploy/helm/pravah-platform \
+            -f deploy/helm/pravah-platform/values.yaml \
+            -f deploy/helm/pravah-platform/values-prod.yaml \
+            --namespace pravah \
+            --set requireProductionSecrets=true \
+            --set image.tag=ci-test-sha \
+            --set runnerGrpcTls.enabled=false \
+            --set externalPostgres.host=rds.example.com \
+            --set externalKafka.bootstrapServers=msk.example.com:9092 \
+            --set externalRedis.host=redis.example.com \
+            --set smtp.host=smtp.example.com \
+            --set pravah.wsAllowedOrigins=https://app.example.com \
+            --set pravah.frontendBaseUrl=https://app.example.com \
+            --set pravah.hooksBaseUrl=https://api.example.com/api/v1/hooks \
+            --set externalArtifact.endpoint=https://s3.example.com \
+            --set externalVault.address=https://vault.example.com \
+            --set pravah.internalServiceSecret=ci-secret \
+            --set pravah.runnerBootstrapSecret=ci-runner-secret 2>&1; then
+            echo "Expected helm template to fail when exposeGrpc is enabled without runnerGrpcTls"
+            exit 1
+          fi

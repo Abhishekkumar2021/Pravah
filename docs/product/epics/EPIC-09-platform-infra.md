@@ -77,10 +77,12 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** we run in our infrastructure
 
 **Acceptance Criteria:**
-- [ ] Helm chart provided
-- [ ] Configurable for scale
-- [ ] HA configuration
-- [ ] Clear installation docs
+- [x] Helm chart provided (`deploy/helm/pravah-platform`; 8 platform services + prod validation gates)
+- [x] Configurable for scale (`replicaCount`, `values-prod.yaml`)
+- [x] HA configuration (PDB/HPA/replicas in `values-prod.yaml`; external managed deps)
+- [x] Clear installation docs (`deploy/README.md`)
+- [x] GitOps Application manifests (`deploy/argocd/`; local auto-sync + production manual sync; CI smoke)
+- [x] Terraform AWS reference stack (`deploy/terraform/`; outputs map to `values-prod.yaml` externals)
 
 **Story Points:** 13  
 **Priority:** P0
@@ -141,8 +143,9 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** scaling is automatic
 
 **Acceptance Criteria:**
-- [ ] Kubernetes Service DNS
-- [ ] Health checks
+- [x] Kubernetes Service DNS (Helm Services; gateway routes via cluster DNS)
+- [x] Health checks (`/actuator/health` probes; `k8s-local-smoke.sh` post-install validation)
+- [x] Automated kind smoke in CI (nightly + PR; `k8s-smoke-nightly.yml`)
 - [ ] Graceful degradation
 
 **Story Points:** 5  
@@ -236,10 +239,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** I diagnose issues
 
 **Acceptance Criteria:**
-- [ ] Metrics (Prometheus)
-- [ ] Logs (structured, aggregated)
-- [ ] Traces (OpenTelemetry)
-- [ ] Pre-built dashboards
+- [x] Metrics (Prometheus) _(ServiceMonitors + kube-prometheus-stack; `/actuator/prometheus`)_
+- [ ] Logs (structured, aggregated) _(JSON logs in services; Loki not deployed)_
+- [x] Traces (OpenTelemetry) _(Micrometer OTel bridge + Jaeger OTLP; pathway #11)_
+- [x] Pre-built dashboards _(Grafana `Pravah Platform Overview`)_
 
 **Story Points:** 13  
 **Priority:** P0
@@ -252,10 +255,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** deployments are repeatable
 
 **Acceptance Criteria:**
-- [ ] Terraform modules (AWS, GCP, Azure)
-- [ ] Helm chart
-- [ ] Example configurations
-- [ ] Cost estimates
+- [x] Terraform modules (AWS partial; GCP/Azure planned)
+- [x] Helm chart
+- [x] Example configurations (`deploy/terraform/aws/reference`)
+- [x] Cost estimates (`deploy/terraform/README.md`)
 
 **Story Points:** 13  
 **Priority:** P1
@@ -268,10 +271,10 @@ The foundational infrastructure that powers Pravah — multi-tenancy, database, 
 **So that** we don't exhaust connections
 
 **Acceptance Criteria:**
-- [ ] PgBouncer configuration
-- [ ] Transaction pooling
-- [ ] Monitoring pool usage
-- [ ] Alert on exhaustion
+- [x] PgBouncer configuration
+- [x] Transaction pooling
+- [x] Monitoring pool usage
+- [x] Alert on exhaustion
 
 **Story Points:** 5  
 **Priority:** P0
@@ -338,17 +341,17 @@ Build docker-compose for local dev.
 **Estimate:** 5 points
 
 ### T-09.06: Terraform Modules
-Build Terraform for cloud deployment.
+Build Terraform for cloud deployment. **Partial (2026-05):** AWS modules under `deploy/terraform/modules/` (network, EKS, RDS, ElastiCache, S3, IRSA, optional MSK); reference stack; Helm/IRSA bridge; operator scripts; CI validate.
 
 **Estimate:** 21 points
 
 ### T-09.07: Observability Integration
-Integrate Prometheus, Jaeger, Loki.
+Integrate Prometheus, Jaeger, Loki. **Partial (2026-05):** kube-prometheus-stack + Jaeger Helm values; Grafana dashboard; ServiceMonitors; OTLP tracing in platform services; `k8s-local-observability.sh`; Loki planned.
 
 **Estimate:** 13 points
 
-### T-09.08: KEDA Integration
-Configure KEDA for auto-scaling.
+### T-09.09: Argo CD GitOps
+Argo CD Application manifests, local/CI install scripts, production Application, GitOps image tag automation, and nightly Argo CD kind smoke (ADR-010, pathway #9). **Partial (2026-05):** `deploy/argocd/`, `k8s-local-argocd.sh`, `k8s-ci-smoke-argocd.sh`, `deploy.yml` GitOps tag bump, gateway secrets route, external Vault policy example.
 
 **Estimate:** 8 points
 

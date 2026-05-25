@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: pipeline-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pravah_pipeline
+    username: ${DB_USERNAME:pravah}
+    password: ${DB_PASSWORD:pravah}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: public
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: public
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+server:
+  port: 8083
+
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  internal-service:
+    secret: ${PRAVAH_INTERNAL_SERVICE_SECRET:pravah-local-internal-secret}
+  outbox:
+    relay:
+      enabled: ${PRAVAH_OUTBOX_RELAY_ENABLED:true}
+      fixed-delay-ms: ${PRAVAH_OUTBOX_RELAY_FIXED_DELAY_MS:2000}
+    topic:
+      pipeline-events: pravah.pipeline.pipeline.events
+  vault:
+    enabled: ${PRAVAH_VAULT_ENABLED:false}
+    address: ${VAULT_ADDR:http://localhost:8200}
+    request-timeout-seconds: ${PRAVAH_VAULT_REQUEST_TIMEOUT_SECONDS:10}
+    auth:
+      method: ${PRAVAH_VAULT_AUTH_METHOD:token}
+      token: ${VAULT_TOKEN:}
+      kubernetes:
+        mount-path: ${PRAVAH_VAULT_K8S_MOUNT_PATH:kubernetes}
+        role: ${PRAVAH_VAULT_K8S_ROLE:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

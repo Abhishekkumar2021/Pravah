@@ -1,0 +1,105 @@
+version: 2
+
+project_name: pravah
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: pravah
+    main: ./cmd/pravah
+    binary: pravah
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    files:
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: pravah
+    repository:
+      owner: Abhishekkumar2021
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: https://pravah.io
+    description: CLI for Pravah data pipeline orchestration
+    license: Apache-2.0
+    install: |
+      bin.install "pravah"
+    test: |
+      system "#{bin}/pravah", "version"
+
+nfpms:
+  - id: packages
+    package_name: pravah
+    vendor: Pravah
+    homepage: https://pravah.io
+    maintainer: Pravah Team <team@pravah.io>
+    description: CLI for Pravah data pipeline orchestration
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+
+dockers:
+  - image_templates:
+      - "ghcr.io/abhishekkumar2021/pravah-cli:{{ .Tag }}"
+      - "ghcr.io/abhishekkumar2021/pravah-cli:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--platform=linux/amd64"
+
+release:
+  github:
+    owner: Abhishekkumar2021
+    name: Pravah
+  prerelease: auto
+  draft: false

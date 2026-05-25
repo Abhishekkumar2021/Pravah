@@ -29,11 +29,11 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** I access Pravah
 
 **Acceptance Criteria:**
-- [ ] Registration with email verification
-- [ ] Secure password storage (bcrypt)
-- [ ] Login with email/password
-- [ ] Password reset flow
-- [ ] Account lockout after failures
+- [x] Registration with email verification (`POST /register` → pending user + verification email; `/signup`, `/verify-email` UI)
+- [x] Secure password storage (bcrypt)
+- [x] Login with email/password
+- [x] Password reset flow (request + confirm; SMTP via `MAIL_*`, Mailhog in local docker-compose)
+- [x] Account lockout after failures
 
 **Story Points:** 8  
 **Priority:** P0
@@ -175,10 +175,10 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** credentials are protected
 
 **Acceptance Criteria:**
-- [ ] Store secrets in Vault
-- [ ] Encryption at rest
-- [ ] Access via API
-- [ ] Never logged or displayed
+- [x] Store secrets in Vault _(Transit encrypt-at-rest for tenant `value`; pointer mode unchanged)_
+- [x] Encryption at rest _(Vault Transit ciphertext in `tenant_secrets.encrypted_value`)_
+- [x] Access via API _(create/update with write-only `value`; KV v2 read for `vault:` refs)_
+- [x] Never logged or displayed
 
 **Story Points:** 8  
 **Priority:** P0
@@ -239,10 +239,10 @@ Secure the platform with authentication, authorization, secrets management, and 
 **So that** abuse is prevented
 
 **Acceptance Criteria:**
-- [ ] Per-token rate limits
-- [ ] Configurable limits
-- [ ] 429 response with retry-after
-- [ ] Monitoring and alerting
+- [x] Per-token rate limits (gateway: `ratelimit:apitoken:{id}`; lower RPS than tenant JWT)
+- [x] Configurable limits (`pravah.ratelimit.*` env vars; tenant tier via `TenantConfigCache`)
+- [x] 429 response with retry-after (gateway + webhook hooks)
+- [x] Monitoring and alerting _(Prometheus metrics + PrometheusRule alerts in `deploy/observability/prometheus-rules/`; Grafana dashboard)_
 
 **Story Points:** 5  
 **Priority:** P0
@@ -299,7 +299,7 @@ Integrate SAML library.
 **Estimate:** 8 points
 
 ### T-10.04: Vault Integration
-Integrate HashiCorp Vault.
+Integrate HashiCorp Vault. **Partial (2026-05):** `HttpVaultKvClient`, `HttpVaultTransitClient`, Spring `VaultConfiguration`, pipeline-service `vault:path#key` and `transit` tenant secrets; Helm `externalVault` + bundled dev Vault for kind.
 
 **Estimate:** 8 points
 

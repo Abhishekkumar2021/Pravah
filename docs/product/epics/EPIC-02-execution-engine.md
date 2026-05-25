@@ -166,11 +166,11 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** my workflow completes faster
 
 **Acceptance Criteria:**
-- [ ] Stages without dependencies run concurrently
-- [ ] Configurable parallelism limit per workflow
-- [ ] Resource-aware scheduling
-- [ ] Gantt chart shows parallel execution
-- [ ] Stage start time reflects actual scheduling
+- [x] Stages without dependencies run concurrently
+- [x] Configurable parallelism limit per workflow (`definition.execution.maxParallelStages`)
+- [ ] Resource-aware scheduling (deferred to US-02.20)
+- [x] Gantt chart shows parallel execution (`RunStageGantt` with proportional timing bars)
+- [x] Stage start time reflects actual scheduling (API returns `queuedAt`, `startedAt`, `completedAt`)
 
 **Story Points:** 8  
 **Priority:** P0
@@ -183,11 +183,12 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** downstream stages can use upstream results
 
 **Acceptance Criteria:**
-- [ ] Return values stored in metadata store
-- [ ] Size limit (1MB default)
-- [ ] Access via `${stages.upstream.output.key}`
-- [ ] Visible in UI for debugging
-- [ ] Warnings for large payloads
+- [x] Return values stored in job `output` (execution DB)
+- [x] Size limit (1MB default, `pravah.stage.max-output-bytes`)
+- [x] Access via `${stages.<stageId>.output.<key>}`
+- [x] Visible in UI for debugging (`RunJobOutputPanel` on run detail)
+- [x] Warnings for large payloads (`pravah.stage.output-warn-bytes`)
+- [x] Publish-time validation (`StageOutputReferenceValidator`)
 
 **Story Points:** 5  
 **Priority:** P0
@@ -268,11 +269,11 @@ The execution engine is the heart of Pravah — it takes workflow definitions an
 **So that** I can do custom transformations
 
 **Acceptance Criteria:**
-- [ ] Python 3.9+ support
-- [ ] Requirements.txt for dependencies
-- [ ] Virtual environment per stage
-- [ ] Access to stage context (inputs, config)
-- [ ] Structured output return
+- [x] Python 3.9+ support (`python3` / `config.python_version` publish validation)
+- [x] Requirements via `config.requirements` list (written to `requirements.txt` in job workspace)
+- [x] Virtual environment per stage (temp workspace + `venv`)
+- [x] Access to stage context (`context.json` + `PRAVAH_CONTEXT_PATH` env)
+- [x] Structured output return (JSON line or `__PRAVAH_OUTPUT__:` prefix on stdout)
 
 **Story Points:** 8  
 **Priority:** P0

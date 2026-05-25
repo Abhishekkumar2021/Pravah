@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package io.pravah;
+
+option java_package = "io.pravah.proto.runner";
+option java_outer_classname = "RunnerServiceProto";
+option java_multiple_files = true;
+
+import "io/pravah/common.proto";
+
+/**
+ * Runner Service gRPC API
+ * 
+ * Handles runner registration, heartbeats, and job assignment via bidirectional streaming.
+ * See: docs/architecture/api-contracts.md#grpc-protobuf-contracts
+ */
+service RunnerService {
+  // Register a new runner
+  rpc RegisterRunner(RegisterRunnerRequest) returns (RegisterRunnerResponse);
+  
+  // Bidirectional stream for heartbeats and job assignment
+  rpc Connect(stream RunnerMessage) returns (stream ServerMessage);
+  
+  // Get runner status
+  rpc GetRunner(GetRunnerRequest) returns (RunnerInfo);
+  
+  // List runners for a tenant
+  rpc ListRunners(ListRunnersRequest) returns (ListRunnersResponse);
+}
+
+// ============================================================================
+// Registration
+// ============================================================================
+
+message RegisterRunnerRequest {
+  string name = 1;
+  string version = 2;
+  repeated Label labels = 3;
+  RunnerCapabilities capabilities = 4;
+  // When set, re-authenticates an existing runner (same tenant + name) instead of creating a duplicate.
+  string registration_token = 5;
+}
+
+message RegisterRunnerResponse {
+  string runner_id = 1;
+  string token = 2;                    // Authentication token for Connect stream
+  int32 heartbeat_interval_seconds = 3;
+  // Optional mTLS client certificate issued by Vault PKI (ADR-008); omit when PKI disabled.
+  RunnerMtlsCertificate mtls = 4;
+}
+
+message RunnerMtlsCertificate {
+  string certificate_pem = 1;
+  string private_key_pem = 2;
+  string ca_chain_pem = 3;
+}
+
+message RunnerCapabilities {
+  int32 max_concurrent_jobs = 1;
+  repeated string supported_executors = 2;  // e.g., "docker", "shell", "kubernetes"
+  int64 available_memory_bytes = 3;
+  int32 available_cpus = 4;
+}
+
+// ============================================================================
+// Bidirectional Streaming
+// ============================================================================
+
+// Messages from runner to server
+message RunnerMessage {
+  oneof message {
+    Heartbeat heartbeat = 1;
+    JobStatusUpdate job_status = 2;
+    JobLogChunk log_chunk = 3;
+  }
+}
+
+message Heartbeat {
+  string runner_id = 1;
+  int64 timestamp = 2;
+  RunnerMetrics metrics = 3;
+  string token = 4;  // Required on first heartbeat after RegisterRunner (or reconnect)
+}
+
+message RunnerMetrics {
+  double cpu_usage_percent = 1;
+  int64 memory_used_bytes = 2;
+  int64 memory_total_bytes = 3;
+  int32 active_jobs = 4;
+  int64 disk_available_bytes = 5;
+}
+
+message JobStatusUpdate {
+  string job_id = 1;
+  JobStatus status = 2;
+  int32 exit_code = 3;           // Only set when status is COMPLETED or FAILED
+  string error_message = 4;       // Only set on failure
+  int64 started_at = 5;
+  int64 completed_at = 6;
+  string output_json = 7;         // JSON object for stage output on terminal states
+}
+
+message JobLogChunk {
+  string job_id = 1;
+  int64 sequence = 2;
+  bytes data = 3;
+  LogStream stream = 4;
+}
+
+enum LogStream {
+  LOG_STREAM_UNSPECIFIED = 0;
+  LOG_STREAM_STDOUT = 1;
+  LOG_STREAM_STDERR = 2;
+}
+
+// Messages from server to runner
+message ServerMessage {
+  oneof message {
+    HeartbeatAck heartbeat_ack = 1;
+    JobAssignment job_assignment = 2;
+    JobCancellation job_cancellation = 3;
+    Shutdown shutdown = 4;
+  }
+}
+
+message HeartbeatAck {
+  int64 server_timestamp = 1;
+}
+
+message JobAssignment {
+  string job_id = 1;
+  string run_id = 2;
+  string pipeline_id = 3;
+  string job_name = 4;
+  JobSpec spec = 5;
+}
+
+message JobSpec {
+  string executor = 1;              // "docker", "shell", etc.
+  string image = 2;                 // Docker image if executor is docker
+  repeated string commands = 3;     // Commands to execute
+  map<string, string> environment = 4;
+  int64 timeout_seconds = 5;
+  ResourceRequirements resources = 6;
+  // env var name -> tenant secret name (or reserved runtime key); resolved on runner before execute
+  map<string, string> secret_environment = 7;
+}
+
+message ResourceRequirements {
+  int64 memory_bytes = 1;
+  double cpu_cores = 2;
+}
+
+message JobCancellation {
+  string job_id = 1;
+  string reason = 2;
+}
+
+message Shutdown {
+  string reason = 1;
+  bool graceful = 2;               // If true, finish current jobs before shutdown
+}
+
+// ============================================================================
+// Queries
+// ============================================================================
+
+message GetRunnerRequest {
+  string runner_id = 1;
+}
+
+message ListRunnersRequest {
+  PageRequest pagination = 1;
+  repeated Label label_filter = 2;
+  repeated RunnerStatus status_filter = 3;
+}
+
+message ListRunnersResponse {
+  repeated RunnerInfo runners = 1;
+  PageInfo page_info = 2;
+}
+
+message RunnerInfo {
+  string runner_id = 1;
+  string name = 2;
+  string version = 3;
+  RunnerStatus status = 4;
+  repeated Label labels = 5;
+  RunnerCapabilities capabilities = 6;
+  int64 last_heartbeat_at = 7;
+  int64 registered_at = 8;
+  int32 active_jobs = 9;
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum RunnerStatus {
+  RUNNER_STATUS_UNSPECIFIED = 0;
+  RUNNER_STATUS_OFFLINE = 1;
+  RUNNER_STATUS_ONLINE = 2;
+  RUNNER_STATUS_BUSY = 3;
+  RUNNER_STATUS_DRAINING = 4;
+}
+
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_PENDING = 1;
+  JOB_STATUS_QUEUED = 2;
+  JOB_STATUS_ASSIGNED = 3;
+  JOB_STATUS_RUNNING = 4;
+  JOB_STATUS_SUCCEEDED = 5;
+  JOB_STATUS_FAILED = 6;
+  JOB_STATUS_CANCELLED = 7;
+  JOB_STATUS_TIMED_OUT = 8;
+}

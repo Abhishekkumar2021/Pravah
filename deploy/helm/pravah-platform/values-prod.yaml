@@ -1,0 +1,299 @@
+# Production values for pravah-platform.
+# Use external managed services (RDS/Aurora, MSK, ElastiCache) and secrets manager.
+#
+# USAGE:
+#   helm upgrade --install pravah deploy/helm/pravah-platform \
+#     -f deploy/helm/pravah-platform/values.yaml \
+#     -f deploy/helm/pravah-platform/values-prod.yaml \
+#     --set image.tag=<git-sha> \
+#     --set externalPostgres.host=<rds-endpoint> \
+#     --set externalKafka.bootstrapServers=<msk-endpoint> \
+#     --set externalRedis.host=<elasticache-endpoint>
+
+requireProductionSecrets: true
+
+# Disable bundled data stores (use external managed services)
+postgres:
+  enabled: false
+
+kafka:
+  enabled: false
+
+redis:
+  enabled: false
+
+minio:
+  enabled: false
+
+mailhog:
+  enabled: false
+
+vault:
+  enabled: false
+
+# External HashiCorp Vault (enable pipeline-service.needsVault + Kubernetes auth roles in prod)
+externalVault:
+  address: ""
+  kubernetesMountPath: kubernetes
+
+# External PostgreSQL (Amazon RDS / Aurora)
+externalPostgres:
+  host: ""
+  port: 5432
+  username: pravah
+  password: ""
+  existingSecret: pravah-postgres-credentials
+  existingSecretUsernameKey: username
+  existingSecretPasswordKey: password
+  databases:
+    tenant-service: pravah_tenant
+    pipeline-service: pravah_pipeline
+    execution-service: pravah_execution
+    scheduler-service: pravah_scheduler
+    notification-service: pravah_notification
+    connect-service: pravah_connect
+    runner-service: pravah_runner
+
+pgbouncer:
+  enabled: true
+  authType: scram-sha-256
+
+# External S3-compatible artifact store (AWS S3 via Terraform IRSA or static keys)
+externalArtifact:
+  endpoint: "" # terraform output / https://s3.<region>.amazonaws.com
+  region: us-east-1
+  bucket: pravah-artifacts
+  irsa:
+    enabled: true # set serviceAccount.annotations from terraform output artifacts_irsa_role_arn
+  existingSecret: "" # not required when irsa.enabled=true
+  existingSecretAccessKeyKey: access-key
+  existingSecretSecretKeyKey: secret-key
+
+# External SMTP (SendGrid, SES, etc.)
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  auth: "true"
+  starttls: "true"
+  existingSecret: pravah-smtp-credentials
+  existingSecretPasswordKey: password
+
+# External Kafka (Amazon MSK / Confluent Cloud)
+externalKafka:
+  bootstrapServers: ""
+  sasl:
+    enabled: false
+    mechanism: SCRAM-SHA-512
+    username: ""
+    password: ""
+    existingSecret: pravah-kafka-credentials
+    existingSecretJaasKey: kafka-jaas-config
+
+# External Redis (Amazon ElastiCache / Redis Cloud)
+externalRedis:
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: pravah-redis-credentials
+  existingSecretPasswordKey: password
+  tls:
+    enabled: true
+
+# Production image settings
+image:
+  registry: ghcr.io
+  repositoryPrefix: abhishekkumar2021/pravah
+  # Set via --set image.tag=<git-sha> or CI pipeline (required; must not be latest)
+  tag: ""
+  pullPolicy: Always
+  pullSecrets:
+    - name: ghcr-pull-secret
+
+# HA replica counts
+services:
+  tenant-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  pipeline-service:
+    replicaCount: 2
+    needsVault: true
+    vaultKubernetesRole: pravah-pipeline-service
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  execution-service:
+    replicaCount: 3
+    resources:
+      requests:
+        cpu: 500m
+        memory: 768Mi
+      limits:
+        cpu: "4"
+        memory: 2Gi
+
+  scheduler-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  notification-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  connect-service:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+  runner-service:
+    replicaCount: 2
+    needsVault: true
+    vaultKubernetesRole: pravah-runner-service
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+    exposeGrpc:
+      enabled: true
+      type: LoadBalancer
+      annotations: {}
+
+  gateway:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: "1"
+        memory: 768Mi
+
+# mTLS for external runner gRPC (cert-manager or pre-created Secret)
+runnerGrpcTls:
+  enabled: true
+  existingSecret: pravah-runner-grpc-tls
+  requireClientAuth: true
+
+certManager:
+  runnerGrpc:
+    enabled: false
+    secretName: pravah-runner-grpc-tls
+    issuerName: ""
+
+runnerPki:
+  enabled: true
+  spiffeTrustDomain: pravah.cluster.local
+
+# Production Pravah settings (set via secrets manager / CI)
+pravah:
+  jwtIssuer: pravah
+  internalServiceSecret: ""
+  internalServiceExistingSecret: pravah-credentials
+  internalServiceExistingSecretKey: internal-service-secret
+  runnerBootstrapExistingSecret: pravah-credentials
+  runnerBootstrapExistingSecretKey: runner-bootstrap-secret
+  jwtSigningExistingSecret: pravah-credentials
+  jwtSigningExistingSecretKey: jwt-signing-key
+  jwtRequireConfiguredSigningKey: "true"
+  jwtBlocklistRequired: "true"
+  rateLimitFailOpen: "false"
+  rateLimitEnabled: "true"
+  authRefreshCookieSecure: "true"
+  mailFrom: "noreply@pravah.example.com"
+  realtimeRedisEnabled: "true"
+  wsAllowedOrigins: ""
+  frontendBaseUrl: ""
+  hooksBaseUrl: ""
+  gatewayIpAllowlistEnabled: "false"
+  gatewayIpAllowlistCidrs: ""
+
+# Enable Ingress with TLS
+ingress:
+  enabled: true
+  className: nginx
+  host: pravah.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+  tls:
+    - hosts:
+        - pravah.example.com
+      secretName: pravah-tls
+
+# Enable PDB for HA
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Enable HPA for auto-scaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Enable network policies
+networkPolicy:
+  enabled: true
+  allowExternalEgress: true
+  monitoringNamespace: monitoring
+  dnsPodLabels:
+    k8s-app: kube-dns
+
+# Enable topology spread for zone awareness
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+
+# Enable Prometheus ServiceMonitor + OTLP tracing (set endpoint to your collector)
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus
+
+observability:
+  tracing:
+    enabled: false   # enable with values-observability.yaml or set endpoint below
+    endpoint: ""     # e.g. http://jaeger-collector.monitoring:4318/v1/traces
+    samplingProbability: "0.1"

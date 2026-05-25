@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: metadata-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: metadata-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: java.util,java.lang,io.pravah
+
+pravah:
+  security:
+    jwt:
+      jwks-url: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+      issuer: ${PRAVAH_JWT_ISSUER:pravah-dev}
+  metadata:
+    duckdb:
+      path: ${DUCKDB_PATH:/data/analytics.duckdb}
+    storage:
+      type: s3
+      bucket: ${STORAGE_BUCKET:pravah-artifacts}
+      endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+      region: ${STORAGE_REGION:us-east-1}
+
+server:
+  port: 8087
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO

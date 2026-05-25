@@ -1,0 +1,143 @@
+name: 'Pravah Deploy'
+description: 'Deploy workflows to Pravah using the CLI'
+author: 'Pravah Team'
+
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  api-url:
+    description: 'Pravah API URL'
+    required: true
+    default: 'https://api.pravah.io'
+  api-token:
+    description: 'Pravah API token for authentication'
+    required: true
+  workflow-files:
+    description: 'Path to workflow files or directory (supports glob patterns)'
+    required: true
+    default: './workflows/**/*.yaml'
+  dry-run:
+    description: 'Preview changes without applying them'
+    required: false
+    default: 'false'
+  project-id:
+    description: 'Pravah project ID (optional)'
+    required: false
+  recursive:
+    description: 'Recursively process directories'
+    required: false
+    default: 'true'
+
+outputs:
+  deployment-status:
+    description: 'Deployment status (success, no-changes, failed)'
+    value: ${{ steps.deploy.outputs.status }}
+  workflow-ids:
+    description: 'JSON array of deployed workflow IDs'
+    value: ${{ steps.deploy.outputs.workflow-ids }}
+  changes:
+    description: 'JSON summary of changes (created, updated, unchanged)'
+    value: ${{ steps.deploy.outputs.changes }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Pravah CLI
+      shell: bash
+      run: |
+        curl -sSL https://github.com/Abhishekkumar2021/Pravah/releases/latest/download/pravah_linux_amd64.tar.gz | tar -xz
+        chmod +x pravah
+        sudo mv pravah /usr/local/bin/
+
+    - name: Configure CLI
+      shell: bash
+      run: |
+        mkdir -p ~/.pravah
+        cat > ~/.pravah/config.yaml << EOF
+        current-profile: ci
+        profiles:
+          ci:
+            api-url: ${{ inputs.api-url }}
+            project-id: ${{ inputs.project-id }}
+        EOF
+
+    - name: Authenticate
+      shell: bash
+      run: |
+        pravah login --token "${{ inputs.api-token }}"
+
+    - name: Deploy workflows
+      id: deploy
+      shell: bash
+      run: |
+        set +e
+
+        ARGS="-f ${{ inputs.workflow-files }}"
+        
+        if [ "${{ inputs.recursive }}" = "true" ]; then
+          ARGS="$ARGS --recursive"
+        fi
+        
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          ARGS="$ARGS --dry-run"
+        fi
+
+        OUTPUT=$(pravah deploy $ARGS -o json 2>&1)
+        EXIT_CODE=$?
+
+        echo "CLI output:"
+        echo "$OUTPUT"
+
+        case $EXIT_CODE in
+          0)
+            echo "status=success" >> $GITHUB_OUTPUT
+            ;;
+          2)
+            echo "status=no-changes" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "status=failed" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+        WORKFLOW_IDS=$(echo "$OUTPUT" | jq -r '[.[] | select(.id != null) | .id]' 2>/dev/null || echo "[]")
+        echo "workflow-ids=$WORKFLOW_IDS" >> $GITHUB_OUTPUT
+
+        CREATED=$(echo "$OUTPUT" | jq '[.[] | select(.action == "create" or .action == "would create")] | length' 2>/dev/null || echo 0)
+        UPDATED=$(echo "$OUTPUT" | jq '[.[] | select(.action == "update" or .action == "would update")] | length' 2>/dev/null || echo 0)
+        UNCHANGED=$(echo "$OUTPUT" | jq '[.[] | select(.action == "unchanged")] | length' 2>/dev/null || echo 0)
+        ERRORS=$(echo "$OUTPUT" | jq '[.[] | select(.status == "error")] | length' 2>/dev/null || echo 0)
+
+        CHANGES="{\"created\":$CREATED,\"updated\":$UPDATED,\"unchanged\":$UNCHANGED,\"errors\":$ERRORS}"
+        echo "changes=$CHANGES" >> $GITHUB_OUTPUT
+
+        exit $EXIT_CODE
+
+    - name: Summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## Pravah Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        STATUS="${{ steps.deploy.outputs.status }}"
+        CHANGES='${{ steps.deploy.outputs.changes }}'
+        
+        if [ "$STATUS" = "success" ]; then
+          echo "✅ **Status:** Success" >> $GITHUB_STEP_SUMMARY
+        elif [ "$STATUS" = "no-changes" ]; then
+          echo "ℹ️ **Status:** No changes" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Changes" >> $GITHUB_STEP_SUMMARY
+        echo "| Type | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Created | $(echo $CHANGES | jq -r '.created') |" >> $GITHUB_STEP_SUMMARY
+        echo "| Updated | $(echo $CHANGES | jq -r '.updated') |" >> $GITHUB_STEP_SUMMARY
+        echo "| Unchanged | $(echo $CHANGES | jq -r '.unchanged') |" >> $GITHUB_STEP_SUMMARY
+        echo "| Errors | $(echo $CHANGES | jq -r '.errors') |" >> $GITHUB_STEP_SUMMARY

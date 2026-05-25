@@ -1,0 +1,3 @@
+# Kubernetes profile: service discovery URIs are supplied by Helm (ConfigMap
+# application-k8s.yml mounted at /config/). This file exists so `k8s` is a valid
+# Spring profile when running without the mount (e.g. integration tests).

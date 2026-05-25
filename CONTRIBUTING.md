@@ -34,13 +34,13 @@ main (protected)
 - No direct pushes allowed
 - Requires pull request with at least 1 approval
 - Requires code owner review
-- Requires passing CI (Build & Test, Code Quality)
+- Requires passing CI (see `.github/workflows/README.md` for job names)
 - Enforces linear history (no merge commits)
 - Force pushes disabled
 
 **`develop` branch:**
 - No direct pushes allowed
-- Requires passing CI (Build & Test)
+- Requires passing CI (backend and/or frontend jobs as applicable)
 - Force pushes disabled
 
 **Important:** The bullets above are **policy**. GitHub will only block direct pushes after rules are configured on the server. Docs alone do not enforce anything.
@@ -59,7 +59,7 @@ Do this in GitHub for **each** protected branch (`main`, `develop`). Prefer **ru
 4. **Target branches:** Add targets → **Include by pattern** → enter `main` → add another pattern → `develop`.
 5. Enable at least:
    - **Require a pull request before merging** (set minimum number of approvals and “dismiss stale reviews” as you prefer).
-   - **Require status checks to pass** → add the checks from `.github/workflows/` (e.g. build/test jobs from `ci.yml` / `pr-checks.yml`).
+   - **Require status checks to pass** → add job names from `.github/workflows/` (see `.github/workflows/README.md`; e.g. `Backend · Unit tests`, `Frontend · Lint, test & build`, `PR · Conventional title`).
    - **Block force pushes**.
 6. **Bypass list (solo developer):** enable **Repository admin** (or **Repository role: Admin**) so the owner can bypass when needed. Omit this if you want the strictest possible setup with no bypasses.
 7. Save the ruleset. With PR required and optional admin bypass, normal work goes through PRs; direct pushes stay blocked unless you use bypass (e.g. merge with admin override or adjust rules in Settings).
@@ -98,6 +98,9 @@ Follow the coding standards defined in:
 - `.cursor/rules/` - Cursor AI rules
 - `docs/lld/` - Low-level design patterns
 - `docs/adr/` - Architecture decisions
+- `docs/IMPLEMENTATION_STATUS.md` - Update when shipping or removing user-facing capabilities
+
+**Local stack:** from repo root, `make local-setup && make local-up && make local-services && make local-seed` (see [backend/README.md](backend/README.md)).
 
 ### 3. Commit Your Changes
 
@@ -136,8 +139,8 @@ git commit -m "docs(api): update GraphQL schema documentation"
 # Push your branch
 git push -u origin feature/your-feature-name
 
-# Create PR via GitHub CLI
-gh pr create --base develop --title "feat: your feature" --body "Description..."
+# Create PR via GitHub CLI (subject after ":" must start with A–Z — see PR title rules below)
+gh pr create --base develop --title "feat(pipeline-service): Add YAML validation for definitions" --body "Description..."
 ```
 
 ### 5. PR Review Process
@@ -153,7 +156,7 @@ Before submitting a PR, ensure:
 
 ### Build & Test
 ```bash
-cd implementation
+cd backend
 make build      # Build all modules
 make test       # Run unit tests
 make lint       # Check formatting
@@ -173,11 +176,27 @@ make test-int   # Run integration tests
 ## Pull Request Guidelines
 
 ### PR Title
-Follow conventional commit format:
+
+CI (`.github/workflows/pull-request.yml`, `amannn/action-semantic-pull-request`) enforces:
+
+1. **Conventional-commit prefix:** `type(optional-scope): ` where `type` is one of the allowed types (same family as commits: `feat`, `fix`, `docs`, …).
+2. **Subject (text after the colon and space):** must match `^[A-Z].+$` — the first character **must be an uppercase letter** (sentence case / title-style start), not lowercase.
+
+Valid:
+
 ```
-feat(scope): brief description
-fix(scope): brief description
+feat(execution-service): Cancel execution API (US-02.04)
+fix(gateway): Route execution cancel to execution-service
 ```
+
+Invalid (fails PR lint):
+
+```
+feat(execution-service): cancel execution API (US-02.04)
+feat: your feature
+```
+
+Scope is optional in the action (`requireScope: false`) but **recommended** for service or component, matching commit scope.
 
 ### PR Description
 Use the PR template and include:

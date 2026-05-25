@@ -1,0 +1,60 @@
+# PrometheusRule for Pravah platform alerts (pathway #11).
+# Applied by k8s-local-observability.sh after kube-prometheus-stack install.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pravah-platform
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: pravah-platform
+      interval: 1m
+      rules:
+        - alert: PravahRateLimitFailOpen
+          expr: increase(pravah_ratelimit_requests_total{outcome="fail_open"}[5m]) > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Rate limiter fail-open events detected
+            description: Redis rate limiting failed open; review gateway/scheduler Redis connectivity.
+
+        - alert: PravahOutboxDeadLettered
+          expr: increase(pravah_outbox_dead_lettered_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Outbox messages moved to dead letter
+            description: Check execution-service and pipeline-service outbox relay logs.
+
+        - alert: PravahPgBouncerClientWaiting
+          expr: sum(pgbouncer_pools_client_waiting_connections) > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer clients waiting for a server connection
+            description: Increase default_pool_size or review long-running transactions (US-09.16).
+
+        - alert: PravahPgBouncerPoolSaturated
+          expr: |
+            sum(pgbouncer_pools_server_active_connections)
+            / clamp_min(sum(pgbouncer_pools_server_idle_connections), 1) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: PgBouncer server pool utilization high
+            description: Review pool sizing and RDS max_connections; see deploy/README.md PgBouncer section.
+
+        - alert: PravahPgBouncerMaxWait
+          expr: max(pgbouncer_pools_client_maxwait_seconds) > 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: PgBouncer client max wait exceeded 1s
+            description: Database pool exhaustion — scale pool or reduce service replica count.

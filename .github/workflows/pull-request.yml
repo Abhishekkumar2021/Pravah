@@ -1,0 +1,118 @@
+# Pull request policy checks (title, size, docs). Build verification runs in Backend/Frontend CI.
+name: Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pull-request-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    name: PR · Conventional title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^[A-Z].+$
+          subjectPatternError: |
+            The subject "{subject}" must start with an uppercase letter.
+
+  change-detection:
+    name: PR · Changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      cli: ${{ steps.filter.outputs.cli }}
+      docs: ${{ steps.filter.outputs.docs }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'web/**'
+            cli:
+              - 'cli/**'
+            docs:
+              - 'docs/**'
+              - '*.md'
+            workflows:
+              - '.github/workflows/**'
+
+  documentation:
+    name: PR · Documentation links
+    needs: change-detection
+    if: needs.change-detection.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check Markdown links (non-blocking)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress 'docs/**/*.md' 'README.md'
+          fail: false
+
+  size:
+    name: PR · Size guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Evaluate diff size
+        run: |
+          ADDITIONS=$(gh pr view ${{ github.event.pull_request.number }} --json additions -q '.additions')
+          DELETIONS=$(gh pr view ${{ github.event.pull_request.number }} --json deletions -q '.deletions')
+          TITLE=$(gh pr view ${{ github.event.pull_request.number }} --json title -q '.title')
+          TOTAL=$((ADDITIONS + DELETIONS))
+
+          echo "PR has $ADDITIONS additions and $DELETIONS deletions ($TOTAL total)"
+
+          if [[ "$TITLE" =~ ^ci: ]] || [[ "$TITLE" =~ ^build: ]] || [[ "$TITLE" =~ ^chore: ]]; then
+            echo "::notice::Skipping size check for infrastructure PR"
+            exit 0
+          fi
+
+          if [ $TOTAL -gt 1000 ]; then
+            echo "::warning::Large PR ($TOTAL lines). Consider splitting into smaller PRs."
+          fi
+
+          # Platform hardening PRs (backend + web + deploy + docs) may exceed 5000 lines.
+          if [ $TOTAL -gt 8000 ]; then
+            echo "::error::Very large PR ($TOTAL lines). Please split into smaller PRs."
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,37 @@
+# Production Argo CD Application (ADR-010). Manual sync by default.
+# Image tag is pinned in values-prod.yaml by the Deploy · GitOps image tag CI job on main.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pravah-platform-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: pravah-platform
+    pravah.io/environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: pravah
+  source:
+    repoURL: https://github.com/Abhishekkumar2021/Pravah.git
+    targetRevision: main
+    path: deploy/helm/pravah-platform
+    helm:
+      releaseName: pravah
+      valueFiles:
+        - values.yaml
+        - values-prod.yaml
+      parameters:
+        - name: requireProductionSecrets
+          value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pravah
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # Enable after staging validation:
+    # automated:
+    #   selfHeal: true
+    #   prune: false

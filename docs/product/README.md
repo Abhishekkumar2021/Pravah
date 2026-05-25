@@ -2,6 +2,8 @@
 
 This directory contains the complete product documentation for Pravah — the unified data platform.
 
+> **Implementation tracking:** User stories describe requirements; acceptance checkboxes reflect product intent. For what is **actually shipped in this repository**, see **[Implementation Status](../IMPLEMENTATION_STATUS.md)** (updated with code changes).
+
 ---
 
 ## Document Structure
@@ -135,8 +137,9 @@ docs/product/
 
 ## Related Documentation
 
+- [Implementation Status](../IMPLEMENTATION_STATUS.md) — Built vs planned (source of truth for repo)
 - [Architecture Decision Records](../adr/) — Technical decisions
-- [High-Level Architecture](../architecture/) — System design
+- [High-Level Architecture](../architecture/) — Target system design
 - [API Contracts](../design/) — Service interfaces
 - [Theory Curriculum](../theory/) — Learning materials
 

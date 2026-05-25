@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --color-pravah-accent: oklch(0.55 0.22 264);
+  --color-pravah-accent-muted: oklch(0.48 0.14 264);
+  --color-selection-bg: oklch(0.9 0.055 264);
+  --color-selection-fg: oklch(0.28 0.07 264);
+  --color-selection-bg-dark: oklch(0.4 0.12 264);
+  --color-selection-fg-dark: oklch(0.97 0.015 264);
+  --color-caret: oklch(0.5 0.2 264);
+  --color-caret-dark: oklch(0.72 0.14 264);
+
+  /* Semantic aliases (legacy shadcn-style class names used in notification/alert UI) */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.21 0.02 264);
+  --color-muted: oklch(0.96 0.005 264);
+  --color-muted-foreground: oklch(0.52 0.02 264);
+  --color-border: oklch(0.91 0.01 264);
+  --color-input: oklch(0.91 0.01 264);
+  --color-primary: oklch(0.55 0.22 264);
+  --color-primary-foreground: oklch(0.99 0 0);
+
+  /* Animations for Radix UI */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-in;
+  --animate-zoom-in: zoom-in 0.2s ease-out;
+  --animate-zoom-out: zoom-out 0.15s ease-in;
+  --animate-slide-in-from-top: slide-in-from-top 0.2s ease-out;
+  --animate-slide-in-from-bottom: slide-in-from-bottom 0.2s ease-out;
+  --animate-slide-in-from-left: slide-in-from-left 0.2s ease-out;
+  --animate-slide-in-from-right: slide-in-from-right 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes zoom-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes zoom-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+  }
+  @keyframes slide-in-from-top {
+    from { transform: translateY(-0.5rem); }
+    to { transform: translateY(0); }
+  }
+  @keyframes slide-in-from-bottom {
+    from { transform: translateY(0.5rem); }
+    to { transform: translateY(0); }
+  }
+  @keyframes slide-in-from-left {
+    from { transform: translateX(-0.5rem); }
+    to { transform: translateX(0); }
+  }
+  @keyframes slide-in-from-right {
+    from { transform: translateX(0.5rem); }
+    to { transform: translateX(0); }
+  }
+  @keyframes toast-enter {
+    from {
+      opacity: 0;
+      transform: translateX(calc(100% + 1rem)) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+  @keyframes toast-exit {
+    from {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(calc(100% + 0.5rem)) scale(0.96);
+    }
+  }
+  @keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+  }
+
+  --animate-toast-enter: toast-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-exit: toast-exit 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-toast-progress: toast-progress linear forwards;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply min-h-dvh bg-neutral-50 text-[13px] leading-snug text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+    font-family: var(--font-sans);
+    caret-color: var(--color-caret);
+  }
+
+  .dark body {
+    caret-color: var(--color-caret-dark);
+  }
+
+  .dark {
+    --color-background: oklch(0.14 0.015 264);
+    --color-foreground: oklch(0.97 0.01 264);
+    --color-muted: oklch(0.22 0.015 264);
+    --color-muted-foreground: oklch(0.65 0.02 264);
+    --color-border: oklch(0.28 0.015 264);
+    --color-input: oklch(0.28 0.015 264);
+    --color-primary: oklch(0.62 0.18 264);
+    --color-primary-foreground: oklch(0.99 0 0);
+  }
+
+  ::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  ::-moz-selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark ::selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  .dark ::-moz-selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  input::selection,
+  textarea::selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  input::-moz-selection,
+  textarea::-moz-selection {
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark input::selection,
+  .dark textarea::selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 92%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  .dark input::-moz-selection,
+  .dark textarea::-moz-selection {
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 92%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-blue-600 dark:outline-blue-500;
+  }
+
+  code,
+  .font-mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  dialog::backdrop {
+    @apply bg-black/40;
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
+  }
+
+  .surface-elevated {
+    @apply rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950;
+  }
+
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent dark:from-blue-400 dark:to-blue-300;
+  }
+
+  /** Gradient text: show solid selection instead of clipped gradient. */
+  .text-gradient-brand::selection {
+    -webkit-text-fill-color: var(--color-selection-fg);
+    background-image: none;
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-fg);
+  }
+
+  .dark .text-gradient-brand::selection {
+    -webkit-text-fill-color: var(--color-selection-fg-dark);
+    background-color: color-mix(in oklch, var(--color-selection-bg-dark) 88%, transparent);
+    color: var(--color-selection-fg-dark);
+  }
+
+  /** Dense data grids (runs/workflows tables). */
+  .table-data {
+    @apply min-w-full text-left text-[13px] leading-snug tabular-nums text-neutral-700 dark:text-neutral-300;
+  }
+
+  .table-data thead {
+    @apply border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/90 to-neutral-100/50 dark:border-neutral-800 dark:from-neutral-900/80 dark:to-neutral-900/40;
+  }
+
+  .table-data th {
+    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400;
+  }
+
+  .table-data tbody {
+    @apply divide-y divide-neutral-100/80 dark:divide-neutral-800/60;
+  }
+
+  .table-data td {
+    @apply px-4 py-3.5 align-middle;
+  }
+
+  .table-data tbody tr {
+    @apply transition-colors hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent dark:hover:from-blue-950/20 dark:hover:to-transparent;
+  }
+
+  /** Page titles stay slightly larger than body copy. */
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl;
+  }
+
+  .page-desc {
+    @apply mt-1 text-[13px] leading-relaxed text-neutral-500 dark:text-neutral-400;
+  }
+
+  /** Smooth transitions for interactive elements */
+  .interactive-lift {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+}

@@ -16,17 +16,23 @@ This is not a hackathon project. This is a production-grade system being built w
 
 | Need | Location |
 |------|----------|
+| **What is built in this repo** | `docs/IMPLEMENTATION_STATUS.md` |
+| **Deploy locally or to cloud** | `docs/deployment/DEPLOYMENT_GUIDE.md` |
 | Architecture decisions | `docs/adr/` |
 | Design patterns | `docs/lld/01-design-patterns.md` |
 | Database schemas | `docs/lld/02-database-erd.md` |
 | State machines | `docs/lld/03-state-machines.md` |
 | Key flows | `docs/lld/04-sequence-diagrams.md` |
+| Value resolution (vars, secrets, stage outputs) | `docs/lld/07-value-resolution.md` |
 | Domain models | `docs/lld/05-class-diagrams.md` |
 | User stories | `docs/product/epics/` |
 | Theory/concepts | `docs/theory/` |
 | Working examples | `playground/` |
+| Cloud infrastructure (Terraform) | `deploy/terraform/README.md` |
 
 **If documentation doesn't exist for what you're building, STOP and ask.**
+
+When you ship or change user-facing behavior, update `docs/IMPLEMENTATION_STATUS.md` and the relevant LLD/epic in the same PR.
 
 ### 2. Understand the Context
 
@@ -122,27 +128,35 @@ If you can't write a test for the behavior, you don't understand the requirement
 
 **CRITICAL**: Execute ALL steps in order before EVERY commit. No exceptions.
 
+Full details: `.cursor/rules/12-pre-commit-workflow.mdc`
+
 ### Quick Commands
 
 ```bash
-# Run all checks (do this before every commit)
-cd implementation && \
-  ./gradlew spotlessApply --no-daemon && \
-  ./gradlew compileJava compileTestJava --no-daemon && \
-  ./gradlew test --no-daemon && \
-  echo "✅ All checks passed"
+# Run checks for changed backend/, web/, and cli/ paths (CI parity)
+./scripts/pre-commit.sh
+
+# Or per component:
+./scripts/ci-backend.sh
+./scripts/ci-web.sh
+./scripts/ci-cli.sh
 ```
+
+Requires JDK 21, Docker (integration tests), Node.js 22, Go 1.22+. Optional: `SKIP_INTEGRATION=1`, `SKIP_E2E=1`, `SKIP_CLI=1`, or `FORCE_ALL=1`.
 
 ### Step-by-Step
 
 | Step | Command | Verify |
 |------|---------|--------|
-| 1. Format | `./gradlew spotlessApply` | BUILD SUCCESSFUL |
+| 1. Format | `cd backend && ./gradlew spotlessApply` | BUILD SUCCESSFUL |
 | 2. Compile | `./gradlew compileJava compileTestJava` | No errors/warnings |
-| 3. Test | `./gradlew test` | All tests pass |
-| 4. Lint | Use ReadLints tool | No new errors |
-| 5. Review | `git diff` | No debug/secrets |
-| 6. Self-review | Checklist below | All items checked |
+| 3. Backend unit tests | `./gradlew test` | All pass |
+| 4. Backend integration | `./gradlew integrationTest` | All pass (Docker) |
+| 5. Web | `cd web && npm ci && npm run lint && npm run test && npm run test:e2e && npm run build` | All pass |
+| 5b. CLI | `./scripts/ci-cli.sh` or `cd cli && go test -race ./...` | All pass |
+| 6. IDE lint | Use ReadLints tool | No new errors |
+| 7. Review | `git diff` | No debug/secrets |
+| 8. Self-review | Checklist below | All items checked |
 
 ### Self-Review Checklist
 
@@ -180,6 +194,10 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 ## Git workflow
 
 Prefer **topic branches and pull requests** into `main` or `develop` instead of pushing straight to those branches. On GitHub, use **branch rulesets** (or branch protection) so default merges require PRs and checks; as a **solo maintainer** you can grant **repository admin bypass** when you need to override—see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### PR title (semantic PR check)
+
+PR titles are linted like conventional commits, with an extra rule: the **subject** (the part after `type(scope): `) **must start with an uppercase letter** (`subjectPattern: ^[A-Z].+$` in `pull-request.yml`). Use sentence-style wording after the colon, e.g. `feat(execution-service): Cancel execution API (US-02.04)`, not `...: cancel ...`.
 
 ---
 

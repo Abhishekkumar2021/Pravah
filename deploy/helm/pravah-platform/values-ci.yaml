@@ -1,0 +1,83 @@
+# kind smoke on CI runners (GitHub Actions). Layer on values-local.yaml.
+# Disables ingress (smoke uses cluster DNS) and extends startup timeouts.
+#
+# runnerPki requires runnerGrpcTls + pre-created certs; smoke validates HTTP health only.
+
+ingress:
+  enabled: false
+
+runnerPki:
+  enabled: false
+
+# PgBouncer: same stack as local/prod (metrics enabled); relax timing on shared runners.
+pgbouncer:
+  progressDeadlineSeconds: 900
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 12
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 12
+
+# Bundled dev Vault is slow on shared GitHub Actions runners; relax probes and deadline.
+vault:
+  progressDeadlineSeconds: 1200
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    startup:
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 60
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 18
+    liveness:
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 10
+
+probes:
+  startup:
+    failureThreshold: 90
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Slightly tighter than local dev; still enough for Spring Boot on shared runners.
+resources:
+  requests:
+    cpu: 50m
+    memory: 192Mi
+  limits:
+    cpu: "1"
+    memory: 448Mi
+
+services:
+  scheduler-service:
+    resources:
+      limits:
+        memory: 640Mi
+  execution-service:
+    resources:
+      limits:
+        memory: 640Mi
+  connect-service:
+    resources:
+      limits:
+        memory: 512Mi
+  runner-service:
+    resources:
+      limits:
+        memory: 512Mi

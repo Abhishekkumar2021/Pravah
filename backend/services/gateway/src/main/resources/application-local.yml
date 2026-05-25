@@ -1,0 +1,23 @@
+# Local development: static service instances (no service registry required).
+spring:
+  cloud:
+    discovery:
+      client:
+        simple:
+          instances:
+            pipeline-service:
+              - uri: http://127.0.0.1:8083
+            execution-service:
+              - uri: http://127.0.0.1:8084
+            tenant-service:
+              - uri: http://127.0.0.1:8082
+            graphql-service:
+              - uri: http://127.0.0.1:8081
+            scheduler-service:
+              - uri: http://127.0.0.1:8085
+            notification-service:
+              - uri: http://127.0.0.1:8088
+            runner-service:
+              - uri: http://127.0.0.1:8086
+            connect-service:
+              - uri: http://127.0.0.1:8091

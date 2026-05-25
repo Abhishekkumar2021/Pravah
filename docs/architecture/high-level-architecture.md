@@ -1,8 +1,10 @@
 # Pravah — High-Level Architecture
 
-> This document is the single reference for Pravah's complete architecture: service map, data flows, infrastructure, security, observability, and the decisions that shaped them. Each section links to the relevant ADR for the full decision record. All 33 ADRs are indexed at the end.
+> This document is the single reference for Pravah's **target** architecture: service map, data flows, infrastructure, security, observability, and the decisions that shaped them. Each section links to the relevant ADR for the full decision record. All 33 ADRs are indexed at the end.
+>
+> **Not everything here is implemented yet.** Before assuming a service or integration exists in code, read **[Implementation Status](../IMPLEMENTATION_STATUS.md)** (e.g. alpha uses embedded stage executors in `execution-service`; runner gRPC fleet, GraphQL UI, lineage, and agent service are planned).
 
-**Last updated:** 2026-05-10
+**Last updated:** 2026-05-17
 
 ---
 

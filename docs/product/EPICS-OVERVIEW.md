@@ -2,6 +2,8 @@
 
 This document provides a high-level view of all epics (major feature areas) in Pravah. Each epic has its own detailed document with user stories and tasks.
 
+> Shipped vs planned in code: **[Implementation Status](../IMPLEMENTATION_STATUS.md)**.
+
 ---
 
 ## Epic Map

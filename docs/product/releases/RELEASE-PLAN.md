@@ -1,5 +1,7 @@
 # Pravah Release Plan
 
+> **Repo progress:** See [Implementation Status](../../IMPLEMENTATION_STATUS.md) for which stories below are already implemented on `develop` vs still planned.
+
 ## Release Philosophy
 
 Pravah follows a milestone-based release approach:
@@ -34,19 +36,19 @@ Core execution works end-to-end. A workflow can be created, scheduled, and execu
 | Epic | Stories | Notes |
 |------|---------|-------|
 | EPIC-01 | US-01.01, US-01.03, US-01.04, US-01.05, US-01.12 | YAML workflow, basic stages, validation |
-| EPIC-02 | US-02.01, US-02.02, US-02.03, US-02.04, US-02.06, US-02.07, US-02.14, US-02.17 | Manual run, logs, cancel, retry |
+| EPIC-02 | US-02.01, US-02.02, US-02.03, US-02.04, US-02.06, US-02.07, US-02.10, US-02.14, US-02.17 | Manual run, logs, cancel, retry, stage outputs |
 | EPIC-03 | US-03.01, US-03.05, US-03.08 | Cron schedule, pause, API trigger |
 | EPIC-09 | US-09.04, US-09.05, US-09.06, US-09.07 | K8s deploy, docker-compose, Postgres, Kafka |
 | EPIC-10 | US-10.01, US-10.05, US-10.08 | Local auth, basic roles, API tokens |
 | EPIC-12 | US-12.01, US-12.02, US-12.03, US-12.04, US-12.05, US-12.07, US-12.08, US-12.09 | Basic UI shell |
 
 ### Exit Criteria
-- [ ] Create workflow via YAML
-- [ ] Run workflow manually
-- [ ] View logs in UI
-- [ ] Schedule on cron
-- [ ] Login and basic RBAC working
-- [ ] Deploy to local K8s
+- [x] Create workflow via YAML (`pipeline-service` + UI import/export)
+- [x] Run workflow manually (`POST /api/v1/executions`, run detail UI)
+- [x] View logs in UI (`RunLogPanel`, US-12.09)
+- [x] Schedule on cron (`scheduler-service`, workflow schedules UI)
+- [x] Login and basic RBAC working (JWT login, built-in roles, API tokens)
+- [x] Deploy to local K8s ([deploy/README.md](../../deploy/README.md) — Helm `pravah-platform`, `k8s-local-*` scripts)
 
 ### Known Limitations
 - Single tenant only

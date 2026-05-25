@@ -1,0 +1,102 @@
+{{- if .Values.vault.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pravah.vault.hostname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vault
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8200
+      targetPort: api
+      protocol: TCP
+      name: api
+  selector:
+    app.kubernetes.io/component: vault
+    {{- include "pravah.selectorLabels" . | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pravah.fullname" . }}-vault
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vault
+spec:
+  replicas: 1
+  progressDeadlineSeconds: {{ .Values.vault.progressDeadlineSeconds | default 600 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: vault
+      {{- include "pravah.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: vault
+        {{- include "pravah.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: vault
+          image: {{ .Values.vault.image }}
+          args:
+            - server
+            - -dev
+            - -dev-listen-address=0.0.0.0:8200
+          env:
+            - name: VAULT_DEV_ROOT_TOKEN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pravah.secretName" . }}
+                  key: vault-dev-root-token
+            - name: VAULT_ADDR
+              value: http://127.0.0.1:8200
+            - name: VAULT_DEV_LISTEN_ADDRESS
+              value: 0.0.0.0:8200
+          ports:
+            - containerPort: 8200
+              name: api
+              protocol: TCP
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          {{- $vp := .Values.vault.probes | default dict }}
+          {{- $startup := index $vp "startup" | default dict }}
+          {{- $readiness := index $vp "readiness" | default dict }}
+          {{- $liveness := index $vp "liveness" | default dict }}
+          startupProbe:
+            exec:
+              command:
+                - vault
+                - status
+                - -address=http://127.0.0.1:8200
+            periodSeconds: {{ index $startup "periodSeconds" | default 5 }}
+            timeoutSeconds: {{ index $startup "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $startup "failureThreshold" | default 24 }}
+          readinessProbe:
+            exec:
+              command:
+                - vault
+                - status
+                - -address=http://127.0.0.1:8200
+            initialDelaySeconds: {{ index $readiness "initialDelaySeconds" | default 5 }}
+            periodSeconds: {{ index $readiness "periodSeconds" | default 5 }}
+            timeoutSeconds: {{ index $readiness "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $readiness "failureThreshold" | default 6 }}
+          livenessProbe:
+            exec:
+              command:
+                - vault
+                - status
+                - -address=http://127.0.0.1:8200
+            initialDelaySeconds: {{ index $liveness "initialDelaySeconds" | default 15 }}
+            periodSeconds: {{ index $liveness "periodSeconds" | default 10 }}
+            timeoutSeconds: {{ index $liveness "timeoutSeconds" | default 5 }}
+            failureThreshold: {{ index $liveness "failureThreshold" | default 6 }}
+          resources:
+            {{- toYaml .Values.vault.resources | nindent 12 }}
+{{- end }}

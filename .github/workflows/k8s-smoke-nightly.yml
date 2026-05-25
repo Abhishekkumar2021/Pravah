@@ -1,0 +1,140 @@
+# Nightly (and PR) end-to-end validation: kind cluster + Helm install + k8s-local-smoke.sh.
+name: K8s Smoke
+
+on:
+  schedule:
+    # 03:00 UTC daily
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "deploy/**"
+      - "scripts/deploy/**"
+      - ".github/workflows/k8s-smoke-nightly.yml"
+
+concurrency:
+  group: k8s-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: "21"
+  GRADLE_VERSION: "8.7"
+  KIND_CLUSTER_NAME: pravah-ci
+  HELM_NAMESPACE: pravah-ci
+  SMOKE_TIMEOUT: 900s
+
+jobs:
+  kind-smoke:
+    name: K8s · kind smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x backend/gradlew
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Run kind smoke (Helm direct install)
+        run: ./scripts/deploy/k8s-ci-smoke.sh
+
+      - name: Upload debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-smoke-debug
+          path: build/k8s-ci-smoke/
+          retention-days: 7
+
+  kind-smoke-argocd:
+    name: K8s · Argo CD smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for deploy scripts
+        run: chmod +x backend/gradlew scripts/deploy/k8s-ci-smoke-argocd.sh scripts/deploy/k8s-local-argocd.sh
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+
+      - name: Run Argo CD kind smoke (GitOps sync from Git)
+        env:
+          ARGOCD_TARGET_REVISION: ${{ github.head_ref || 'develop' }}
+        run: ./scripts/deploy/k8s-ci-smoke-argocd.sh
+
+      - name: Upload debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-smoke-argocd-debug
+          path: build/k8s-ci-smoke-argocd/
+          retention-days: 7

@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: graphql-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${PRAVAH_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+  
+  graphql:
+    graphiql:
+      enabled: true
+      path: /graphiql
+    schema:
+      locations: classpath:graphql/
+    websocket:
+      path: /graphql
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    io.pravah: INFO
+    org.springframework.graphql: DEBUG

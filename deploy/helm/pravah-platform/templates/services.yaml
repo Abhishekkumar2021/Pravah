@@ -1,0 +1,165 @@
+{{- range $svcKey, $svc := .Values.services }}
+{{- if and $svc.enabled (ne $svcKey "gateway") }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pravah.fullname" $ }}-{{ $svcKey }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcKey }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- if $svc.grpcPort }}
+    - port: {{ $svc.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+    {{- end }}
+  selector:
+    app.kubernetes.io/component: {{ $svcKey }}
+    {{- include "pravah.selectorLabels" $ | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pravah.fullname" $ }}-{{ $svcKey }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "pravah.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcKey }}
+spec:
+  replicas: {{ $svc.replicaCount }}
+  {{- with $.Values.deploymentStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ $svcKey }}
+      {{- include "pravah.selectorLabels" $ | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ $svcKey }}
+        {{- include "pravah.selectorLabels" $ | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") $ | sha256sum }}
+        {{- if $.Values.metrics.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $svc.port | quote }}
+        prometheus.io/path: "/actuator/prometheus"
+        {{- end }}
+        {{- with $svc.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "pravah.serviceAccountName" $ }}
+      {{- with $.Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- $initContainers := include "pravah.serviceInitContainers" (dict "root" $ "svc" $svc "svcKey" $svcKey) }}
+      {{- if $initContainers }}
+      initContainers:
+        {{- $initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $svcKey }}
+          image: {{ include "pravah.image" (list $ $svcKey) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+            {{- if $svc.grpcPort }}
+            - name: grpc
+              containerPort: {{ $svc.grpcPort }}
+              protocol: TCP
+            {{- end }}
+          env:
+{{- include "pravah.commonEnv" (dict "root" $ "svc" $svc "svcKey" $svcKey) | nindent 12 }}
+          {{- if $.Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ $.Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.startup.failureThreshold }}
+            timeoutSeconds: {{ $.Values.probes.startup.timeoutSeconds }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.readiness.failureThreshold }}
+            timeoutSeconds: {{ $.Values.probes.readiness.timeoutSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.liveness.failureThreshold }}
+            timeoutSeconds: {{ $.Values.probes.liveness.timeoutSeconds }}
+          resources:
+            {{- toYaml ($svc.resources | default $.Values.resources) | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if and (eq $svcKey "runner-service") $.Values.runnerGrpcTls.enabled }}
+            - name: runner-grpc-tls
+              mountPath: {{ $.Values.runnerGrpcTls.mountPath }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if and (eq $svcKey "runner-service") $.Values.runnerGrpcTls.enabled }}
+        - name: runner-grpc-tls
+          secret:
+            secretName: {{ include "pravah.runnerGrpcTls.secretName" $ }}
+            items:
+              - key: {{ $.Values.runnerGrpcTls.certChainKey }}
+                path: {{ $.Values.runnerGrpcTls.certChainKey }}
+              - key: {{ $.Values.runnerGrpcTls.privateKeyKey }}
+                path: {{ $.Values.runnerGrpcTls.privateKeyKey }}
+              {{- if $.Values.runnerGrpcTls.requireClientAuth }}
+              - key: {{ $.Values.runnerGrpcTls.clientCaKey }}
+                path: {{ $.Values.runnerGrpcTls.clientCaKey }}
+              {{- end }}
+        {{- end }}
+      {{- $affinity := include "pravah.podAntiAffinity" (dict "root" $ "svcKey" $svcKey "svc" $svc) }}
+      {{- if $affinity }}
+      affinity:
+        {{- $affinity | nindent 8 }}
+      {{- end }}
+      {{- $tsc := include "pravah.topologySpreadConstraints" (dict "root" $ "svcKey" $svcKey "svc" $svc) }}
+      {{- if $tsc }}
+      topologySpreadConstraints:
+        {{- $tsc | nindent 8 }}
+      {{- end }}
+      {{- with $svc.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $svc.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+{{- end }}
+{{- end }}

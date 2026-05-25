@@ -1,0 +1,21 @@
+Pravah platform ({{ .Chart.AppVersion }}) installed in namespace {{ .Release.Namespace }}.
+
+API gateway (cluster):
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "pravah.fullname" . }}-gateway {{ .Values.services.gateway.port }}:{{ .Values.services.gateway.port }}
+
+Then open the UI (separate process): cd web && npm run dev — API base http://localhost:{{ .Values.services.gateway.port }}
+
+Seed demo data (after all pods are Ready):
+  ./scripts/deploy/k8s-local-seed.sh {{ .Release.Namespace }}
+
+Verify platform health (all services + JWKS + optional Vault):
+  ./scripts/deploy/k8s-local-smoke.sh {{ .Release.Namespace }}
+
+Sign in: dev@localhost.pravah / PravahDev1!  (after seed)
+
+Alpha K8s note: container stages are disabled (PRAVAH_CONTAINER_ENABLED=false). Use echo/sql stages.
+Bundled MinIO provides artifact storage; Mailhog (local values) captures alert/password-reset email.
+
+GitOps (optional): ./scripts/deploy/k8s-local-argocd.sh {{ .Release.Namespace }}
+
+Docs: deploy/README.md, deploy/argocd/README.md

@@ -29,10 +29,10 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I can use it quickly
 
 **Acceptance Criteria:**
-- [ ] brew install pravah
-- [ ] pip install pravah-cli
-- [ ] curl | bash installer
-- [ ] Version check and auto-update
+- [x] brew install pravah (GoReleaser + Homebrew tap configured)
+- [ ] pip install pravah-cli (not implemented - Go CLI only)
+- [x] curl | bash installer (`cli/scripts/install.sh`)
+- [x] Version check and auto-update (`pravah version`)
 
 **Story Points:** 5  
 **Priority:** P1
@@ -45,10 +45,10 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I can access my account
 
 **Acceptance Criteria:**
-- [ ] pravah login (browser flow)
-- [ ] API token authentication
-- [ ] Profile management
-- [ ] Secure credential storage
+- [x] pravah login (email/password interactive)
+- [x] API token authentication (`pravah login --token`)
+- [x] Profile management (`pravah config profile`)
+- [x] Secure credential storage (OS keyring via `go-keyring`)
 
 **Story Points:** 5  
 **Priority:** P1
@@ -61,10 +61,11 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I work from terminal
 
 **Acceptance Criteria:**
-- [ ] pravah workflow list
-- [ ] pravah workflow create -f file.yaml
-- [ ] pravah workflow run
-- [ ] pravah workflow logs --follow
+- [x] pravah workflow list (with filters, pagination)
+- [x] pravah workflow create -f file.yaml
+- [x] pravah workflow run (with --param, --wait)
+- [x] pravah workflow logs (latest execution)
+- [x] pravah workflow get, validate
 
 **Story Points:** 8  
 **Priority:** P1
@@ -77,10 +78,11 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I monitor and control execution
 
 **Acceptance Criteria:**
-- [ ] pravah run list
-- [ ] pravah run status <id>
-- [ ] pravah run logs <id>
-- [ ] pravah run cancel <id>
+- [x] pravah run list (with filters)
+- [x] pravah run status <id> (with --watch)
+- [x] pravah run logs <id> (with --stage, --follow)
+- [x] pravah run cancel <id> (with --force)
+- [x] pravah run retry <id> (with --from-stage)
 
 **Story Points:** 5  
 **Priority:** P1
@@ -93,10 +95,10 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I can automate CI/CD
 
 **Acceptance Criteria:**
-- [ ] pravah deploy -f file.yaml
-- [ ] pravah deploy --dry-run
-- [ ] pravah diff (show changes)
-- [ ] Exit codes for CI integration
+- [x] pravah deploy -f file.yaml (with --recursive)
+- [x] pravah deploy --dry-run
+- [x] pravah diff (show changes)
+- [x] Exit codes for CI integration (0=success, 1=error, 2=no-changes)
 
 **Story Points:** 5  
 **Priority:** P1
@@ -173,10 +175,10 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** deployments are automated
 
 **Acceptance Criteria:**
-- [ ] pravah-deploy action
-- [ ] Input: workflow files
-- [ ] Output: deployment status
-- [ ] Example workflow files
+- [x] pravah-deploy action (`.github/actions/deploy/action.yml`)
+- [x] Input: workflow files, api-url, api-token, dry-run
+- [x] Output: deployment-status, workflow-ids, changes
+- [x] Example workflow files (`.github/workflows/deploy-workflows.yml.example`)
 
 **Story Points:** 5  
 **Priority:** P1
@@ -205,10 +207,10 @@ Tools and integrations for developers — CLI, SDK, IDE plugins, and CI/CD integ
 **So that** I use the API correctly
 
 **Acceptance Criteria:**
-- [ ] OpenAPI specification
-- [ ] Interactive docs (Swagger UI)
-- [ ] Code examples per endpoint
-- [ ] Error documentation
+- [x] OpenAPI specification (SpringDoc per service)
+- [x] Interactive docs (Swagger UI at `/swagger-ui.html`)
+- [ ] Code examples per endpoint (partial, via OpenAPI descriptions)
+- [x] Error documentation (in OpenAPI schemas)
 
 **Story Points:** 8  
 **Priority:** P1

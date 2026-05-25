@@ -4,6 +4,8 @@ Architecture Decision Records (ADRs) are short documents that capture a signific
 
 ADRs are immutable. When a decision is reversed or superseded, a new ADR is written and the old one is updated to point to it. This preserves the reasoning history and prevents decisions from being re-litigated without understanding why they were made in the first place.
 
+**Implementation:** ADRs describe decisions; they do not imply every component is built. See [Implementation Status](../IMPLEMENTATION_STATUS.md).
+
 ---
 
 ## Format

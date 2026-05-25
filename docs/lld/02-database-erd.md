@@ -401,9 +401,9 @@ erDiagram
     pipeline_events ||--o| pipelines : "projected to"
     pipelines ||--o{ pipeline_versions : has
     pipelines ||--o{ pipeline_tags : tagged_with
-    pipelines ||--o{ pipeline_secrets : uses
     tags ||--o{ pipeline_tags : applied_to
     connections ||--o{ pipelines : "used by"
+    tenant_secrets ||--o{ pipelines : "used by"
     outbox ||--o| pipeline_events : "publishes"
 
     pipeline_events {
@@ -456,17 +456,22 @@ erDiagram
         uuid tenant_id
         varchar name
         varchar type
-        jsonb config
-        varchar vault_secret_path
+        jsonb config "includes credentials references"
         uuid created_by
         timestamptz created_at
     }
     
-    pipeline_secrets {
+    tenant_secrets {
         uuid id PK
-        uuid pipeline_id FK
+        uuid tenant_id
         varchar name
-        varchar vault_path
+        text description
+        varchar provider "env, vault, aws_sm"
+        varchar provider_path
+        uuid created_by
+        timestamptz created_at
+        timestamptz updated_at
+        bigint version "optimistic locking"
     }
     
     outbox {
@@ -544,28 +549,40 @@ CREATE TABLE pipeline_tags (
 );
 
 -- Connections to external systems
+-- Credentials stored as references in config.credentials (Kubernetes-style)
+-- Example: {"host":"localhost","credentials":{"password":"env:MY_VAR"}}
 CREATE TABLE connections (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL,
     name            VARCHAR(255) NOT NULL,
     type            VARCHAR(100) NOT NULL, -- snowflake, bigquery, postgres, s3, etc.
-    config          JSONB NOT NULL, -- non-sensitive config
-    vault_secret_path VARCHAR(500), -- path in Vault for credentials
+    config          JSONB NOT NULL, -- connection settings + credential references
     created_by      UUID NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     
     UNIQUE(tenant_id, name)
 );
 
--- Pipeline secret references
-CREATE TABLE pipeline_secrets (
+-- Tenant-scoped secret references for ${secret.name} resolution
+-- Actual secret values stored in external providers (env, Vault, AWS SM)
+-- See docs/lld/07-value-resolution.md for usage details
+CREATE TABLE tenant_secrets (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pipeline_id     UUID NOT NULL REFERENCES pipelines(id),
-    name            VARCHAR(255) NOT NULL, -- reference name in pipeline
-    vault_path      VARCHAR(500) NOT NULL, -- actual Vault path
+    tenant_id       UUID NOT NULL,
+    name            VARCHAR(255) NOT NULL,  -- reference name: ${secret.name}
+    description     TEXT,
+    provider        VARCHAR(50) NOT NULL,   -- 'env', 'vault', 'aws_sm'
+    provider_path   VARCHAR(500) NOT NULL,  -- provider-specific path/reference
+    created_by      UUID NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version         BIGINT NOT NULL DEFAULT 0,  -- optimistic locking
     
-    UNIQUE(pipeline_id, name)
+    UNIQUE(tenant_id, name)
 );
+
+CREATE INDEX idx_tenant_secrets_tenant ON tenant_secrets(tenant_id);
+CREATE INDEX idx_tenant_secrets_tenant_name ON tenant_secrets(tenant_id, name);
 
 -- Transactional outbox
 CREATE TABLE outbox (
@@ -592,6 +609,8 @@ ALTER TABLE pipeline_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pipeline_events FORCE ROW LEVEL SECURITY;
 ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE connections FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenant_secrets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_secrets FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_pipelines ON pipelines FOR ALL
     USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
@@ -600,6 +619,9 @@ CREATE POLICY tenant_isolation_events ON pipeline_events FOR ALL
     USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
     WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 CREATE POLICY tenant_isolation_connections ON connections FOR ALL
+    USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
+    WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
+CREATE POLICY tenant_isolation_secrets ON tenant_secrets FOR ALL
     USING (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID)
     WITH CHECK (tenant_id = current_setting('pravah.current_tenant_id', true)::UUID);
 ```
@@ -678,6 +700,7 @@ erDiagram
         varchar trigger_type
         uuid triggered_by
         jsonb parameters
+        jsonb definition_snapshot
         timestamptz started_at
         timestamptz completed_at
         text error_message
@@ -749,6 +772,7 @@ CREATE TABLE executions (
     trigger_type    VARCHAR(50) NOT NULL,
     triggered_by    UUID, -- user_id, NULL for scheduled/event
     parameters      JSONB NOT NULL DEFAULT '{}',
+    definition_snapshot JSONB, -- pipeline definition at run time (DAG scheduling)
     started_at      TIMESTAMPTZ,
     completed_at    TIMESTAMPTZ,
     error_message   TEXT,

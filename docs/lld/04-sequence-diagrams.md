@@ -16,6 +16,7 @@ This document contains detailed sequence diagrams for key flows in Pravah. These
 | [6. User Authentication](#6-user-authentication) | Gateway, Tenant Service, Vault | Medium |
 | [7. Lineage Capture](#7-lineage-capture) | Runner, Metadata Service | Medium |
 | [8. AI Diagnosis](#8-ai-diagnosis-on-failure) | Agent Service, LLM, Notification | Complex |
+| [9. Execution real-time (WebSocket)](#9-execution-real-time-websocket) | Gateway, Execution Service, Redis, Browser | Medium |
 
 ---
 
@@ -120,6 +121,8 @@ sequenceDiagram
     Kafka->>ExecutionSvc: job.assigned
     ExecutionSvc->>ExecutionSvc: Update job: QUEUED → RUNNING<br/>started_at = now
 ```
+
+**Consumer guard (`execution.created`):** The Execution Service only queues root jobs when the execution row is still **`PENDING`**. If the run was **cancelled** before the event was delivered, or a duplicate `execution.created` arrives after the run has already moved to **`RUNNING`**, the handler records the event as processed and **does not** emit additional `job.created` rows. This avoids duplicate scheduling and matches cancel-before-consume ordering.
 
 ---
 
@@ -478,9 +481,16 @@ sequenceDiagram
 
 ---
 
+## 9. Execution real-time (WebSocket)
+
+Browser push for `execution.updated` after durable writes commit. See **[07-execution-realtime-websocket.md](07-execution-realtime-websocket.md)** for auth, payload schema, Redis fan-out, and security notes.
+
+---
+
 ## Document History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-05-13 | Engineering | Initial sequence diagrams |
 | 1.1 | 2026-05-13 | Engineering | Updated to Mermaid diagrams |
+| 1.2 | 2026-05-16 | Engineering | Link to execution WebSocket LLD (US-12.10) |

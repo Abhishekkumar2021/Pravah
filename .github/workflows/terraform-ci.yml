@@ -1,0 +1,31 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths:
+      - "deploy/terraform/**"
+      - "scripts/deploy/validate-terraform.sh"
+      - ".github/workflows/terraform-ci.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "deploy/terraform/**"
+      - "scripts/deploy/validate-terraform.sh"
+      - ".github/workflows/terraform-ci.yml"
+
+jobs:
+  validate:
+    name: Terraform · Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Validate Terraform modules
+        run: |
+          chmod +x scripts/deploy/validate-terraform.sh
+          ./scripts/deploy/validate-terraform.sh

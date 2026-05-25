@@ -22,10 +22,17 @@ build/
 node_modules/
 .next/
 
+# Playwright (web/e2e)
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+
 # Env / secrets
 .env
 .env.*
 *.env
+deploy/certs/
 
 # OS
 .DS_Store
@@ -34,6 +41,9 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Local stack (backend make local-services)
+backend/.local/
 
 # Terraform
 .terraform/

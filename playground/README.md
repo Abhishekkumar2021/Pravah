@@ -1,6 +1,6 @@
 # Pravah Playground
 
-> Hands-on exercises to solidify understanding of every tool and concept used in Pravah — before touching the real implementation.
+> Hands-on exercises to solidify understanding of every tool and concept used in Pravah — before touching the real backend.
 >
 > Each exercise is a **self-contained mini-project**: its own Docker Compose, its own Spring Boot application, and a clear set of things to prove.
 
@@ -10,7 +10,9 @@
 
 Reading theory is not the same as building it. These exercises exist to answer the question: *"I know how this works on paper — now can I make it work on my machine?"*
 
-Each exercise simulates a real scenario from Pravah — not a toy example. When you finish the playground, every line of code in the real implementation will feel familiar.
+Each exercise simulates a real scenario from Pravah — not a toy example. When you finish the playground, every line of code in the real backend will feel familiar.
+
+The **production codebase** lives in [`backend/`](../backend/) and [`web/`](../web/). See **[Implementation Status](../docs/IMPLEMENTATION_STATUS.md)** for what is implemented vs still planned.
 
 ---
 
@@ -141,7 +143,7 @@ docker compose down
 
 After completing all 12 exercises, you have hands-on experience with every component in Pravah's architecture.
 
-**Next step**: Begin the actual implementation in the `implementation/` directory.
+**Next step**: Begin building features in the `backend/` directory (services, runner, shared libraries).
 
 ---
 
